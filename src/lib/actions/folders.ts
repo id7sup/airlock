@@ -141,8 +141,8 @@ export async function deleteFolderAction(folderId: string) {
     db.collection("files").where("workspaceId", "==", workspaceId).get()
   ]);
 
-  const allFolders = allFoldersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const allFiles = allFilesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const allFolders = allFoldersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Array<{ id: string; parentId?: string | null; [key: string]: any }>;
+  const allFiles = allFilesSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Array<{ id: string; folderId?: string; size?: number; [key: string]: any }>;
 
   const folderIdsToDelete = new Set<string>();
   const fileIdsToDelete = new Set<string>();

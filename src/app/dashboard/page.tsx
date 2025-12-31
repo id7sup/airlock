@@ -85,8 +85,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     // Combiner les permissions et dédupliquer
     // Filtrer les masquées sauf si on est dans la corbeille
     const allPerms = [
-      ...permsByUserId.docs.map(d => ({ id: d.id, ...d.data() })),
-      ...permsByEmail.docs.map(d => ({ id: d.id, ...d.data() }))
+      ...permsByUserId.docs.map((d: admin.firestore.QueryDocumentSnapshot) => ({ id: d.id, ...d.data() })),
+      ...permsByEmail.docs.map((d: admin.firestore.QueryDocumentSnapshot) => ({ id: d.id, ...d.data() }))
     ];
     
     const filteredPerms = includeHidden 
@@ -220,7 +220,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       id: folder.id,
       name: folder.name || "Sans nom",
       isFavorite: folder.isFavorite === true,
-      isDeleted: folder.isDeleted === true,
       updatedAt: getISO(folder.updatedAt || folder.createdAt),
       _count: { files: getCount(folder.id) },
       shareRole: (folder as any).shareRole,

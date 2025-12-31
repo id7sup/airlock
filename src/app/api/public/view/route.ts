@@ -75,7 +75,8 @@ export async function GET(req: NextRequest) {
     const encodedFileName = encodeURIComponent(file.name).replace(/'/g, '%27');
 
     // Retourner le fichier avec les bons headers pour l'affichage inline
-    return new NextResponse(fileBuffer, {
+    // Convertir le Buffer en Uint8Array pour compatibilité avec NextResponse
+    return new NextResponse(new Uint8Array(fileBuffer), {
       headers: {
         "Content-Type": contentType,
         // Utiliser la syntaxe RFC 5987 pour les noms de fichiers avec caractères spéciaux

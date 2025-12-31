@@ -460,7 +460,7 @@ export default function FolderView({ folder, fromFilter, parentId }: { folder: a
               <input 
                 autoFocus
                 className="flex-1 bg-transparent border-b-2 border-brand-primary/10 outline-none text-base font-medium py-2 focus:border-brand-primary transition-colors"
-                placeholder={isGroupingMode ? "Nom du groupe..." : "Nom du sous-dossier..."}
+                placeholder="Nom du sous-dossier..."
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
