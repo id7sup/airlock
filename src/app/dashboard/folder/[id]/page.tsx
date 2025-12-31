@@ -12,11 +12,11 @@ export default async function FolderPage({
   searchParams 
 }: { 
   params: { id: string }, 
-  searchParams: Promise<{ from?: string }> 
+  searchParams: Promise<{ from?: string; parent?: string }> 
 }) {
   const { userId } = await auth();
   const { id } = await params;
-  const { from } = await searchParams;
+  const { from, parent } = await searchParams;
   const user = await currentUser();
   const userEmail = user?.emailAddresses?.[0]?.emailAddress?.toLowerCase();
 
@@ -120,5 +120,9 @@ export default async function FolderPage({
     })
   };
 
-  return <FolderView folder={folder} fromFilter={from} />;
+  // Utiliser le parentId du dossier s'il existe, sinon utiliser le paramètre parent de l'URL
+  // Le paramètre parent est utilisé pour maintenir la navigation lors de la navigation vers un sous-dossier
+  const effectiveParentId = folder.parentId || parent || null;
+  
+  return <FolderView folder={folder} fromFilter={from} parentId={effectiveParentId} />;
 }

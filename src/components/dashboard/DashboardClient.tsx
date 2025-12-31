@@ -68,7 +68,7 @@ function FolderItem({
 }: any) {
   const router = useRouter();
 
-  const itemClass = `p-6 transition-all duration-500 group relative bg-white h-full block rounded-2xl border border-black/[0.05] hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] hover:border-black/10 ${
+  const itemClass = `p-4 sm:p-5 lg:p-6 transition-all duration-500 group relative bg-white h-full block rounded-xl sm:rounded-2xl border border-black/[0.05] hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] hover:border-black/10 ${
     isSelected ? "ring-2 ring-black shadow-xl" : "shadow-sm shadow-black/[0.01]"
   }`;
 
@@ -92,41 +92,41 @@ function FolderItem({
       }}
     >
       <div className={itemClass} data-folder-id={folder.id}>
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-black/5 rounded-2xl flex items-center justify-center text-brand-primary group-hover:scale-110 transition-transform duration-500">
-              <FolderOpen className="w-6 h-6 fill-current" />
+        <div className="flex items-start justify-between mb-3 sm:mb-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-black/5 rounded-xl sm:rounded-2xl flex items-center justify-center text-brand-primary group-hover:scale-110 transition-transform duration-500">
+              <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6 fill-current" />
             </div>
             <button 
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFavorite(folder.id, folder.isFavorite, e); }}
-              className={`p-1.5 transition-all duration-300 group/star opacity-0 group-hover:opacity-100 ${
+              className={`p-1 sm:p-1.5 transition-all duration-300 group/star opacity-0 group-hover:opacity-100 ${
                 folder.isFavorite ? "text-orange-400 scale-110 !opacity-100" : "text-black/10 hover:text-orange-400 hover:scale-110"
               }`}
             >
-              <Star className={`w-4 h-4 transition-all ${folder.isFavorite ? "fill-current" : "group-hover/star:fill-current text-orange-400"}`} />
+              <Star className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-all ${folder.isFavorite ? "fill-current" : "group-hover/star:fill-current text-orange-400"}`} />
             </button>
           </div>
           
-          <div className="flex flex-col items-end gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+          <div className="flex flex-col items-end gap-1.5 sm:gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
             <div className="flex items-center gap-1">
-              {!folder.isDeleted && !(folder as any).isPermissionHidden ? (
+                  {!folder.isDeleted && !(folder as any).isPermissionHidden ? (
                 <>
                   {!folder.isShared && (
                     <button 
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); onShare(folder.id, folder.name, e); }} 
-                      className="p-2 text-black/20 hover:text-black hover:bg-black/5 rounded-full transition-colors"
+                      className="p-1.5 sm:p-2 text-black/20 hover:text-black hover:bg-black/5 rounded-full transition-colors"
                     >
-                      <ArrowUpRight className="w-4 h-4" />
+                      <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </button>
                   )}
                   <button 
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTrash(folder.id, e); }} 
-                    className="p-2 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                    className="p-1.5 sm:p-2 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </button>
                 </>
               ) : (
@@ -135,7 +135,7 @@ function FolderItem({
                     <button 
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRestore(folder.id, e); }} 
-                      className="text-[10px] font-bold text-black px-3 py-1 bg-black/5 rounded-full hover:bg-black/10 transition-all text-nowrap"
+                      className="text-[9px] sm:text-[10px] font-bold text-black px-2 sm:px-3 py-0.5 sm:py-1 bg-black/5 rounded-full hover:bg-black/10 transition-all text-nowrap"
                     >
                       Restaurer
                     </button>
@@ -144,9 +144,9 @@ function FolderItem({
                     <button 
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDeletePermanent(folder.id, e); }} 
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                      className="p-1.5 sm:p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </button>
                   )}
                 </>
@@ -154,38 +154,38 @@ function FolderItem({
             </div>
             {/* Badge partagé en dessous du bouton supprimer */}
             {folder.isShared && !folder.isDeleted && !(folder as any).isPermissionHidden && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-brand-primary/10 text-brand-primary rounded-full">
-                <Users className="w-3 h-3" />
-                <span className="text-[10px] font-medium">Partagé</span>
+              <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 bg-brand-primary/10 text-brand-primary rounded-full">
+                <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                <span className="text-[9px] sm:text-[10px] font-medium">Partagé</span>
               </div>
             )}
           </div>
         </div>
         
-        <div className="pointer-events-none space-y-2">
+        <div className="pointer-events-none space-y-1.5 sm:space-y-2">
           <div>
-            <h3 className="text-lg font-medium text-black truncate tracking-tight">{folder.name}</h3>
+            <h3 className="text-base sm:text-lg font-medium text-black truncate tracking-tight">{folder.name}</h3>
             {folder.isShared && folder.sharedBy && (
-              <p className="text-xs text-black/40 font-medium mt-0.5">Partagé par {folder.sharedBy}</p>
+              <p className="text-[10px] sm:text-xs text-black/40 font-medium mt-0.5 truncate">Partagé par {folder.sharedBy}</p>
             )}
           </div>
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] text-black/30 font-medium uppercase tracking-widest">{folder._count.files} fichiers</span>
+          <div className="flex items-center justify-between flex-wrap gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <span className="text-[10px] sm:text-[11px] text-black/30 font-medium uppercase tracking-widest">{folder._count.files} fichiers</span>
               {folder.isShared && (
                 <>
-                  <span className="text-[10px] px-2 py-0.5 bg-black text-white rounded-full font-medium">
+                  <span className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 bg-black text-white rounded-full font-medium">
                     {folder.shareRole === "VIEWER" ? "Viewer" : "Editor"}
                   </span>
                   {folder.shareRole === "VIEWER" && !folder.shareCanDownload && (
-                    <span className="text-[10px] px-2 py-0.5 bg-red-50 text-red-600 rounded-full font-medium">
+                    <span className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 bg-red-50 text-red-600 rounded-full font-medium">
                       Download off
                     </span>
                   )}
                 </>
               )}
             </div>
-            <span className="text-[11px] text-black/30 font-medium uppercase tracking-widest" suppressHydrationWarning>
+            <span className="text-[10px] sm:text-[11px] text-black/30 font-medium uppercase tracking-widest" suppressHydrationWarning>
               {new Date(folder.updatedAt).toLocaleDateString()}
             </span>
           </div>
@@ -507,7 +507,7 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
   return (
     <div 
       ref={containerRef}
-      className="p-10 max-w-7xl mx-auto animate-in fade-in duration-700 text-black min-h-screen select-none relative"
+      className="p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto animate-in fade-in duration-700 text-black min-h-screen select-none relative"
       onMouseDown={onMouseDown}
       onClick={(e) => {
         // Ignorer le clic si on vient de terminer un lasso
@@ -531,34 +531,34 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
         }
       }}
     >
-      <div className="flex items-center justify-between mb-12">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8 lg:mb-12">
         <div className="space-y-1">
-          <h1 className="text-4xl font-medium tracking-tight">Mes dossiers</h1>
-          <p className="text-black/40 text-base font-medium">Organisez vos documents par simple glissement.</p>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight">Mes dossiers</h1>
+          <p className="text-black/40 text-sm sm:text-base font-medium">Organisez vos documents par simple glissement.</p>
         </div>
         
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-2 sm:gap-4">
           <AnimatePresence>
             {selectedIds.length > 0 && (
               <motion.div 
                 initial={{ opacity: 0, scale: 0.9, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                className="flex items-center gap-2 bg-black text-white px-6 py-3 rounded-2xl shadow-2xl shadow-black/20"
+                className="flex items-center gap-1 sm:gap-2 bg-black text-white px-3 sm:px-6 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-2xl shadow-black/20 flex-1 sm:flex-initial"
               >
-                <span className="text-[11px] font-bold uppercase tracking-widest mr-4 border-r border-white/10 pr-4">{selectedIds.length} sélectionnés</span>
-                <div className="flex items-center gap-2">
+                <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest mr-2 sm:mr-4 border-r border-white/10 pr-2 sm:pr-4 whitespace-nowrap">{selectedIds.length} sélectionnés</span>
+                <div className="flex items-center gap-1 sm:gap-2">
                   {currentFilter !== "trash" && currentFilter !== "favorites" && currentFilter !== "shared" && (
-                    <button onClick={handleStartGrouping} className="flex items-center gap-2 px-4 py-2 hover:bg-white/10 rounded-xl transition-all text-[11px] font-bold uppercase tracking-widest">
-                      <FolderPlus className="w-4 h-4" /> Grouper
+                    <button onClick={handleStartGrouping} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 hover:bg-white/10 rounded-lg sm:rounded-xl transition-all text-[10px] sm:text-[11px] font-bold uppercase tracking-widest">
+                      <FolderPlus className="w-3 h-3 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Grouper</span>
                     </button>
                   )}
-                  <button onClick={handleBatchDelete} className="flex items-center gap-2 px-4 py-2 hover:bg-red-500/20 text-red-400 rounded-xl transition-all text-[11px] font-bold uppercase tracking-widest">
-                    <Trash2 className="w-4 h-4" /> Supprimer
+                  <button onClick={handleBatchDelete} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 hover:bg-red-500/20 text-red-400 rounded-lg sm:rounded-xl transition-all text-[10px] sm:text-[11px] font-bold uppercase tracking-widest">
+                    <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Supprimer</span>
                   </button>
                 </div>
-                <button onClick={() => setSelectedIds([])} className="p-2 hover:bg-white/10 rounded-xl transition-all ml-2">
-                  <X className="w-4 h-4" />
+                <button onClick={() => setSelectedIds([])} className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg sm:rounded-xl transition-all ml-1 sm:ml-2">
+                  <X className="w-3 h-3 sm:w-4 sm:h-4" />
                 </button>
               </motion.div>
             )}
@@ -566,43 +566,43 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
           {currentFilter !== "trash" && currentFilter !== "favorites" && currentFilter !== "shared" && (
             <button 
               onClick={() => setShowCreateInput(true)}
-              className="bg-black text-white flex items-center gap-3 shadow-xl shadow-black/10 h-12 px-6 rounded-2xl hover:bg-black/90 transition-all font-semibold text-sm"
+              className="bg-black text-white flex items-center gap-2 sm:gap-3 shadow-xl shadow-black/10 h-10 sm:h-12 px-4 sm:px-6 rounded-xl sm:rounded-2xl hover:bg-black/90 transition-all font-semibold text-xs sm:text-sm flex-shrink-0"
             >
-              <Plus className="w-4 h-4" />
-              <span className="uppercase tracking-widest text-[10px]">Nouveau dossier</span>
+              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="uppercase tracking-widest text-[9px] sm:text-[10px]">Nouveau dossier</span>
             </button>
           )}
         </div>
       </div>
 
-      <div className="relative flex-1 max-w-md mb-12 group">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 group-focus-within:text-black transition-colors" />
+      <div className="relative flex-1 max-w-md mb-6 sm:mb-8 lg:mb-12 group">
+        <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-black/20 group-focus-within:text-black transition-colors" />
         <input 
           type="text" 
           placeholder="Rechercher un dossier..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-12 pr-4 py-3 bg-[#f5f5f7] border-none rounded-2xl text-[14px] font-medium focus:ring-2 focus:ring-black/5 focus:bg-white transition-all outline-none"
+          className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 bg-[#f5f5f7] border-none rounded-xl sm:rounded-2xl text-sm sm:text-[14px] font-medium focus:ring-2 focus:ring-black/5 focus:bg-white transition-all outline-none"
         />
       </div>
 
-      <div ref={gridRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+      <div ref={gridRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-10">
         {showCreateInput && (
-          <div className="p-8 rounded-[32px] border-2 border-black ring-8 ring-black/5 animate-in zoom-in-95 duration-300 bg-white min-h-[200px] flex flex-col justify-between shadow-2xl">
-            <div className="w-14 h-14 bg-black/5 rounded-2xl flex items-center justify-center text-brand-primary mb-6">
-              <FolderOpen className="w-7 h-7 fill-current" />
+          <div className="p-5 sm:p-6 lg:p-8 rounded-2xl sm:rounded-[32px] border-2 border-black ring-4 sm:ring-8 ring-black/5 animate-in zoom-in-95 duration-300 bg-white min-h-[180px] sm:min-h-[200px] flex flex-col justify-between shadow-2xl">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-black/5 rounded-xl sm:rounded-2xl flex items-center justify-center text-brand-primary mb-4 sm:mb-6">
+              <FolderOpen className="w-6 h-6 sm:w-7 sm:h-7 fill-current" />
             </div>
             <input 
               autoFocus
-              className="w-full text-[17px] font-medium bg-transparent outline-none border-b-2 border-black/10 focus:border-black transition-colors pb-3"
+              className="w-full text-base sm:text-[17px] font-medium bg-transparent outline-none border-b-2 border-black/10 focus:border-black transition-colors pb-2 sm:pb-3"
               placeholder={isGroupingMode ? "Nom du groupe..." : "Nom du dossier..."}
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
             />
-            <div className="flex gap-6 mt-6">
-              <button onClick={handleCreateFolder} className="text-[11px] font-bold text-black uppercase tracking-widest hover:underline">Confirmer</button>
-              <button onClick={handleCancelGrouping} className="text-[11px] font-bold text-black/30 uppercase tracking-widest hover:underline">Annuler</button>
+            <div className="flex gap-4 sm:gap-6 mt-4 sm:mt-6">
+              <button onClick={handleCreateFolder} className="text-[10px] sm:text-[11px] font-bold text-black uppercase tracking-widest hover:underline">Confirmer</button>
+              <button onClick={handleCancelGrouping} className="text-[10px] sm:text-[11px] font-bold text-black/30 uppercase tracking-widest hover:underline">Annuler</button>
             </div>
           </div>
         )}
