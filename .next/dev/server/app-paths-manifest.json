@@ -1,8 +1,0 @@
-{
-  "/api/public/view/info/route": "app/api/public/view/info/route.js",
-  "/share/[token]/view/page": "app/share/[token]/view/page.js",
-  "/share/[token]/page": "app/share/[token]/page.js",
-  "/share/[token]/folder/[folderId]/page": "app/share/[token]/folder/[folderId]/page.js",
-  "/dashboard/sharing/page": "app/dashboard/sharing/page.js",
-  "/dashboard/page": "app/dashboard/page.js"
-}

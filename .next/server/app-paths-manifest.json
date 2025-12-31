@@ -1,7 +1,0 @@
-{
-  "/pricing/page": "app/pricing/page.js",
-  "/page": "app/page.js",
-  "/security/page": "app/security/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/sharing/page": "app/dashboard/sharing/page.js"
-}
