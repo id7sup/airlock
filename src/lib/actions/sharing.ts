@@ -35,9 +35,10 @@ export async function createShareLinkAction(data: {
     .where("folderId", "==", data.folderId)
     .get();
   
+  // Vérifier s'il y a des permissions VIEWER ou EDITOR (non-OWNER et non masquées)
   const hasSharedUsers = allPerms.docs.some(doc => {
     const perm = doc.data();
-    return perm.role !== "OWNER" && (perm.userId !== userId || perm.userEmail);
+    return (perm.role === "VIEWER" || perm.role === "EDITOR") && perm.isHidden !== true;
   });
 
   if (hasSharedUsers) {
@@ -103,13 +104,34 @@ export async function inviteUserAction(folderId: string, email: string, role: "V
   const { userId } = await auth();
   if (!userId) throw new Error("Non autorisé");
 
-  const permSnapshot = await db.collection("permissions")
-    .where("folderId", "==", folderId)
-    .where("userId", "==", userId)
-    .where("role", "==", "OWNER")
-    .get();
+  // Vérifier que l'utilisateur est OWNER ou EDITOR
+  const { currentUser } = await import("@clerk/nextjs/server");
+  const user = await currentUser();
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress?.toLowerCase();
 
-  if (permSnapshot.empty) throw new Error("Seul le propriétaire peut inviter");
+  const [permsByUserId, permsByEmail] = await Promise.all([
+    db.collection("permissions")
+      .where("folderId", "==", folderId)
+      .where("userId", "==", userId)
+      .get(),
+    userEmail ? db.collection("permissions")
+      .where("folderId", "==", folderId)
+      .where("userEmail", "==", userEmail)
+      .get() : Promise.resolve({ docs: [] } as any)
+  ]);
+
+  // Vérifier si l'utilisateur a une permission active (non masquée) avec rôle OWNER ou EDITOR
+  const allPerms = [...permsByUserId.docs, ...permsByEmail.docs];
+  const activePerm = allPerms.find(doc => {
+    const perm = doc.data();
+    return (perm.userId === userId || (userEmail && perm.userEmail === userEmail)) 
+      && perm.isHidden !== true
+      && (perm.role === "OWNER" || perm.role === "EDITOR");
+  });
+
+  if (!activePerm) {
+    throw new Error("Seuls les propriétaires et éditeurs peuvent inviter des utilisateurs");
+  }
 
   // Récupérer récursivement tous les sous-dossiers (y compris le dossier parent)
   const allFolderIds = await getAllSubfoldersRecursive(folderId);

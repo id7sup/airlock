@@ -29,16 +29,33 @@ export async function getPresignedUploadUrlAction(data: {
     throw new Error("Limite de stockage de 5 Go atteinte. Veuillez passer à l'offre Premium.");
   }
 
-  // 2. Vérifier accès (EDITOR ou OWNER)
-  const permSnapshot = await db.collection("permissions")
-    .where("folderId", "==", data.folderId)
-    .where("userId", "==", userId)
-    .limit(1)
-    .get();
+  // 2. Vérifier accès (EDITOR ou OWNER) par userId ET par email
+  const { currentUser } = await import("@clerk/nextjs/server");
+  const user = await currentUser();
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress?.toLowerCase();
 
-  const perm = permSnapshot.empty ? null : permSnapshot.docs[0].data();
-  if (!perm || !["OWNER", "EDITOR"].includes(perm.role)) {
-    throw new Error("Pas de permission d'écriture");
+  const [permsByUserId, permsByEmail] = await Promise.all([
+    db.collection("permissions")
+      .where("folderId", "==", data.folderId)
+      .where("userId", "==", userId)
+      .get(),
+    userEmail ? db.collection("permissions")
+      .where("folderId", "==", data.folderId)
+      .where("userEmail", "==", userEmail)
+      .get() : Promise.resolve({ docs: [] } as any)
+  ]);
+
+  // Vérifier si l'utilisateur a une permission active (non masquée) avec rôle EDITOR ou OWNER
+  const allPerms = [...permsByUserId.docs, ...permsByEmail.docs];
+  const activePerm = allPerms.find(doc => {
+    const perm = doc.data();
+    return (perm.userId === userId || (userEmail && perm.userEmail === userEmail)) 
+      && perm.isHidden !== true
+      && (perm.role === "EDITOR" || perm.role === "OWNER");
+  });
+
+  if (!activePerm) {
+    throw new Error("Vous n'avez pas la permission d'uploader des fichiers (rôle VIEWER uniquement)");
   }
 
   const s3Key = `uploads/${userId}/${Date.now()}-${data.name}`;
@@ -59,7 +76,41 @@ export async function confirmFileUploadAction(data: {
 
   const folderDoc = await db.collection("folders").doc(data.folderId).get();
   if (!folderDoc.exists) throw new Error("Dossier non trouvé");
-  const workspaceId = folderDoc.data()?.workspaceId;
+  const folderData = folderDoc.data()!;
+  const workspaceId = folderData.workspaceId;
+
+  if (!workspaceId) {
+    throw new Error("Workspace non trouvé pour ce dossier");
+  }
+
+  // Vérifier les permissions par userId ET par email (comme dans folder/page.tsx)
+  const { currentUser } = await import("@clerk/nextjs/server");
+  const user = await currentUser();
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress?.toLowerCase();
+
+  const [permsByUserId, permsByEmail] = await Promise.all([
+    db.collection("permissions")
+      .where("folderId", "==", data.folderId)
+      .where("userId", "==", userId)
+      .get(),
+    userEmail ? db.collection("permissions")
+      .where("folderId", "==", data.folderId)
+      .where("userEmail", "==", userEmail)
+      .get() : Promise.resolve({ docs: [] } as any)
+  ]);
+
+  // Vérifier si l'utilisateur a une permission active (non masquée) avec rôle EDITOR ou OWNER
+  const allPerms = [...permsByUserId.docs, ...permsByEmail.docs];
+  const activePerm = allPerms.find(doc => {
+    const perm = doc.data();
+    return (perm.userId === userId || (userEmail && perm.userEmail === userEmail)) 
+      && perm.isHidden !== true
+      && (perm.role === "EDITOR" || perm.role === "OWNER");
+  });
+
+  if (!activePerm) {
+    throw new Error("Vous n'avez pas la permission d'ajouter des fichiers (rôle VIEWER uniquement)");
+  }
 
   const batch = db.batch();
   
@@ -145,15 +196,33 @@ export async function deleteFileAction(fileId: string) {
   if (!fileDoc.exists) throw new Error("Fichier non trouvé");
   const fileData = fileDoc.data()!;
 
-  const permSnapshot = await db.collection("permissions")
-    .where("folderId", "==", fileData.folderId)
-    .where("userId", "==", userId)
-    .limit(1)
-    .get();
+  // Vérifier les permissions par userId ET par email
+  const { currentUser } = await import("@clerk/nextjs/server");
+  const user = await currentUser();
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress?.toLowerCase();
 
-  const perm = permSnapshot.empty ? null : permSnapshot.docs[0].data();
-  if (!perm || !["OWNER", "EDITOR"].includes(perm.role)) {
-    throw new Error("Non autorisé");
+  const [permsByUserId, permsByEmail] = await Promise.all([
+    db.collection("permissions")
+      .where("folderId", "==", fileData.folderId)
+      .where("userId", "==", userId)
+      .get(),
+    userEmail ? db.collection("permissions")
+      .where("folderId", "==", fileData.folderId)
+      .where("userEmail", "==", userEmail)
+      .get() : Promise.resolve({ docs: [] } as any)
+  ]);
+
+  // Vérifier si l'utilisateur a une permission active (non masquée) avec rôle EDITOR ou OWNER
+  const allPerms = [...permsByUserId.docs, ...permsByEmail.docs];
+  const activePerm = allPerms.find(doc => {
+    const perm = doc.data();
+    return (perm.userId === userId || (userEmail && perm.userEmail === userEmail)) 
+      && perm.isHidden !== true
+      && (perm.role === "EDITOR" || perm.role === "OWNER");
+  });
+
+  if (!activePerm) {
+    throw new Error("Vous n'avez pas la permission de supprimer des fichiers (rôle VIEWER uniquement)");
   }
 
   const batch = db.batch();

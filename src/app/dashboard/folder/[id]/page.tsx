@@ -53,12 +53,12 @@ export default async function FolderPage({
 
   // Vérifier si l'utilisateur a une permission active (non masquée)
   const allPerms = [...permsByUserId.docs, ...permsByEmail.docs];
-  const activePerm = allPerms.find(doc => {
+  const activePermDoc = allPerms.find(doc => {
     const perm = doc.data();
     return (perm.userId === userId || (userEmail && perm.userEmail === userEmail)) && perm.isHidden !== true;
   });
 
-  if (!activePerm) {
+  if (!activePermDoc) {
     return (
       <div className="h-full flex items-center justify-center p-8">
         <div className="text-center">
@@ -68,6 +68,9 @@ export default async function FolderPage({
       </div>
     );
   }
+
+  const activePerm = activePermDoc.data();
+  const userRole = activePerm.role || "VIEWER";
 
   // Récupérer fichiers et sous-dossiers de manière concurrente
   const [filesSnapshot, childrenSnapshot] = await Promise.all([
@@ -124,5 +127,5 @@ export default async function FolderPage({
   // Le paramètre parent est utilisé pour maintenir la navigation lors de la navigation vers un sous-dossier
   const effectiveParentId = folder.parentId || parent || null;
   
-  return <FolderView folder={folder} fromFilter={from} parentId={effectiveParentId} />;
+  return <FolderView folder={folder} fromFilter={from} parentId={effectiveParentId} userRole={userRole} />;
 }

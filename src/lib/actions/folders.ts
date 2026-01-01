@@ -40,6 +40,92 @@ export async function createFolderAction(name: string, parentId?: string | null)
   const { userId } = await auth();
   if (!userId) throw new Error("Non autorisé");
 
+  // Si parentId est fourni, vérifier les permissions sur le dossier parent
+  if (parentId) {
+    const { currentUser } = await import("@clerk/nextjs/server");
+    const user = await currentUser();
+    const userEmail = user?.emailAddresses?.[0]?.emailAddress?.toLowerCase();
+
+    const [permsByUserId, permsByEmail] = await Promise.all([
+      db.collection("permissions")
+        .where("folderId", "==", parentId)
+        .where("userId", "==", userId)
+        .get(),
+      userEmail ? db.collection("permissions")
+        .where("folderId", "==", parentId)
+        .where("userEmail", "==", userEmail)
+        .get() : Promise.resolve({ docs: [] } as any)
+    ]);
+
+    // Vérifier si l'utilisateur a une permission active (non masquée) avec rôle EDITOR ou OWNER
+    const allPerms = [...permsByUserId.docs, ...permsByEmail.docs];
+    const activePerm = allPerms.find(doc => {
+      const perm = doc.data();
+      return (perm.userId === userId || (userEmail && perm.userEmail === userEmail)) 
+        && perm.isHidden !== true
+        && (perm.role === "EDITOR" || perm.role === "OWNER");
+    });
+
+    if (!activePerm) {
+      throw new Error("Vous n'avez pas la permission de créer des dossiers (rôle VIEWER uniquement)");
+    }
+
+    // Récupérer le workspaceId du dossier parent
+    const parentFolderDoc = await db.collection("folders").doc(parentId).get();
+    if (!parentFolderDoc.exists) throw new Error("Dossier parent non trouvé");
+    const parentFolderData = parentFolderDoc.data()!;
+    const workspace = { id: parentFolderData.workspaceId };
+    
+    // Récupérer le max order dans le dossier parent
+    let lastOrder = 0;
+    try {
+      const foldersSnapshot = await db.collection("folders")
+        .where("parentId", "==", parentId)
+        .orderBy("order", "desc")
+        .limit(1)
+        .get();
+      
+      lastOrder = foldersSnapshot.empty ? 0 : (foldersSnapshot.docs[0].data().order || 0);
+    } catch (error) {
+      const foldersSnapshot = await db.collection("folders")
+        .where("parentId", "==", parentId)
+        .get();
+      
+      foldersSnapshot.docs.forEach(doc => {
+        const order = doc.data().order || 0;
+        if (order > lastOrder) lastOrder = order;
+      });
+    }
+
+    const batch = db.batch();
+    const folderRef = db.collection("folders").doc();
+    
+    batch.set(folderRef, {
+      name,
+      workspaceId: workspace.id,
+      parentId: parentId,
+      isFavorite: false,
+      isDeleted: false,
+      order: lastOrder + 1,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    const permRef = db.collection("permissions").doc();
+    batch.set(permRef, {
+      folderId: folderRef.id,
+      userId,
+      role: "OWNER",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+
+    revalidatePath(`/dashboard/folder/${parentId}`);
+    revalidatePath("/dashboard");
+    return folderRef.id;
+  }
+
   const workspace = await getOrCreatePersonalWorkspace(userId);
 
   // Récupérer le max order actuel pour placer le nouveau dossier à la fin
@@ -125,15 +211,34 @@ export async function deleteFolderAction(folderId: string) {
   const folderData = folderDoc.data()!;
   const workspaceId = folderData.workspaceId;
 
-  // 1. Vérifier accès OWNER
-  const permSnapshot = await db.collection("permissions")
-    .where("folderId", "==", folderId)
-    .where("userId", "==", userId)
-    .where("role", "==", "OWNER")
-    .limit(1)
-    .get();
+  // 1. Vérifier accès OWNER (seul le propriétaire peut supprimer définitivement)
+  const { currentUser } = await import("@clerk/nextjs/server");
+  const user = await currentUser();
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress?.toLowerCase();
 
-  if (permSnapshot.empty) throw new Error("Non autorisé à supprimer ce dossier");
+  const [permsByUserId, permsByEmail] = await Promise.all([
+    db.collection("permissions")
+      .where("folderId", "==", folderId)
+      .where("userId", "==", userId)
+      .get(),
+    userEmail ? db.collection("permissions")
+      .where("folderId", "==", folderId)
+      .where("userEmail", "==", userEmail)
+      .get() : Promise.resolve({ docs: [] } as any)
+  ]);
+
+  // Vérifier si l'utilisateur a une permission active (non masquée) avec rôle OWNER uniquement
+  const allPerms = [...permsByUserId.docs, ...permsByEmail.docs];
+  const activePerm = allPerms.find(doc => {
+    const perm = doc.data();
+    return (perm.userId === userId || (userEmail && perm.userEmail === userEmail)) 
+      && perm.isHidden !== true
+      && perm.role === "OWNER";
+  });
+
+  if (!activePerm) {
+    throw new Error("Seul le propriétaire peut supprimer définitivement ce dossier");
+  }
 
   // 2. Récupérer TOUT le contenu du workspace pour calcul en mémoire (Optimisation massive)
   const [allFoldersSnap, allFilesSnap] = await Promise.all([

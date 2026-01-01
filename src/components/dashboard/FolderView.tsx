@@ -33,7 +33,9 @@ import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function FolderView({ folder, fromFilter, parentId }: { folder: any, fromFilter?: string, parentId?: string | null }) {
+export default function FolderView({ folder, fromFilter, parentId, userRole = "OWNER" }: { folder: any, fromFilter?: string, parentId?: string | null, userRole?: "OWNER" | "EDITOR" | "VIEWER" }) {
+  const canEdit = userRole === "OWNER" || userRole === "EDITOR";
+  const canShare = userRole === "OWNER" || userRole === "EDITOR";
   const router = useRouter();
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -248,38 +250,46 @@ export default function FolderView({ folder, fromFilter, parentId }: { folder: a
             )}
           </AnimatePresence>
 
-          <button 
-            onClick={() => setShowCreateInput(true)}
-            className="h-9 sm:h-11 px-3 sm:px-5 bg-white border border-black/10 rounded-lg sm:rounded-xl text-xs sm:text-[13px] font-semibold hover:bg-black/5 transition-all flex items-center gap-1.5 sm:gap-2 shadow-sm text-black flex-shrink-0"
-          >
-            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 opacity-40" />
-            <span className="hidden sm:inline">Nouveau sous-dossier</span>
-            <span className="sm:hidden">Sous-dossier</span>
-          </button>
-          <button 
-            onClick={() => setIsShareModalOpen(true)}
-            className="h-9 sm:h-11 px-3 sm:px-5 bg-white border border-black/10 rounded-lg sm:rounded-xl text-xs sm:text-[13px] font-semibold hover:bg-black/5 transition-all flex items-center gap-1.5 sm:gap-2 shadow-sm text-black flex-shrink-0"
-          >
-            <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 opacity-40" />
-            <span className="hidden sm:inline">Partager</span>
-            <span className="sm:hidden">Partager</span>
-          </button>
+          {canEdit && (
+            <button 
+              onClick={() => setShowCreateInput(true)}
+              className="h-9 sm:h-11 px-3 sm:px-5 bg-white border border-black/10 rounded-lg sm:rounded-xl text-xs sm:text-[13px] font-semibold hover:bg-black/5 transition-all flex items-center gap-1.5 sm:gap-2 shadow-sm text-black flex-shrink-0"
+            >
+              <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 opacity-40" />
+              <span className="hidden sm:inline">Nouveau sous-dossier</span>
+              <span className="sm:hidden">Sous-dossier</span>
+            </button>
+          )}
+          {canShare && (
+            <button 
+              onClick={() => setIsShareModalOpen(true)}
+              className="h-9 sm:h-11 px-3 sm:px-5 bg-white border border-black/10 rounded-lg sm:rounded-xl text-xs sm:text-[13px] font-semibold hover:bg-black/5 transition-all flex items-center gap-1.5 sm:gap-2 shadow-sm text-black flex-shrink-0"
+            >
+              <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 opacity-40" />
+              <span className="hidden sm:inline">Partager</span>
+              <span className="sm:hidden">Partager</span>
+            </button>
+          )}
           
-          <input 
-            type="file" 
-            multiple
-            className="hidden" 
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-          />
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            className="h-9 sm:h-11 px-4 sm:px-6 bg-black text-white rounded-lg sm:rounded-xl font-semibold text-xs sm:text-[13px] disabled:opacity-50 shadow-lg shadow-black/10 hover:bg-black/90 transition-all flex items-center gap-1.5 sm:gap-2 flex-shrink-0"
-          >
-            {isUploading ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-            {isUploading ? "Envoi..." : "Ajouter"}
-          </button>
+          {canEdit && (
+            <>
+              <input 
+                type="file" 
+                multiple
+                className="hidden" 
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+              />
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="h-9 sm:h-11 px-4 sm:px-6 bg-black text-white rounded-lg sm:rounded-xl font-semibold text-xs sm:text-[13px] disabled:opacity-50 shadow-lg shadow-black/10 hover:bg-black/90 transition-all flex items-center gap-1.5 sm:gap-2 flex-shrink-0"
+              >
+                {isUploading ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                {isUploading ? "Envoi..." : "Ajouter"}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -376,14 +386,16 @@ export default function FolderView({ folder, fromFilter, parentId }: { folder: a
                     {new Date(child.updatedAt).toLocaleDateString()}
                   </td>
                   <td className="px-8 py-6 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                      <button 
-                        onClick={(e) => handleDeleteSubFolder(child.id, e)}
-                        className="p-3 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
+                    {canEdit && (
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                        <button 
+                          onClick={(e) => handleDeleteSubFolder(child.id, e)}
+                          className="p-3 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -420,12 +432,14 @@ export default function FolderView({ folder, fromFilter, parentId }: { folder: a
                       >
                         <Download className="w-5 h-5" />
                       </button>
-                      <button 
-                        onClick={(e) => handleDeleteFile(file.id, e)}
-                        className="p-3 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                      {canEdit && (
+                        <button 
+                          onClick={(e) => handleDeleteFile(file.id, e)}
+                          className="p-3 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -451,7 +465,7 @@ export default function FolderView({ folder, fromFilter, parentId }: { folder: a
         </div>
 
         {/* Create Input Mobile */}
-        {showCreateInput && (
+        {canEdit && showCreateInput && (
           <div className="p-4 bg-brand-primary/[0.02] rounded-xl border-2 border-brand-primary/10 animate-in slide-in-from-top-2 duration-300 mb-2">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary flex-shrink-0">
@@ -520,12 +534,14 @@ export default function FolderView({ folder, fromFilter, parentId }: { folder: a
                   </div>
                 </div>
               </Link>
-              <button 
-                onClick={(e) => handleDeleteSubFolder(child.id, e)}
-                className="p-2 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all flex-shrink-0"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {canEdit && (
+                <button 
+                  onClick={(e) => handleDeleteSubFolder(child.id, e)}
+                  className="p-2 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all flex-shrink-0"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -566,12 +582,14 @@ export default function FolderView({ folder, fromFilter, parentId }: { folder: a
                 >
                   <Download className="w-4 h-4" />
                 </button>
-                <button 
-                  onClick={(e) => handleDeleteFile(file.id, e)}
-                  className="p-2 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {canEdit && (
+                  <button 
+                    onClick={(e) => handleDeleteFile(file.id, e)}
+                    className="p-2 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
