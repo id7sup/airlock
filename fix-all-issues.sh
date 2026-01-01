@@ -10,31 +10,71 @@ cd /var/www/airlock || exit 1
 
 # 1. Arrêter TOUS les processus Next.js/Node
 echo "🛑 Étape 1: Arrêt de tous les processus..."
-pkill -f "next-server" || true
-pkill -f "next start" || true
-pkill -f "node.*next" || true
-pkill -f "node.*airlock" || true
 
-# Arrêter PM2 si l'application tourne
+# Arrêter PM2 d'abord
 pm2 delete airlock 2>/dev/null || true
+pm2 stop all 2>/dev/null || true
 pm2 kill 2>/dev/null || true
 
-# Attendre que les processus se terminent
-sleep 5
+# Tuer tous les processus par nom
+pkill -9 -f "next-server" 2>/dev/null || true
+pkill -9 -f "next start" 2>/dev/null || true
+pkill -9 -f "node.*next" 2>/dev/null || true
+pkill -9 -f "node.*airlock" 2>/dev/null || true
+pkill -9 -f "node.*3000" 2>/dev/null || true
 
-# Tuer de force les processus restants
-ps aux | grep -E "next|node.*start|node.*3000" | grep -v grep | awk '{print $2}' | xargs kill -9 2>/dev/null || true
+# Attendre
 sleep 3
 
-# Vérifier que le port 3000 est libre
-if ss -tlnp | grep -q ":3000"; then
-    echo "⚠️  Le port 3000 est encore utilisé, identification du processus..."
-    ss -tlnp | grep ":3000"
-    lsof -ti:3000 | xargs kill -9 2>/dev/null || true
-    sleep 3
+# Tuer les processus par PID trouvés dans ps
+ps aux | grep -E "next|node.*start|node.*3000" | grep -v grep | awk '{print $2}' | xargs kill -9 2>/dev/null || true
+sleep 2
+
+# Tuer les processus qui utilisent le port 3000
+echo "🔍 Recherche des processus sur le port 3000..."
+
+# Méthode 1: lsof
+if command -v lsof &> /dev/null; then
+    PIDS=$(lsof -ti:3000 2>/dev/null)
+    if [ -n "$PIDS" ]; then
+        echo "Processus trouvés avec lsof: $PIDS"
+        echo "$PIDS" | xargs kill -9 2>/dev/null || true
+        sleep 2
+    fi
 fi
 
-echo "✅ Tous les processus sont arrêtés"
+# Méthode 2: ss
+if ss -tlnp 2>/dev/null | grep -q ":3000"; then
+    echo "⚠️  Le port 3000 est encore utilisé, identification du processus..."
+    ss -tlnp | grep ":3000"
+    
+    # Extraire les PIDs depuis ss
+    PIDS=$(ss -tlnp | grep ":3000" | grep -oP 'pid=\K[0-9]+' | sort -u)
+    if [ -n "$PIDS" ]; then
+        echo "Processus trouvés avec ss: $PIDS"
+        echo "$PIDS" | xargs kill -9 2>/dev/null || true
+        sleep 2
+    fi
+    
+    # Dernière tentative avec fuser si disponible
+    if command -v fuser &> /dev/null; then
+        fuser -k 3000/tcp 2>/dev/null || true
+        sleep 2
+    fi
+fi
+
+# Vérification finale
+if ss -tlnp 2>/dev/null | grep -q ":3000"; then
+    echo "❌ Le port 3000 est toujours utilisé!"
+    echo "Processus restants:"
+    ss -tlnp | grep ":3000"
+    echo ""
+    echo "⚠️  Vous devez tuer manuellement ces processus"
+    echo "Commande: kill -9 <PID>"
+    exit 1
+fi
+
+echo "✅ Tous les processus sont arrêtés, le port 3000 est libre"
 
 # 2. Vérifier et rebuilder si nécessaire
 echo ""
