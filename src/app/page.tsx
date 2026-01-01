@@ -613,8 +613,8 @@ export default function Home() {
                 <div className="space-y-8">
                   <h4 className="text-sm font-bold text-black uppercase tracking-[0.2em]">Légal</h4>
                   <ul className="space-y-5 text-[17px] text-black/40 font-medium">
-                    <li><Link href="#" className="hover:text-black transition-colors">Confidentialité</Link></li>
-                    <li><Link href="#" className="hover:text-black transition-colors">Mentions</Link></li>
+                    <li><Link href="/confidentialite" className="hover:text-black transition-colors">Confidentialité</Link></li>
+                    <li><Link href="/mentions" className="hover:text-black transition-colors">Mentions</Link></li>
                     <li><Link href="/pricing" className="hover:text-black transition-colors">Facturation</Link></li>
                   </ul>
                 </div>
