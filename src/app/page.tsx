@@ -1,7 +1,7 @@
 "use client";
 
 import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
-import { ChevronDown, Compass, Search, MousePointer2, Layers, Database, Zap, LayoutDashboard, Activity, Timer, BarChart3, History, Power, ArrowRight, Lock, Eye, Download, ShieldCheck, RefreshCw, Linkedin } from "lucide-react";
+import { ChevronDown, Compass, Search, MousePointer2, Layers, Database, Zap, LayoutDashboard, Activity, Timer, BarChart3, History, Power, ArrowRight, Lock, Eye, Download, ShieldCheck, RefreshCw, Linkedin, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/shared/Logo";
 import { useEffect, useState } from "react";
@@ -177,6 +177,7 @@ const ProcessAnimation = () => {
 export default function Home() {
   const [chartData, setChartData] = useState(generateData());
   const [isFeaturesHovered, setIsFeaturesHovered] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -204,6 +205,7 @@ export default function Home() {
               <Logo className="w-7 h-7 brightness-0 invert" />
             </Link>
             
+            {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-6 text-[13px] font-medium tracking-tight">
               <button 
                 onMouseEnter={() => setIsFeaturesHovered(true)}
@@ -219,7 +221,15 @@ export default function Home() {
               </Link>
             </div>
 
-            <div className="flex items-center gap-3 shrink-0">
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="md:hidden w-8 h-8 flex items-center justify-center text-white/70 hover:text-white transition-colors"
+            >
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+
+            <div className="hidden md:flex items-center gap-3 shrink-0">
               <SignedOut>
                 <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
                   <button className="text-white/70 hover:text-white text-[13px] font-medium px-3 py-1.5 transition-colors">
@@ -241,6 +251,87 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Mobile Menu */}
+          <AnimatePresence>
+            {isMobileMenuOpen && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                className="overflow-hidden md:hidden"
+              >
+                <div className="flex flex-col gap-2 py-4 mt-2 border-t border-white/5">
+                  <Link 
+                    href="/#workspace" 
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2"
+                  >
+                    Workspace
+                  </Link>
+                  <Link 
+                    href="/#rules" 
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2"
+                  >
+                    Règles
+                  </Link>
+                  <Link 
+                    href="/#analytics" 
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2"
+                  >
+                    Analytics
+                  </Link>
+                  <Link 
+                    href="/pricing" 
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2"
+                  >
+                    Facturation
+                  </Link>
+                  <Link 
+                    href="/security" 
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2"
+                  >
+                    Sécurité
+                  </Link>
+                  <div className="pt-2 mt-2 border-t border-white/5 flex flex-col gap-2">
+                    <SignedOut>
+                      <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
+                        <button 
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="text-white/70 hover:text-white text-[13px] font-medium py-2 px-2 text-left transition-colors w-full"
+                        >
+                          Connexion
+                        </button>
+                      </SignInButton>
+                      <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
+                        <button 
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="bg-white text-black text-[13px] font-medium px-4 py-2 rounded-full hover:bg-white/90 transition-all w-full text-center"
+                        >
+                          Inscription
+                        </button>
+                      </SignUpButton>
+                    </SignedOut>
+                    <SignedIn>
+                      <Link 
+                        href="/dashboard" 
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="text-white/70 hover:text-white text-[13px] font-medium py-2 px-2 transition-colors"
+                      >
+                        Dashboard
+                      </Link>
+                    </SignedIn>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Desktop Features Dropdown */}
           <AnimatePresence>
             {isFeaturesHovered && (
               <motion.div 
@@ -248,7 +339,7 @@ export default function Home() {
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
-                className="overflow-hidden"
+                className="overflow-hidden hidden md:block"
               >
                 <div className="flex flex-row gap-2 py-4 mt-2 border-t border-white/5 w-full">
                   {[
@@ -300,7 +391,7 @@ export default function Home() {
 
         <section className="relative w-full h-[92vh] flex items-center justify-center overflow-hidden select-none">
           <img src="/assets/background.jpg" alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none" />
-          <div className="relative z-10 w-[88%] md:w-[72%] max-w-6xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[24px] overflow-hidden border border-white/10 transition-transform duration-1000 hover:scale-[1.01]">
+          <div className="relative z-10 w-[88%] md:w-[72%] max-w-6xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[8px] md:rounded-[24px] overflow-hidden border border-white/10 transition-transform duration-1000 hover:scale-[1.01]">
             <img src="/assets/dashboard.png" alt="Dashboard Preview" className="w-full h-auto pointer-events-none select-none" />
           </div>
         </section>
@@ -339,7 +430,7 @@ export default function Home() {
 
         <section className="relative w-full h-[92vh] flex items-center justify-center overflow-hidden select-none bg-white">
           <img src="/assets/backgroundtwo.jpg" alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none" />
-          <div className="relative z-10 w-[88%] md:w-[72%] max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[24px] overflow-hidden border border-white/10 transition-transform duration-1000 hover:scale-[1.01]">
+          <div className="relative z-10 w-[88%] md:w-[72%] max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[8px] md:rounded-[24px] overflow-hidden border border-white/10 transition-transform duration-1000 hover:scale-[1.01]">
             <img src="/assets/dashboardtwo.png" alt="Rules Preview" className="w-full h-auto pointer-events-none select-none" />
           </div>
         </section>
@@ -388,7 +479,7 @@ export default function Home() {
 
         <section className="relative w-full h-[92vh] flex flex-col items-center justify-center overflow-hidden select-none bg-white">
           <img src="/assets/backgroundthree.jpg" alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none" />
-          <div className="relative z-10 w-[88%] md:w-[72%] max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[24px] overflow-hidden border border-white/10 transition-transform duration-1000 hover:scale-[1.01]">
+          <div className="relative z-10 w-[88%] md:w-[72%] max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[8px] md:rounded-[24px] overflow-hidden border border-white/10 transition-transform duration-1000 hover:scale-[1.01]">
             <img src="/assets/dashboardthree.png" alt="Analytics Preview" className="w-full h-auto pointer-events-none select-none" />
           </div>
         </section>

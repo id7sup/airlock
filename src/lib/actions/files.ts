@@ -103,14 +103,36 @@ export async function getFileDownloadUrlAction(fileId: string) {
   if (!fileDoc.exists) throw new Error("Fichier non trouvé");
   const file = fileDoc.data()!;
 
-  // Vérifier accès
-  const permSnapshot = await db.collection("permissions")
-    .where("folderId", "==", file.folderId)
-    .where("userId", "==", userId)
-    .limit(1)
-    .get();
+  // Vérifier que le fichier a un s3Key valide
+  if (!file.s3Key) {
+    throw new Error("Fichier non trouvé");
+  }
+
+  // Récupérer l'email de l'utilisateur pour vérifier les permissions par email
+  const { currentUser } = await import("@clerk/nextjs/server");
+  const user = await currentUser();
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress?.toLowerCase();
+
+  // Vérifier accès par userId ET par email (comme dans folder/page.tsx)
+  const [permsByUserId, permsByEmail] = await Promise.all([
+    db.collection("permissions")
+      .where("folderId", "==", file.folderId)
+      .where("userId", "==", userId)
+      .get(),
+    userEmail ? db.collection("permissions")
+      .where("folderId", "==", file.folderId)
+      .where("userEmail", "==", userEmail)
+      .get() : Promise.resolve({ docs: [] } as any)
+  ]);
+
+  // Vérifier si l'utilisateur a une permission active (non masquée)
+  const allPerms = [...permsByUserId.docs, ...permsByEmail.docs];
+  const activePerm = allPerms.find(doc => {
+    const perm = doc.data();
+    return (perm.userId === userId || (userEmail && perm.userEmail === userEmail)) && perm.isHidden !== true;
+  });
     
-  if (permSnapshot.empty) throw new Error("Non autorisé");
+  if (!activePerm) throw new Error("Non autorisé");
 
   return await getDownloadUrl(file.s3Key, file.name);
 }

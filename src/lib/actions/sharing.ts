@@ -62,7 +62,42 @@ export async function createShareLinkAction(data: {
  */
 
 /**
+ * Récupère récursivement tous les sous-dossiers d'un dossier parent
+ */
+async function getAllSubfoldersRecursive(parentId: string, visited: Set<string> = new Set()): Promise<string[]> {
+  // Protection contre les boucles infinies
+  if (visited.has(parentId)) {
+    return [];
+  }
+  visited.add(parentId);
+
+  const subfolders: string[] = [parentId];
+
+  // Récupérer les sous-dossiers directs
+  // On utilise seulement where("parentId") pour éviter les problèmes d'index composite
+  const childrenSnapshot = await db.collection("folders")
+    .where("parentId", "==", parentId)
+    .get();
+
+  // Filtrer les dossiers supprimés côté code
+  const activeChildren = childrenSnapshot.docs.filter(doc => {
+    const data = doc.data();
+    return data.isDeleted !== true;
+  });
+
+  // Récursivement récupérer les sous-dossiers de chaque enfant
+  for (const childDoc of activeChildren) {
+    const childId = childDoc.id;
+    const childSubfolders = await getAllSubfoldersRecursive(childId, visited);
+    subfolders.push(...childSubfolders);
+  }
+
+  return subfolders;
+}
+
+/**
  * Invite un utilisateur par son email (partage interne)
+ * Crée des permissions récursives sur tous les sous-dossiers
  */
 export async function inviteUserAction(folderId: string, email: string, role: "VIEWER" | "EDITOR", canDownload: boolean = true) {
   const { userId } = await auth();
@@ -76,13 +111,77 @@ export async function inviteUserAction(folderId: string, email: string, role: "V
 
   if (permSnapshot.empty) throw new Error("Seul le propriétaire peut inviter");
 
-  await db.collection("permissions").add({
-    folderId,
-    userEmail: email.toLowerCase(),
-    role,
-    canDownload: role === "VIEWER" ? canDownload : true, // EDITOR a toujours le download
-    createdAt: new Date(),
-  });
+  // Récupérer récursivement tous les sous-dossiers (y compris le dossier parent)
+  const allFolderIds = await getAllSubfoldersRecursive(folderId);
+
+  if (allFolderIds.length === 0) {
+    throw new Error("Aucun dossier trouvé");
+  }
+
+  const normalizedEmail = email.toLowerCase();
+
+  // Récupérer toutes les permissions existantes en une seule requête groupée
+  // (limite Firestore: 30 éléments dans "in", donc on doit grouper)
+  const existingPermsMap = new Map<string, admin.firestore.QueryDocumentSnapshot>();
+  
+  // Grouper les folderIds par lots de 30 (limite Firestore pour "in")
+  const BATCH_SIZE = 30;
+  for (let i = 0; i < allFolderIds.length; i += BATCH_SIZE) {
+    const folderBatch = allFolderIds.slice(i, i + BATCH_SIZE);
+    const permsSnapshot = await db.collection("permissions")
+      .where("folderId", "in", folderBatch)
+      .where("userEmail", "==", normalizedEmail)
+      .get();
+    
+    permsSnapshot.docs.forEach(doc => {
+      const perm = doc.data();
+      existingPermsMap.set(perm.folderId, doc);
+    });
+  }
+
+  // Créer les permissions par batches (limite Firestore: 500 opérations par batch)
+  const MAX_BATCH_SIZE = 500;
+  let currentBatch = db.batch();
+  let batchCount = 0;
+
+  for (const folderIdToShare of allFolderIds) {
+    const existingPerm = existingPermsMap.get(folderIdToShare);
+
+    if (existingPerm) {
+      // Mettre à jour la permission existante
+      currentBatch.update(existingPerm.ref, {
+        role,
+        canDownload: role === "VIEWER" ? canDownload : true,
+        isHidden: false, // Réactiver si elle était masquée
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      // Créer une nouvelle permission
+      const permRef = db.collection("permissions").doc();
+      currentBatch.set(permRef, {
+        folderId: folderIdToShare,
+        userEmail: normalizedEmail,
+        role,
+        canDownload: role === "VIEWER" ? canDownload : true, // EDITOR a toujours le download
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    batchCount++;
+
+    // Si on atteint la limite, commit et créer un nouveau batch
+    if (batchCount >= MAX_BATCH_SIZE) {
+      await currentBatch.commit();
+      currentBatch = db.batch();
+      batchCount = 0;
+    }
+  }
+
+  // Commit le dernier batch s'il contient des opérations
+  if (batchCount > 0) {
+    await currentBatch.commit();
+  }
 
   revalidatePath(`/dashboard/folder/${folderId}`);
   revalidatePath(`/dashboard`);
