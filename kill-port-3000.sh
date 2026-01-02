@@ -1,59 +1,78 @@
 #!/bin/bash
 
-# Script pour tuer tous les processus sur le port 3000
+# Script pour forcer la libération du port 3000
 
-echo "🛑 Arrêt de tous les processus sur le port 3000..."
+echo "🔍 Recherche des processus utilisant le port 3000..."
 
-# Méthode 1: Utiliser lsof si disponible
+# Méthode 1: lsof
 if command -v lsof &> /dev/null; then
-    echo "📋 Utilisation de lsof..."
     PIDS=$(lsof -ti:3000 2>/dev/null)
-    if [ -n "$PIDS" ]; then
-        echo "Processus trouvés: $PIDS"
+    if [ ! -z "$PIDS" ]; then
+        echo "   Processus trouvés avec lsof: $PIDS"
         echo "$PIDS" | xargs kill -9 2>/dev/null || true
-        sleep 2
+        sleep 1
+    else
+        echo "   Aucun processus trouvé avec lsof"
     fi
 fi
 
-# Méthode 2: Utiliser ss/fuser
+# Méthode 2: ss
 if command -v ss &> /dev/null; then
-    echo "📋 Utilisation de ss..."
-    PIDS=$(ss -tlnp | grep ":3000" | grep -oP 'pid=\K[0-9]+' | sort -u)
-    if [ -n "$PIDS" ]; then
-        echo "Processus trouvés: $PIDS"
-        echo "$PIDS" | xargs kill -9 2>/dev/null || true
-        sleep 2
+    SS_OUTPUT=$(ss -tlnp 2>/dev/null | grep ":3000" || true)
+    if [ ! -z "$SS_OUTPUT" ]; then
+        echo "   Processus trouvé avec ss:"
+        echo "$SS_OUTPUT"
+        # Extraire les PIDs
+        SS_PIDS=$(echo "$SS_OUTPUT" | grep -oP 'pid=\K[0-9]+' || true)
+        if [ ! -z "$SS_PIDS" ]; then
+            echo "   PIDs extraits: $SS_PIDS"
+            echo "$SS_PIDS" | xargs kill -9 2>/dev/null || true
+        fi
+    else
+        echo "   Aucun processus trouvé avec ss"
     fi
 fi
 
-# Méthode 3: Tuer tous les processus next-server
-echo "📋 Arrêt des processus next-server..."
-pkill -9 -f "next-server" || true
-pkill -9 -f "next start" || true
-pkill -9 -f "node.*next" || true
-pkill -9 -f "node.*3000" || true
-
-sleep 3
-
-# Vérifier que le port est libre
-if ss -tlnp | grep -q ":3000"; then
-    echo "⚠️  Le port 3000 est encore utilisé!"
-    ss -tlnp | grep ":3000"
-    echo "Tentative de tuer de force..."
-    
-    # Dernière tentative avec fuser si disponible
-    if command -v fuser &> /dev/null; then
-        fuser -k 3000/tcp 2>/dev/null || true
-    fi
-    
-    sleep 3
-    
-    if ss -tlnp | grep -q ":3000"; then
-        echo "❌ Impossible de libérer le port 3000"
-        echo "Vérifiez manuellement avec: ss -tlnp | grep :3000"
-        exit 1
+# Méthode 3: netstat
+if command -v netstat &> /dev/null; then
+    NETSTAT_OUTPUT=$(netstat -tlnp 2>/dev/null | grep ":3000" || true)
+    if [ ! -z "$NETSTAT_OUTPUT" ]; then
+        echo "   Processus trouvé avec netstat:"
+        echo "$NETSTAT_OUTPUT"
+        # Extraire les PIDs
+        NETSTAT_PIDS=$(echo "$NETSTAT_OUTPUT" | grep -oP '/\K[0-9]+' || true)
+        if [ ! -z "$NETSTAT_PIDS" ]; then
+            echo "   PIDs extraits: $NETSTAT_PIDS"
+            echo "$NETSTAT_PIDS" | xargs kill -9 2>/dev/null || true
+        fi
+    else
+        echo "   Aucun processus trouvé avec netstat"
     fi
 fi
 
-echo "✅ Le port 3000 est maintenant libre"
+# Tuer tous les processus Node/Next de manière agressive
+echo "🔪 Tuer tous les processus Node/Next..."
+pkill -9 -f "next" 2>/dev/null || true
+pkill -9 -f "node.*3000" 2>/dev/null || true
+pkill -9 -f "node.*start" 2>/dev/null || true
+pkill -9 node 2>/dev/null || true
 
+# PM2
+echo "🛑 Arrêt de PM2..."
+pm2 delete airlock 2>/dev/null || true
+pm2 stop all 2>/dev/null || true
+pm2 kill 2>/dev/null || true
+
+sleep 2
+
+# Vérification finale
+echo "✅ Vérification finale..."
+if command -v lsof &> /dev/null; then
+    FINAL_CHECK=$(lsof -i:3000 2>/dev/null || true)
+    if [ -z "$FINAL_CHECK" ]; then
+        echo "✅ Port 3000 libéré avec succès!"
+    else
+        echo "⚠️  Port 3000 toujours occupé:"
+        echo "$FINAL_CHECK"
+    fi
+fi
