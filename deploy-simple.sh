@@ -31,19 +31,61 @@ npm run build
 # 4. TUER TOUS les processus
 echo "🛑 Arrêt de tous les processus..."
 pm2 delete airlock 2>/dev/null || true
+pm2 stop all 2>/dev/null || true
 pm2 kill 2>/dev/null || true
+
+# Tuer tous les processus Node/Next qui utilisent le port 3000
+echo "🔍 Libération du port 3000..."
 pkill -9 -f "next" 2>/dev/null || true
 pkill -9 -f "node.*3000" 2>/dev/null || true
-lsof -ti:3000 | xargs kill -9 2>/dev/null || true
-fuser -k 3000/tcp 2>/dev/null || true
-sleep 5
+pkill -9 -f "node.*start" 2>/dev/null || true
+
+# Libérer le port 3000 avec différentes méthodes
+if command -v lsof &> /dev/null; then
+    lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+fi
+if command -v fuser &> /dev/null; then
+    fuser -k 3000/tcp 2>/dev/null || true
+fi
+if command -v ss &> /dev/null; then
+    ss -K dport = 3000 2>/dev/null || true
+fi
+
+# Attendre que tout soit arrêté
+sleep 3
 
 # Vérifier que le port est libre
-for i in {1..10}; do
-    if ! ss -tlnp 2>/dev/null | grep -q ":3000"; then
-        break
+echo "⏳ Vérification que le port 3000 est libre..."
+for i in {1..15}; do
+    if command -v ss &> /dev/null; then
+        if ! ss -tlnp 2>/dev/null | grep -q ":3000"; then
+            echo "✅ Port 3000 libéré"
+            break
+        fi
+    elif command -v netstat &> /dev/null; then
+        if ! netstat -tlnp 2>/dev/null | grep -q ":3000"; then
+            echo "✅ Port 3000 libéré"
+            break
+        fi
+    else
+        # Si ni ss ni netstat ne sont disponibles, on attend un peu plus
+        if [ $i -eq 5 ]; then
+            echo "⚠️  Impossible de vérifier le port, continuation..."
+            break
+        fi
     fi
-    echo "Attente... ($i/10)"
+    if [ $i -eq 15 ]; then
+        echo "❌ Le port 3000 est toujours occupé après 15 tentatives"
+        echo "🔍 Processus utilisant le port 3000:"
+        if command -v lsof &> /dev/null; then
+            lsof -i:3000 2>/dev/null || true
+        elif command -v ss &> /dev/null; then
+            ss -tlnp | grep ":3000" || true
+        fi
+        echo "💡 Essayez manuellement: sudo kill -9 \$(lsof -ti:3000)"
+        exit 1
+    fi
+    echo "   Attente... ($i/15)"
     sleep 1
 done
 
