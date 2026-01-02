@@ -428,7 +428,7 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
                         </div>
                       </div>
                       
-                      <div className="h-56 -mx-2">
+                      <div className="h-56 -mx-2 min-h-[224px]">
                         <SharingAnalyticsChart data={link.analytics} />
                       </div>
                     </div>

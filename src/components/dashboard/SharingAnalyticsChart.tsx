@@ -64,8 +64,8 @@ export function SharingAnalyticsChart({ data }: { data: AnalyticsData[] }) {
   filledData.sort((a, b) => a.date.localeCompare(b.date));
 
   return (
-    <div className="h-full w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-full w-full min-h-[200px] min-w-[200px]">
+      <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={200}>
         <AreaChart data={filledData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">

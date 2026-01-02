@@ -265,10 +265,21 @@ function calculateStats(events: any[], userId: string, days: number): AnalyticsS
   const hourCounts: Record<number, number> = {};
   let maxCount = 0;
   let peakTime = "";
-  let lastActivity: Date | null = null;
+  let lastActivityDate: Date | null = null;
 
-  events.forEach(event => {
-    const date = event.timestamp?.toDate?.() || new Date();
+  events.forEach((event: any) => {
+    const timestamp = event.timestamp;
+    let date: Date;
+    if (timestamp && typeof timestamp.toDate === 'function') {
+      date = timestamp.toDate() as Date;
+    } else if (timestamp instanceof Date) {
+      date = timestamp;
+    } else if (typeof timestamp === 'string') {
+      date = new Date(timestamp);
+    } else {
+      date = new Date();
+    }
+    
     const hour = date.getHours();
     hourCounts[hour] = (hourCounts[hour] || 0) + 1;
     
@@ -277,8 +288,8 @@ function calculateStats(events: any[], userId: string, days: number): AnalyticsS
       peakTime = `${hour.toString().padStart(2, '0')}:00`;
     }
     
-    if (!lastActivity || date > lastActivity) {
-      lastActivity = date;
+    if (lastActivityDate === null || date > lastActivityDate) {
+      lastActivityDate = date as Date;
     }
   });
 
@@ -287,10 +298,16 @@ function calculateStats(events: any[], userId: string, days: number): AnalyticsS
     count: hourCounts[i] || 0,
   }));
 
+  // Convertir lastActivityDate en string ISO ou null
+  const getLastActivityString = (date: Date | null): string | null => {
+    if (date === null) return null;
+    return date.toISOString();
+  };
+
   const hotMoments = {
     activityByHour,
     peakActivity: { time: peakTime, count: maxCount },
-    lastActivity: lastActivity ? lastActivity.toISOString() : null,
+    lastActivity: getLastActivityString(lastActivityDate),
   };
 
   // 7. Sécurité
