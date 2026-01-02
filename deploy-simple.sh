@@ -39,8 +39,9 @@ sleep 2
 pm2 kill 2>/dev/null || true
 sleep 2
 
-# Ensuite tuer tous les processus Node/Next
+# Ensuite tuer tous les processus Node/Next (INCLUANT next-server)
 echo "   → Arrêt de tous les processus Node/Next..."
+pkill -9 -f "next-server" 2>/dev/null || true
 pkill -9 -f "next" 2>/dev/null || true
 pkill -9 -f "node.*3000" 2>/dev/null || true
 pkill -9 -f "node.*start" 2>/dev/null || true
@@ -63,14 +64,20 @@ if command -v fuser &> /dev/null; then
 fi
 
 if command -v ss &> /dev/null; then
-    # Utiliser ss pour trouver et tuer
+    # Utiliser ss pour trouver et tuer (INCLUANT next-server)
     SS_OUTPUT=$(ss -tlnp 2>/dev/null | grep ":3000" || true)
     if [ ! -z "$SS_OUTPUT" ]; then
         echo "   Processus trouvé avec ss, tentative de kill..."
         # Extraire les PIDs depuis ss
         SS_PIDS=$(echo "$SS_OUTPUT" | grep -oP 'pid=\K[0-9]+' || true)
         if [ ! -z "$SS_PIDS" ]; then
-            echo "$SS_PIDS" | xargs kill -9 2>/dev/null || true
+            echo "   → PIDs trouvés: $SS_PIDS"
+            for pid in $SS_PIDS; do
+                echo "   → Kill -9 PID: $pid"
+                kill -9 $pid 2>/dev/null || true
+                sleep 0.5
+            done
+            sleep 2
         fi
     fi
 fi
@@ -114,16 +121,33 @@ for i in {1..10}; do
         break
     fi
     
-    # Si le port est encore utilisé, essayer de tuer à nouveau
+    # Si le port est encore utilisé, essayer de tuer à nouveau (plus agressif)
     if [ $i -le 5 ]; then
+        # Tuer avec lsof
         if command -v lsof &> /dev/null; then
             PIDS=$(lsof -ti:3000 2>/dev/null || true)
             if [ ! -z "$PIDS" ]; then
-                echo "   Nouvelle tentative de kill pour: $PIDS"
-                echo "$PIDS" | xargs kill -9 2>/dev/null || true
+                echo "   Nouvelle tentative de kill (lsof) pour: $PIDS"
+                for pid in $PIDS; do
+                    kill -9 $pid 2>/dev/null || true
+                done
                 sleep 1
             fi
         fi
+        # Tuer avec ss (next-server)
+        if command -v ss &> /dev/null; then
+            SS_PIDS=$(ss -tlnp 2>/dev/null | grep ":3000" | grep -oP 'pid=\K[0-9]+' || true)
+            if [ ! -z "$SS_PIDS" ]; then
+                echo "   Nouvelle tentative de kill (ss) pour: $SS_PIDS"
+                for pid in $SS_PIDS; do
+                    kill -9 $pid 2>/dev/null || true
+                done
+                sleep 1
+            fi
+        fi
+        # Tuer tous les next-server
+        pkill -9 -f "next-server" 2>/dev/null || true
+        sleep 1
     fi
     
     echo "   Attente... ($i/10)"

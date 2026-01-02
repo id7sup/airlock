@@ -51,9 +51,10 @@ if command -v fuser &> /dev/null; then
     sleep 2
 fi
 
-# 2. Tuer TOUS les processus Node/Next de manière ultra-agressive
+# 2. Tuer TOUS les processus Node/Next de manière ultra-agressive (INCLUANT next-server)
 echo ""
 echo "🔪 Tuer TOUS les processus Node/Next.js..."
+pkill -9 -f "next-server" 2>/dev/null || true
 pkill -9 -f "next" 2>/dev/null || true
 pkill -9 -f "node.*3000" 2>/dev/null || true
 pkill -9 -f "node.*start" 2>/dev/null || true
