@@ -12,7 +12,11 @@ cd /var/www/airlock || exit 1
 
 # 1. Sauvegarder et récupérer
 echo "📥 Récupération depuis GitHub..."
+# Supprimer les fichiers générés qui peuvent causer des conflits
+rm -f next-env.d.ts 2>/dev/null || true
 git stash 2>/dev/null || true
+# Forcer la suppression des fichiers ignorés qui pourraient être trackés
+git clean -fd 2>/dev/null || true
 git pull origin main
 
 # 2. Installer les dépendances
