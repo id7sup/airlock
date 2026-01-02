@@ -42,48 +42,63 @@ export async function createShareLink(data: {
 }
 
 export async function validateShareLink(token: string) {
-  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  try {
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
-  const snapshot = await db.collection("shareLinks")
-    .where("tokenHash", "==", tokenHash)
-    .limit(1)
-    .get();
+    const snapshot = await db.collection("shareLinks")
+      .where("tokenHash", "==", tokenHash)
+      .limit(1)
+      .get();
 
-  if (snapshot.empty) return { error: "NOT_FOUND" };
+    if (snapshot.empty) return { error: "NOT_FOUND" };
 
-  const linkDoc = snapshot.docs[0];
-  const linkData = linkDoc.data();
+    const linkDoc = snapshot.docs[0];
+    const linkData = linkDoc.data();
 
-  // Vérifier expiration
-  if (linkData.expiresAt && linkData.expiresAt.toDate() < new Date()) {
-    return { error: "EXPIRED", linkId: linkDoc.id, folderId: linkData.folderId };
+    if (!linkData) return { error: "NOT_FOUND" };
+
+    // Vérifier expiration
+    if (linkData.expiresAt) {
+      const expiresAt = linkData.expiresAt?.toDate ? linkData.expiresAt.toDate() : new Date(linkData.expiresAt);
+      if (expiresAt < new Date()) {
+        return { error: "EXPIRED", linkId: linkDoc.id, folderId: linkData.folderId };
+      }
+    }
+
+    // Vérifier limites de vues
+    if (linkData.maxViews && (linkData.viewCount || 0) > linkData.maxViews) {
+      return { error: "QUOTA_EXCEEDED", linkId: linkDoc.id, folderId: linkData.folderId };
+    }
+
+    // Vérifier si révoqué manuellement
+    if (linkData.isRevoked === true) {
+      return { error: "REVOKED", linkId: linkDoc.id, folderId: linkData.folderId };
+    }
+
+    // Récupérer le dossier, les fichiers et les sous-dossiers
+    const folderDoc = await db.collection("folders").doc(linkData.folderId).get();
+    
+    if (!folderDoc.exists) {
+      return { error: "NOT_FOUND", linkId: linkDoc.id, folderId: linkData.folderId };
+    }
+
+    const [filesSnapshot, childrenSnapshot] = await Promise.all([
+      db.collection("files").where("folderId", "==", linkData.folderId).get(),
+      db.collection("folders").where("parentId", "==", linkData.folderId).get(),
+    ]);
+
+    return {
+      id: linkDoc.id,
+      ...linkData,
+      folder: {
+        id: folderDoc.id,
+        name: folderDoc.data()?.name || "Dossier inconnu",
+        files: filesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+        children: childrenSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+      },
+    };
+  } catch (error) {
+    console.error("Error validating share link:", error);
+    return { error: "NOT_FOUND" };
   }
-
-  // Vérifier limites de vues
-  if (linkData.maxViews && linkData.viewCount > linkData.maxViews) {
-    return { error: "QUOTA_EXCEEDED", linkId: linkDoc.id, folderId: linkData.folderId };
-  }
-
-  // Vérifier si révoqué manuellement
-  if (linkData.isRevoked === true) {
-    return { error: "REVOKED", linkId: linkDoc.id, folderId: linkData.folderId };
-  }
-
-  // Récupérer le dossier, les fichiers et les sous-dossiers
-  const folderDoc = await db.collection("folders").doc(linkData.folderId).get();
-  const [filesSnapshot, childrenSnapshot] = await Promise.all([
-    db.collection("files").where("folderId", "==", linkData.folderId).get(),
-    db.collection("folders").where("parentId", "==", linkData.folderId).get(),
-  ]);
-
-  return {
-    id: linkDoc.id,
-    ...linkData,
-    folder: {
-      id: folderDoc.id,
-      name: folderDoc.data()?.name || "Dossier inconnu",
-      files: filesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-      children: childrenSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-    },
-  };
 }
