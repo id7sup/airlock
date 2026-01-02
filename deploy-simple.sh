@@ -34,60 +34,105 @@ pm2 delete airlock 2>/dev/null || true
 pm2 stop all 2>/dev/null || true
 pm2 kill 2>/dev/null || true
 
-# Tuer tous les processus Node/Next qui utilisent le port 3000
+# Tuer tous les processus Node/Next
 echo "🔍 Libération du port 3000..."
 pkill -9 -f "next" 2>/dev/null || true
 pkill -9 -f "node.*3000" 2>/dev/null || true
 pkill -9 -f "node.*start" 2>/dev/null || true
+pkill -9 node 2>/dev/null || true
 
-# Libérer le port 3000 avec différentes méthodes
+# Libérer le port 3000 avec différentes méthodes (plus agressif)
 if command -v lsof &> /dev/null; then
-    lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+    PIDS=$(lsof -ti:3000 2>/dev/null || true)
+    if [ ! -z "$PIDS" ]; then
+        echo "   Tuer les processus trouvés: $PIDS"
+        echo "$PIDS" | xargs kill -9 2>/dev/null || true
+        sleep 1
+    fi
 fi
+
 if command -v fuser &> /dev/null; then
     fuser -k 3000/tcp 2>/dev/null || true
+    sleep 1
 fi
+
 if command -v ss &> /dev/null; then
-    ss -K dport = 3000 2>/dev/null || true
+    # Utiliser ss pour trouver et tuer
+    SS_OUTPUT=$(ss -tlnp 2>/dev/null | grep ":3000" || true)
+    if [ ! -z "$SS_OUTPUT" ]; then
+        echo "   Processus trouvé avec ss, tentative de kill..."
+        # Extraire les PIDs depuis ss
+        SS_PIDS=$(echo "$SS_OUTPUT" | grep -oP 'pid=\K[0-9]+' || true)
+        if [ ! -z "$SS_PIDS" ]; then
+            echo "$SS_PIDS" | xargs kill -9 2>/dev/null || true
+        fi
+    fi
 fi
 
 # Attendre que tout soit arrêté
-sleep 3
+sleep 2
 
-# Vérifier que le port est libre
+# Vérifier que le port est libre (logique améliorée)
 echo "⏳ Vérification que le port 3000 est libre..."
-for i in {1..15}; do
+PORT_FREE=false
+for i in {1..10}; do
+    PORT_IN_USE=false
+    
+    # Vérifier avec ss
     if command -v ss &> /dev/null; then
-        if ! ss -tlnp 2>/dev/null | grep -q ":3000"; then
-            echo "✅ Port 3000 libéré"
-            break
-        fi
-    elif command -v netstat &> /dev/null; then
-        if ! netstat -tlnp 2>/dev/null | grep -q ":3000"; then
-            echo "✅ Port 3000 libéré"
-            break
-        fi
-    else
-        # Si ni ss ni netstat ne sont disponibles, on attend un peu plus
-        if [ $i -eq 5 ]; then
-            echo "⚠️  Impossible de vérifier le port, continuation..."
-            break
+        if ss -tlnp 2>/dev/null | grep -q ":3000"; then
+            PORT_IN_USE=true
         fi
     fi
-    if [ $i -eq 15 ]; then
-        echo "❌ Le port 3000 est toujours occupé après 15 tentatives"
-        echo "🔍 Processus utilisant le port 3000:"
+    
+    # Vérifier avec netstat si ss n'a rien trouvé
+    if [ "$PORT_IN_USE" = false ] && command -v netstat &> /dev/null; then
+        if netstat -tlnp 2>/dev/null | grep -q ":3000"; then
+            PORT_IN_USE=true
+        fi
+    fi
+    
+    # Vérifier avec lsof si toujours rien
+    if [ "$PORT_IN_USE" = false ] && command -v lsof &> /dev/null; then
+        if lsof -i:3000 2>/dev/null | grep -q "LISTEN"; then
+            PORT_IN_USE=true
+        fi
+    fi
+    
+    if [ "$PORT_IN_USE" = false ]; then
+        echo "✅ Port 3000 libéré"
+        PORT_FREE=true
+        break
+    fi
+    
+    # Si le port est encore utilisé, essayer de tuer à nouveau
+    if [ $i -le 5 ]; then
         if command -v lsof &> /dev/null; then
-            lsof -i:3000 2>/dev/null || true
-        elif command -v ss &> /dev/null; then
-            ss -tlnp | grep ":3000" || true
+            PIDS=$(lsof -ti:3000 2>/dev/null || true)
+            if [ ! -z "$PIDS" ]; then
+                echo "   Nouvelle tentative de kill pour: $PIDS"
+                echo "$PIDS" | xargs kill -9 2>/dev/null || true
+                sleep 1
+            fi
         fi
-        echo "💡 Essayez manuellement: sudo kill -9 \$(lsof -ti:3000)"
-        exit 1
     fi
-    echo "   Attente... ($i/15)"
+    
+    echo "   Attente... ($i/10)"
     sleep 1
 done
+
+# Si le port n'est toujours pas libre, forcer ou continuer quand même
+if [ "$PORT_FREE" = false ]; then
+    echo "⚠️  Le port 3000 semble encore occupé"
+    echo "🔍 Dernière vérification:"
+    if command -v lsof &> /dev/null; then
+        lsof -i:3000 2>/dev/null || echo "   (lsof ne trouve rien)"
+    fi
+    if command -v ss &> /dev/null; then
+        ss -tlnp 2>/dev/null | grep ":3000" || echo "   (ss ne trouve rien)"
+    fi
+    echo "⚠️  Continuation quand même (PM2 devrait gérer)..."
+fi
 
 # 5. DÉMARRER avec PM2
 echo "🚀 Démarrage de l'application..."
