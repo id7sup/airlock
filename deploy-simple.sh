@@ -178,24 +178,60 @@ echo "🔄 Redémarrage du daemon PM2..."
 pm2 ping 2>/dev/null || pm2 kill 2>/dev/null || true
 sleep 1
 
-# 6. DÉMARRER avec PM2 (sans redémarrage automatique en cas d'erreur)
+# 6. DÉMARRER avec PM2
 echo "🚀 Démarrage de l'application..."
 npm install -g pm2 2>/dev/null || true
 
-# Démarrer avec max_restarts=0 pour éviter les boucles infinies
-pm2 start npm --name "airlock" -- start --max-restarts 0
+# Dernière vérification : tuer TOUS les processus next-server avant de démarrer
+echo "   → Dernière vérification du port 3000..."
+pkill -9 -f "next-server" 2>/dev/null || true
+sleep 2
+
+# Vérifier que le port est vraiment libre
+if command -v ss &> /dev/null; then
+    PORT_CHECK=$(ss -tlnp 2>/dev/null | grep ":3000" || true)
+    if [ ! -z "$PORT_CHECK" ]; then
+        echo "⚠️  Le port 3000 est encore occupé, tentative de kill finale..."
+        SS_PIDS=$(echo "$PORT_CHECK" | grep -oP 'pid=\K[0-9]+' || true)
+        if [ ! -z "$SS_PIDS" ]; then
+            for pid in $SS_PIDS; do
+                echo "   → Kill -9 PID: $pid"
+                kill -9 $pid 2>/dev/null || true
+            done
+            sleep 3
+        fi
+    fi
+fi
+
+# Démarrer avec PM2 directement avec next start (plus fiable)
+# Utiliser un fichier ecosystem ou démarrer directement
+pm2 start "npm run start" --name "airlock" --interpreter bash
+
+# Configurer PM2 pour limiter les redémarrages
+pm2 set airlock:max_restarts 3 2>/dev/null || true
+pm2 set airlock:min_uptime 10000 2>/dev/null || true
 
 # Attendre un peu pour voir si ça démarre
-sleep 3
+sleep 5
 
 # Vérifier le statut
-PM2_STATUS=$(pm2 jlist | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "unknown")
+PM2_STATUS=$(pm2 jlist 2>/dev/null | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "unknown")
 if [ "$PM2_STATUS" != "online" ]; then
     echo "⚠️  L'application n'a pas démarré correctement. Statut: $PM2_STATUS"
     echo "📋 Logs d'erreur:"
     pm2 logs airlock --lines 30 --nostream || true
     echo ""
     echo "💡 Vérifiez les logs ci-dessus pour identifier le problème."
+    
+    # Vérifier si c'est toujours un problème de port
+    if command -v ss &> /dev/null; then
+        PORT_CHECK=$(ss -tlnp 2>/dev/null | grep ":3000" || true)
+        if [ ! -z "$PORT_CHECK" ]; then
+            echo ""
+            echo "🔍 Processus utilisant le port 3000:"
+            echo "$PORT_CHECK"
+        fi
+    fi
 fi
 
 pm2 save
