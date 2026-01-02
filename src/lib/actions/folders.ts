@@ -218,8 +218,8 @@ export async function deleteFolderAction(folderId: string) {
 
   const [permsByUserId, permsByEmail] = await Promise.all([
     db.collection("permissions")
-      .where("folderId", "==", folderId)
-      .where("userId", "==", userId)
+    .where("folderId", "==", folderId)
+    .where("userId", "==", userId)
       .get(),
     userEmail ? db.collection("permissions")
       .where("folderId", "==", folderId)

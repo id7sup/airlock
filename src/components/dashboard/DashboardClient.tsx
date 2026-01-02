@@ -21,10 +21,12 @@ import {
   CheckSquare,
   Square,
   ExternalLink,
-  Users
+  Users,
+  AlertTriangle
 } from "lucide-react";
 import { ShareModal } from "@/components/dashboard/ShareModal";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { ErrorModal } from "@/components/shared/ErrorModal";
 import { UploadModal } from "@/components/dashboard/UploadModal";
 import { 
   createFolderAction, 
@@ -37,6 +39,7 @@ import { getPresignedUploadUrlAction, confirmFileUploadAction } from "@/lib/acti
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom";
 
 
 interface FolderType {
@@ -195,6 +198,8 @@ function FolderItem({
   );
 }
 
+const MAX_FILES_PER_UPLOAD = 500; // Limite de fichiers par upload
+
 export default function DashboardClient({ initialFolders, currentFilter }: { initialFolders: FolderType[], currentFilter: string }) {
   const router = useRouter();
   const [folders, setFolders] = useState(initialFolders);
@@ -224,9 +229,27 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
     status: "pending" | "uploading" | "success" | "error";
     error?: string;
   }>>([]);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, isUploading: false });
+  const [limitModal, setLimitModal] = useState<{
+    isOpen: boolean;
+    selectedCount: number;
+  }>({
+    isOpen: false,
+    selectedCount: 0
+  });
   const gridRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
+  const [errorModal, setErrorModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    title: "",
+    message: ""
+  });
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -425,7 +448,11 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
       if (isGroupingMode) {
         setHiddenFolderIds([]);
       }
-      alert("Erreur lors de la création du dossier");
+      setErrorModal({
+        isOpen: true,
+        title: "Erreur",
+        message: "Erreur lors de la création du dossier"
+      });
     } finally {
       setIsCreating(false);
     }
@@ -479,7 +506,11 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
             router.refresh();
           } catch (error) {
             console.error("Erreur lors de la suppression définitive:", error);
-            alert("Erreur lors de la suppression définitive.");
+            setErrorModal({
+              isOpen: true,
+              title: "Erreur",
+              message: "Erreur lors de la suppression définitive."
+            });
           }
         }
       });
@@ -497,18 +528,291 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
             setConfirmModal(prev => ({ ...prev, isOpen: false }));
             router.refresh();
           } catch (error) {
-            alert("Erreur lors de la suppression groupée.");
+            setErrorModal({
+              isOpen: true,
+              title: "Erreur",
+              message: "Erreur lors de la suppression groupée."
+            });
           }
         }
       });
     }
   };
 
+  // Fonction récursive pour lire les fichiers d'un dossier
+  const readDirectoryEntries = async (
+    directoryEntry: FileSystemDirectoryEntry
+  ): Promise<{ files: File[]; subFolders: { name: string; entry: FileSystemDirectoryEntry }[] }> => {
+    const files: File[] = [];
+    const subFolders: { name: string; entry: FileSystemDirectoryEntry }[] = [];
+
+    return new Promise((resolve) => {
+      const reader = directoryEntry.createReader();
+      const readEntries = () => {
+        reader.readEntries((entries) => {
+          if (entries.length === 0) {
+            resolve({ files, subFolders });
+            return;
+          }
+
+          const promises = entries.map((entry) => {
+            return new Promise<void>((resolveEntry) => {
+              if (entry.isFile) {
+                (entry as FileSystemFileEntry).file((file) => {
+                  files.push(file);
+                  resolveEntry();
+                });
+              } else if (entry.isDirectory) {
+                subFolders.push({
+                  name: entry.name,
+                  entry: entry as FileSystemDirectoryEntry,
+                });
+                resolveEntry();
+              } else {
+                resolveEntry();
+              }
+            });
+          });
+
+          Promise.all(promises).then(() => {
+            readEntries(); // Continuer à lire
+          });
+        });
+      };
+
+      readEntries();
+    });
+  };
+
+  // Fonction pour uploader des fichiers dans un dossier
+  const uploadFilesToFolder = async (files: File[], targetFolderId: string, onProgress?: (current: number, total: number) => void) => {
+    if (files.length === 0) return;
+
+    try {
+      // Concurrence maximale pour optimiser la vitesse
+      const CONCURRENCY = 50;
+      const uploadedCountRef = { current: 0 };
+      
+      // Préparer tous les presigned URLs en parallèle
+      const uploadTasks = files.map(async (file) => {
+        const { uploadUrl, s3Key } = await getPresignedUploadUrlAction({
+          name: file.name,
+          size: file.size,
+          mimeType: file.type,
+          folderId: targetFolderId,
+        });
+        return { file, uploadUrl, s3Key };
+      });
+
+      const preparedTasks = await Promise.all(uploadTasks);
+      
+      // Uploader les fichiers en parallèle avec concurrence maximale
+      for (let i = 0; i < preparedTasks.length; i += CONCURRENCY) {
+        const batch = preparedTasks.slice(i, i + CONCURRENCY);
+        await Promise.all(batch.map(async ({ file, uploadUrl, s3Key }) => {
+          // Upload vers S3 (bloquant pour la progression)
+          await fetch(uploadUrl, {
+            method: "PUT",
+            body: file,
+            headers: { "Content-Type": file.type || "application/octet-stream" },
+          });
+
+          // Mettre à jour la progression immédiatement après l'upload S3
+          uploadedCountRef.current++;
+          const current = uploadedCountRef.current;
+          if (onProgress) {
+            onProgress(current, files.length);
+          }
+
+          // Confirmer l'upload en arrière-plan (non-bloquant)
+          confirmFileUploadAction({
+            name: file.name,
+            size: file.size,
+            mimeType: file.type,
+            s3Key: s3Key,
+            folderId: targetFolderId,
+          }).catch(err => console.error("Erreur confirmation:", err));
+        }));
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'upload des fichiers:", error);
+      throw error;
+    }
+  };
+
+  // Fonction récursive pour compter tous les fichiers dans un dossier
+  const countAllFilesInDirectory = async (
+    directoryEntry: FileSystemDirectoryEntry
+  ): Promise<number> => {
+    const { files, subFolders } = await readDirectoryEntries(directoryEntry);
+    let totalCount = files.length;
+    
+    // Compter récursivement dans les sous-dossiers
+    for (const subFolder of subFolders) {
+      totalCount += await countAllFilesInDirectory(subFolder.entry);
+    }
+    
+    return totalCount;
+  };
+
+  // Fonction récursive pour créer un dossier et uploader son contenu (fichiers et sous-dossiers)
+  const createFolderAndUploadContent = async (
+    folderName: string,
+    parentFolderId: string | null,
+    directoryEntry: FileSystemDirectoryEntry,
+    onFileUploaded: () => void
+  ): Promise<void> => {
+    // Créer le dossier
+    const newFolderId = await createFolderAction(folderName, parentFolderId);
+    
+    // Lire le contenu du dossier
+    const { files, subFolders } = await readDirectoryEntries(directoryEntry);
+    
+    // Uploader les fichiers et créer les sous-dossiers en parallèle pour optimiser
+    const uploadPromise = files.length > 0 ? (async () => {
+      let lastProgress = 0;
+      await uploadFilesToFolder(files, newFolderId, (current, total) => {
+        // Pour chaque nouveau fichier uploadé depuis le dernier appel, appeler onFileUploaded
+        const newFilesCount = current - lastProgress;
+        for (let i = 0; i < newFilesCount; i++) {
+          onFileUploaded();
+        }
+        lastProgress = current;
+      });
+    })() : Promise.resolve();
+    
+    // Créer récursivement les sous-dossiers en parallèle (optimisation maximale)
+    const subFolderPromises = subFolders.map(subFolder =>
+      createFolderAndUploadContent(subFolder.name, newFolderId, subFolder.entry, onFileUploaded)
+    );
+    
+    // Attendre que les fichiers ET les sous-dossiers soient traités en parallèle
+    await Promise.all([uploadPromise, ...subFolderPromises]);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+    e.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Vérifier si on quitte vraiment le conteneur
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      setIsDraggingOver(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    const items = Array.from(e.dataTransfer.items || []);
+    const folderEntries: { name: string; entry: FileSystemDirectoryEntry }[] = [];
+    let totalFilesToUpload = 0;
+
+    try {
+      // Compter d'abord tous les fichiers pour vérifier la limite
+      for (const item of items) {
+        if (item.kind === "file") {
+          const entry = item.webkitGetAsEntry();
+          if (entry) {
+            if (entry.isDirectory) {
+              try {
+                const dirEntry = entry as FileSystemDirectoryEntry;
+                const folderFileCount = await countAllFilesInDirectory(dirEntry);
+                totalFilesToUpload += folderFileCount;
+                folderEntries.push({ name: entry.name, entry: dirEntry });
+              } catch (error) {
+                console.error("Erreur lors du comptage:", error);
+                // Ajouter quand même le dossier
+                folderEntries.push({ name: entry.name, entry: entry as FileSystemDirectoryEntry });
+              }
+            } else if (entry.isFile) {
+              // Ignorer les fichiers - on ne peut que créer des dossiers dans la vue générale
+            }
+          }
+        }
+      }
+
+      // Vérifier la limite globale
+      if (totalFilesToUpload > MAX_FILES_PER_UPLOAD) {
+        setLimitModal({ isOpen: true, selectedCount: totalFilesToUpload });
+        return;
+      }
+
+      // Initialiser l'upload
+      if (folderEntries.length > 0) {
+        // Si totalFilesToUpload est 0, on va le mettre à jour dynamiquement
+        setUploadProgress({ current: 0, total: totalFilesToUpload || 1, isUploading: true });
+      }
+
+      let uploadedFilesCounter = 0;
+      let dynamicTotal = totalFilesToUpload || 1;
+      
+      const onFileUploaded = () => {
+        uploadedFilesCounter++;
+        // Mettre à jour le total si nécessaire
+        if (uploadedFilesCounter > dynamicTotal) {
+          dynamicTotal = uploadedFilesCounter;
+        }
+        setUploadProgress({ 
+          current: uploadedFilesCounter, 
+          total: dynamicTotal,
+          isUploading: true 
+        });
+      };
+
+      const folderPromises: Promise<void>[] = [];
+
+      // Créer les dossiers et uploader leur contenu
+      for (const { name, entry } of folderEntries) {
+        folderPromises.push(
+          createFolderAndUploadContent(name, null, entry, onFileUploaded).catch((error) => {
+            console.error(`Erreur lors de la création du dossier "${name}":`, error);
+            setErrorModal({
+              isOpen: true,
+              title: "Erreur",
+              message: error.message || `Erreur lors de la création du dossier "${name}"`
+            });
+          })
+        );
+      }
+
+      // Attendre que tous les dossiers soient créés
+      if (folderPromises.length > 0) {
+        await Promise.all(folderPromises);
+        router.refresh();
+      }
+    } catch (error: any) {
+      console.error("Erreur globale dans handleDrop:", error);
+      setErrorModal({
+        isOpen: true,
+        title: "Erreur",
+        message: error.message || "Erreur lors du dépôt des dossiers"
+      });
+    } finally {
+      setUploadProgress({ current: 0, total: 0, isUploading: false });
+    }
+  };
+
   return (
     <div 
       ref={containerRef}
-      className="p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto animate-in fade-in duration-700 text-black min-h-screen select-none relative"
+      className={`p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto animate-in fade-in duration-700 text-black min-h-screen select-none relative ${
+        isDraggingOver ? "bg-brand-primary/5 border-2 border-dashed border-brand-primary rounded-2xl" : ""
+      }`}
       onMouseDown={onMouseDown}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       onClick={(e) => {
         // Ignorer le clic si on vient de terminer un lasso
         if (justFinishedLasso) {
@@ -531,6 +835,37 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
         }
       }}
     >
+      {isDraggingOver && (
+        <div className="absolute inset-0 flex items-center justify-center bg-brand-primary/10 backdrop-blur-sm rounded-2xl z-50 pointer-events-none">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl border-2 border-brand-primary">
+            <Folder className="w-12 h-12 text-brand-primary mx-auto mb-4" />
+            <p className="text-lg font-semibold text-black text-center">Déposez vos dossiers ici</p>
+            <p className="text-sm text-black/40 text-center mt-2">Seuls les dossiers seront créés</p>
+          </div>
+        </div>
+      )}
+      {uploadProgress.isUploading && uploadProgress.total > 0 && (
+        <div className="fixed bottom-6 right-6 bg-white rounded-2xl p-4 sm:p-6 shadow-2xl border border-black/10 z-50 min-w-[280px] sm:min-w-[320px]">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 text-brand-primary animate-spin" />
+              <span className="text-sm font-semibold text-black">Upload en cours</span>
+            </div>
+            <span className="text-sm font-semibold text-black/60">
+              {Math.round((uploadProgress.current / uploadProgress.total) * 100)}%
+            </span>
+          </div>
+          <div className="w-full bg-black/10 rounded-full h-2 overflow-hidden mb-2">
+            <div 
+              className="h-full bg-brand-primary transition-all duration-300 ease-out rounded-full"
+              style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+            />
+          </div>
+          <p className="text-xs text-black/40 text-center">
+            {uploadProgress.current} / {uploadProgress.total} fichiers
+          </p>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8 lg:mb-12">
         <div className="space-y-1">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight">Mes dossiers</h1>
@@ -693,6 +1028,13 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
         )}
       </AnimatePresence>
 
+      <ErrorModal
+        isOpen={errorModal.isOpen}
+        onClose={() => setErrorModal({ isOpen: false, title: "", message: "" })}
+        title={errorModal.title}
+        message={errorModal.message}
+      />
+
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
@@ -701,6 +1043,45 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
         message={confirmModal.message}
         isDestructive={confirmModal.isDestructive}
       />
+
+      {/* Modal pour la limite de fichiers */}
+      {limitModal.isOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/20" onClick={() => setLimitModal({ isOpen: false, selectedCount: 0 })}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-black/[0.05]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-8 text-center space-y-6">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto bg-orange-50 text-orange-500">
+                <AlertTriangle className="w-8 h-8" />
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="text-xl font-medium tracking-tight text-black">Limite de fichiers dépassée</h3>
+                <p className="text-[15px] text-black/40 font-normal leading-relaxed">
+                  Vous avez sélectionné <strong className="text-black">{limitModal.selectedCount} fichiers</strong>, mais la limite est de <strong className="text-black">{MAX_FILES_PER_UPLOAD} fichiers</strong> maximum par upload.
+                </p>
+                <p className="text-[14px] text-black/30 font-normal mt-3">
+                  Veuillez réduire le nombre de fichiers ou diviser votre upload en plusieurs fois.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setLimitModal({ isOpen: false, selectedCount: 0 })}
+                  className="flex-1 px-6 py-3 bg-black text-white hover:bg-black/90 rounded-xl text-[14px] font-medium transition-all"
+                >
+                  Compris
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

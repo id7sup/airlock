@@ -20,8 +20,9 @@ import {
   Clock,
   EyeOff
 } from "lucide-react";
-import { createShareLinkAction, inviteUserAction, isFolderSharedAction } from "@/lib/actions/sharing";
+import { createShareLinkAction, inviteUserAction } from "@/lib/actions/sharing";
 import { Logo } from "@/components/shared/Logo";
+import { ErrorModal } from "@/components/shared/ErrorModal";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { useEffect } from "react";
@@ -51,7 +52,16 @@ export function ShareModal({
   const [shareLinkId, setShareLinkId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [isFolderShared, setIsFolderShared] = useState(false);
+  const [inviteSuccess, setInviteSuccess] = useState(false);
+  const [errorModal, setErrorModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    title: "",
+    message: ""
+  });
 
   // Internal share settings
   const [internalRole, setInternalRole] = useState<ShareRole>("VIEWER");
@@ -68,11 +78,6 @@ export function ShareModal({
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (isOpen && folderId) {
-      isFolderSharedAction(folderId).then(setIsFolderShared);
-    }
-  }, [isOpen, folderId]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -98,12 +103,22 @@ export function ShareModal({
   const handleInvite = async () => {
     if (!email) return;
     setIsInviting(true);
+    setInviteSuccess(false);
     try {
       await inviteUserAction(folderId, email, internalRole, internalCanDownload);
+      // Réinitialiser l'email mais rester en mode internal pour permettre d'ajouter d'autres personnes
       setEmail("");
-      setMode("success");
-    } catch (error) {
-      alert("Erreur lors de l'invitation");
+      // Afficher un message de succès temporaire
+      setInviteSuccess(true);
+      setTimeout(() => setInviteSuccess(false), 3000);
+    } catch (error: any) {
+      const errorMessage = error?.message || "Erreur lors de l'invitation";
+      setErrorModal({
+        isOpen: true,
+        title: "Erreur d'invitation",
+        message: errorMessage
+      });
+      console.error("Erreur invitation:", error);
     } finally {
       setIsInviting(false);
     }
@@ -120,7 +135,11 @@ export function ShareModal({
       // Validation : empêcher les valeurs négatives
       const maxViewsValue = maxViews ? parseInt(maxViews) : null;
       if (maxViewsValue !== null && maxViewsValue < 0) {
-        alert("Le quota de vues ne peut pas être négatif");
+        setErrorModal({
+          isOpen: true,
+          title: "Erreur de validation",
+          message: "Le quota de vues ne peut pas être négatif"
+        });
         setIsCreatingLink(false);
         return;
       }
@@ -138,7 +157,11 @@ export function ShareModal({
       setShareLinkId(result.id);
       setExternalStep("result");
     } catch (error) {
-      alert("Erreur lors de la création du lien");
+      setErrorModal({
+        isOpen: true,
+        title: "Erreur",
+        message: "Erreur lors de la création du lien"
+      });
     } finally {
       setIsCreatingLink(false);
     }
@@ -203,14 +226,12 @@ export function ShareModal({
                     <p className="text-sm text-black/40 font-medium">Choisissez votre méthode</p>
                   </div>
                   
-                  <div className={isFolderShared ? "flex justify-center" : "grid grid-cols-2 gap-3"}>
+                  <div className="grid grid-cols-2 gap-3">
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setMode("internal")}
-                      className={`group p-6 bg-black/5 hover:bg-black/10 rounded-2xl border border-black/10 hover:border-black/20 transition-all text-left ${
-                        isFolderShared ? "w-full max-w-xs" : ""
-                      }`}
+                      className="group p-6 bg-black/5 hover:bg-black/10 rounded-2xl border border-black/10 hover:border-black/20 transition-all text-left"
                     >
                       <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center mb-4 shadow-lg">
                         <UserPlus className="w-6 h-6 text-white" />
@@ -221,22 +242,20 @@ export function ShareModal({
                       </p>
                     </motion.button>
 
-                    {!isFolderShared && (
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setMode("external")}
-                        className="group p-6 bg-black/5 hover:bg-black/10 rounded-2xl border border-black/10 hover:border-black/20 transition-all text-left"
-                      >
-                        <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-                          <Network className="w-6 h-6 text-white" />
-                        </div>
-                        <h3 className="text-base font-medium text-black mb-1">Public</h3>
-                        <p className="text-xs text-black/40 font-medium leading-relaxed">
-                          Lien sécurisé
-                        </p>
-                      </motion.button>
-                    )}
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setMode("external")}
+                      className="group p-6 bg-black/5 hover:bg-black/10 rounded-2xl border border-black/10 hover:border-black/20 transition-all text-left"
+                    >
+                      <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+                        <Network className="w-6 h-6 text-white" />
+                      </div>
+                      <h3 className="text-base font-medium text-black mb-1">Public</h3>
+                      <p className="text-xs text-black/40 font-medium leading-relaxed">
+                        Lien sécurisé
+                      </p>
+                    </motion.button>
                   </div>
                 </motion.div>
               )}
@@ -281,9 +300,21 @@ export function ShareModal({
                       disabled={isInviting || !email}
                       className="bg-black text-white px-6 py-2.5 rounded-xl font-medium text-sm disabled:opacity-50 shadow-lg shadow-black/10 hover:bg-black/90 transition-all flex items-center justify-center"
                     >
-                      {isInviting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Inviter"}
+                      {isInviting ? <Loader2 className="w-4 h-4 animate-spin" /> : inviteSuccess ? "✓ Invité" : "Inviter"}
                     </button>
                   </div>
+                  
+                  {inviteSuccess && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700 font-medium flex items-center gap-2"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Invitation envoyée avec succès ! Vous pouvez inviter une autre personne.
+                    </motion.div>
+                  )}
 
                   {/* Role Selection */}
                   <div className="space-y-3 pt-2">
@@ -635,5 +666,15 @@ export function ShareModal({
     </AnimatePresence>
   );
 
-  return createPortal(modalContent, document.body);
+  return (
+    <>
+      {createPortal(modalContent, document.body)}
+      <ErrorModal
+        isOpen={errorModal.isOpen}
+        onClose={() => setErrorModal({ isOpen: false, title: "", message: "" })}
+        title={errorModal.title}
+        message={errorModal.message}
+      />
+    </>
+  );
 }

@@ -22,6 +22,7 @@ import { SharingAnalyticsChart } from "./SharingAnalyticsChart";
 import { revokeShareLinkAction } from "@/lib/actions/sharing";
 import { updateShareLinkAction } from "@/lib/actions/sharing_update";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { ErrorModal } from "@/components/shared/ErrorModal";
 import Link from "next/link";
 
 interface SharedLink {
@@ -55,6 +56,15 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
     onConfirm: () => {},
     isDestructive: true
   });
+  const [errorModal, setErrorModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    title: "",
+    message: ""
+  });
 
   const handleToggleDownload = async (link: SharedLink) => {
     setUpdatingId(link.id);
@@ -62,7 +72,11 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
       await updateShareLinkAction(link.id, { allowDownload: !link.allowDownload });
       setLinks(links.map(l => l.id === link.id ? { ...l, allowDownload: !link.allowDownload } : l));
     } catch (e) {
-      alert("Erreur lors de la mise à jour");
+      setErrorModal({
+        isOpen: true,
+        title: "Erreur",
+        message: "Erreur lors de la mise à jour"
+      });
     } finally {
       setUpdatingId(null);
     }
@@ -80,7 +94,11 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
       await updateShareLinkAction(id, { expiresAt: newDate });
       setLinks(links.map(l => l.id === id ? { ...l, expiresAt: newDate.toISOString() } : l));
     } catch (e) {
-      alert("Erreur lors de la mise à jour de l'expiration");
+      setErrorModal({
+        isOpen: true,
+        title: "Erreur",
+        message: "Erreur lors de la mise à jour de l'expiration"
+      });
     } finally {
       setUpdatingId(null);
     }
@@ -100,7 +118,11 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
       const val = parseInt(trimmed);
       // Validation : empêcher les valeurs négatives
       if (isNaN(val) || val < 0) {
-        alert("Le quota de vues ne peut pas être négatif");
+        setErrorModal({
+          isOpen: true,
+          title: "Erreur de validation",
+          message: "Le quota de vues ne peut pas être négatif"
+        });
         setUpdatingId(null);
         return;
       }
@@ -108,7 +130,11 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
       await updateShareLinkAction(id, { maxViews: val });
       setLinks(links.map(l => l.id === id ? { ...l, maxViews: val } : l));
     } catch (e) {
-      alert("Erreur lors de la mise à jour du quota");
+      setErrorModal({
+        isOpen: true,
+        title: "Erreur",
+        message: "Erreur lors de la mise à jour du quota"
+      });
     } finally {
       setUpdatingId(null);
     }
@@ -127,7 +153,11 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
           setLinks(links.filter(l => l.id !== id));
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
         } catch (error) {
-          alert("Erreur lors de la révocation");
+          setErrorModal({
+            isOpen: true,
+            title: "Erreur",
+            message: "Erreur lors de la révocation"
+          });
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
         }
       }

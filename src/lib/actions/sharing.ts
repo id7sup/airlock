@@ -30,23 +30,6 @@ export async function createShareLinkAction(data: {
 
   if (permSnapshot.empty) throw new Error("Seul le propriétaire peut créer un lien de partage");
 
-  // Vérifier que le dossier n'est pas déjà partagé avec d'autres utilisateurs (non-propriétaire)
-  const allPerms = await db.collection("permissions")
-    .where("folderId", "==", data.folderId)
-    .get();
-  
-  // Vérifier s'il y a des permissions VIEWER ou EDITOR (non-OWNER et non masquées)
-  const hasSharedUsers = allPerms.docs.some(doc => {
-    const perm = doc.data();
-    return (perm.role === "VIEWER" || perm.role === "EDITOR") && perm.isHidden !== true;
-  });
-
-  if (hasSharedUsers) {
-    throw new Error("Un dossier partagé en interne ne peut pas être partagé en lien public");
-  }
-
-  console.log("Creating link with data:", data);
-
   const result = await createShareLink({
     ...data,
     userId: userId,
@@ -104,6 +87,16 @@ export async function inviteUserAction(folderId: string, email: string, role: "V
   const { userId } = await auth();
   if (!userId) throw new Error("Non autorisé");
 
+  // Valider l'email
+  if (!email || !email.trim()) {
+    throw new Error("L'email est requis");
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new Error("Format d'email invalide");
+  }
+
   // Vérifier que l'utilisateur est OWNER ou EDITOR
   const { currentUser } = await import("@clerk/nextjs/server");
   const user = await currentUser();
@@ -133,10 +126,22 @@ export async function inviteUserAction(folderId: string, email: string, role: "V
     throw new Error("Seuls les propriétaires et éditeurs peuvent inviter des utilisateurs");
   }
 
-  // Récupérer récursivement tous les sous-dossiers (y compris le dossier parent)
-  const allFolderIds = await getAllSubfoldersRecursive(folderId);
+  // Vérifier que le dossier existe
+  const folderDoc = await db.collection("folders").doc(folderId).get();
+  if (!folderDoc.exists) {
+    throw new Error("Le dossier n'existe pas");
+  }
 
-  if (allFolderIds.length === 0) {
+  // Récupérer récursivement tous les sous-dossiers (y compris le dossier parent)
+  let allFolderIds: string[];
+  try {
+    allFolderIds = await getAllSubfoldersRecursive(folderId);
+  } catch (error: any) {
+    console.error("Erreur lors de la récupération récursive des dossiers:", error);
+    throw new Error("Erreur lors de la récupération des dossiers: " + (error?.message || "Erreur inconnue"));
+  }
+
+  if (!allFolderIds || allFolderIds.length === 0) {
     throw new Error("Aucun dossier trouvé");
   }
 
@@ -148,17 +153,24 @@ export async function inviteUserAction(folderId: string, email: string, role: "V
   
   // Grouper les folderIds par lots de 30 (limite Firestore pour "in")
   const BATCH_SIZE = 30;
-  for (let i = 0; i < allFolderIds.length; i += BATCH_SIZE) {
-    const folderBatch = allFolderIds.slice(i, i + BATCH_SIZE);
-    const permsSnapshot = await db.collection("permissions")
-      .where("folderId", "in", folderBatch)
-      .where("userEmail", "==", normalizedEmail)
-      .get();
-    
-    permsSnapshot.docs.forEach(doc => {
-      const perm = doc.data();
-      existingPermsMap.set(perm.folderId, doc);
-    });
+  try {
+    for (let i = 0; i < allFolderIds.length; i += BATCH_SIZE) {
+      const folderBatch = allFolderIds.slice(i, i + BATCH_SIZE);
+      if (folderBatch.length === 0) continue;
+      
+      const permsSnapshot = await db.collection("permissions")
+        .where("folderId", "in", folderBatch)
+        .where("userEmail", "==", normalizedEmail)
+        .get();
+      
+      permsSnapshot.docs.forEach(doc => {
+        const perm = doc.data();
+        existingPermsMap.set(perm.folderId, doc);
+      });
+    }
+  } catch (error: any) {
+    console.error("Erreur lors de la récupération des permissions existantes:", error);
+    throw new Error("Erreur lors de la vérification des permissions: " + (error?.message || "Erreur inconnue"));
   }
 
   // Créer les permissions par batches (limite Firestore: 500 opérations par batch)
@@ -166,43 +178,48 @@ export async function inviteUserAction(folderId: string, email: string, role: "V
   let currentBatch = db.batch();
   let batchCount = 0;
 
-  for (const folderIdToShare of allFolderIds) {
-    const existingPerm = existingPermsMap.get(folderIdToShare);
+  try {
+    for (const folderIdToShare of allFolderIds) {
+      const existingPerm = existingPermsMap.get(folderIdToShare);
 
-    if (existingPerm) {
-      // Mettre à jour la permission existante
-      currentBatch.update(existingPerm.ref, {
-        role,
-        canDownload: role === "VIEWER" ? canDownload : true,
-        isHidden: false, // Réactiver si elle était masquée
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    } else {
-      // Créer une nouvelle permission
-      const permRef = db.collection("permissions").doc();
-      currentBatch.set(permRef, {
-        folderId: folderIdToShare,
-        userEmail: normalizedEmail,
-        role,
-        canDownload: role === "VIEWER" ? canDownload : true, // EDITOR a toujours le download
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      if (existingPerm) {
+        // Mettre à jour la permission existante
+        currentBatch.update(existingPerm.ref, {
+          role,
+          canDownload: role === "VIEWER" ? canDownload : true,
+          isHidden: false, // Réactiver si elle était masquée
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } else {
+        // Créer une nouvelle permission
+        const permRef = db.collection("permissions").doc();
+        currentBatch.set(permRef, {
+          folderId: folderIdToShare,
+          userEmail: normalizedEmail,
+          role,
+          canDownload: role === "VIEWER" ? canDownload : true, // EDITOR a toujours le download
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+
+      batchCount++;
+
+      // Si on atteint la limite, commit et créer un nouveau batch
+      if (batchCount >= MAX_BATCH_SIZE) {
+        await currentBatch.commit();
+        currentBatch = db.batch();
+        batchCount = 0;
+      }
     }
 
-    batchCount++;
-
-    // Si on atteint la limite, commit et créer un nouveau batch
-    if (batchCount >= MAX_BATCH_SIZE) {
+    // Commit le dernier batch s'il contient des opérations
+    if (batchCount > 0) {
       await currentBatch.commit();
-      currentBatch = db.batch();
-      batchCount = 0;
     }
-  }
-
-  // Commit le dernier batch s'il contient des opérations
-  if (batchCount > 0) {
-    await currentBatch.commit();
+  } catch (error: any) {
+    console.error("Erreur lors de la création des permissions:", error);
+    throw new Error("Erreur lors de la création des permissions: " + (error?.message || "Erreur inconnue"));
   }
 
   revalidatePath(`/dashboard/folder/${folderId}`);
@@ -253,6 +270,34 @@ export async function isFolderSharedAction(folderId: string): Promise<boolean> {
   });
 
   return hasSharedUsers;
+}
+
+/**
+ * Vérifie si un dossier a un lien public actif
+ */
+export async function hasActivePublicLinkAction(folderId: string): Promise<boolean> {
+  const existingLinksSnapshot = await db.collection("shareLinks")
+    .where("folderId", "==", folderId)
+    .get();
+
+  const hasActivePublicLink = existingLinksSnapshot.docs.some(doc => {
+    const link = doc.data();
+    // Filtrer les liens révoqués
+    if (link.isRevoked === true) {
+      return false;
+    }
+    // Vérifier que le lien n'est pas expiré
+    if (link.expiresAt && link.expiresAt.toDate() < new Date()) {
+      return false;
+    }
+    // Vérifier que le quota n'est pas atteint
+    if (link.maxViews && link.viewCount >= link.maxViews) {
+      return false;
+    }
+    return true;
+  });
+
+  return hasActivePublicLink;
 }
 
 /**

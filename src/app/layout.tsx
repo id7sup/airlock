@@ -12,6 +12,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Airlock | Dossiers Sécurisés",
   description: "Partagez vos fichiers en toute sécurité avec une expérience premium.",
+  icons: {
+    icon: "/assets/logo.png",
+    shortcut: "/assets/logo.png",
+    apple: "/assets/logo.png",
+  },
 };
 
 export default function RootLayout({
@@ -21,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="fr" className={inter.variable}>
+      <html lang="fr" className={inter.variable} data-scroll-behavior="smooth">
         <body>
           {children}
         </body>

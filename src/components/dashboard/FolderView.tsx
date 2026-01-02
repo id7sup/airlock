@@ -18,7 +18,8 @@ import {
   CheckSquare,
   Square,
   X,
-  ArrowRight
+  ArrowRight,
+  AlertTriangle
 } from "lucide-react";
 import Link from "next/link";
 import { 
@@ -30,8 +31,12 @@ import {
 import { createFolderAction, deleteFolderAction } from "@/lib/actions/folders";
 import { ShareModal } from "@/components/dashboard/ShareModal";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { ErrorModal } from "@/components/shared/ErrorModal";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom";
+
+const MAX_FILES_PER_UPLOAD = 500; // Limite de fichiers par upload
 
 export default function FolderView({ folder, fromFilter, parentId, userRole = "OWNER" }: { folder: any, fromFilter?: string, parentId?: string | null, userRole?: "OWNER" | "EDITOR" | "VIEWER" }) {
   const canEdit = userRole === "OWNER" || userRole === "EDITOR";
@@ -39,9 +44,18 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
   const router = useRouter();
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [showCreateInput, setShowCreateInput] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [limitModal, setLimitModal] = useState<{
+    isOpen: boolean;
+    selectedCount: number;
+  }>({
+    isOpen: false,
+    selectedCount: 0
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -58,6 +72,15 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
     onConfirm: () => {},
     isDestructive: true
   });
+  const [errorModal, setErrorModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    title: "",
+    message: ""
+  });
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
@@ -68,7 +91,11 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
       setShowCreateInput(false);
       router.refresh();
     } catch (error) {
-      alert("Erreur lors de la création du sous-dossier");
+      setErrorModal({
+        isOpen: true,
+        title: "Erreur",
+        message: "Erreur lors de la création du sous-dossier"
+      });
     } finally {
       setIsCreatingFolder(false);
     }
@@ -122,44 +149,344 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
     );
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const droppedFiles = Array.from(e.target.files || []);
-    if (droppedFiles.length === 0) return;
+  const uploadFiles = async (files: File[], targetFolderId: string = folder.id, onProgress?: (current: number, total: number) => void) => {
+    if (files.length === 0) return;
 
+    // Vérifier la limite de fichiers
+    if (files.length > MAX_FILES_PER_UPLOAD) {
+      setLimitModal({ isOpen: true, selectedCount: files.length });
+      return;
+    }
+
+    // Si onProgress est fourni, on ne gère pas l'état local (utilisé pour les dossiers)
+    // Sinon, on gère l'état local (upload direct de fichiers)
+    const isLocalUpload = !onProgress;
+    
+    if (isLocalUpload) {
     setIsUploading(true);
+      setUploadProgress({ current: 0, total: files.length });
+    }
+    
+    const uploadedCountRef = { current: 0 };
+    
     try {
-      const CONCURRENCY = 5;
-      for (let i = 0; i < droppedFiles.length; i += CONCURRENCY) {
-        const batch = droppedFiles.slice(i, i + CONCURRENCY);
-        await Promise.all(batch.map(async (file) => {
+      // Concurrence maximale pour optimiser la vitesse
+      const CONCURRENCY = 50;
+      
+      // Préparer tous les presigned URLs en parallèle
+      const uploadTasks = files.map(async (file) => {
           const { uploadUrl, s3Key } = await getPresignedUploadUrlAction({
             name: file.name,
             size: file.size,
             mimeType: file.type,
-            folderId: folder.id,
-          });
+          folderId: targetFolderId,
+        });
+        return { file, uploadUrl, s3Key };
+      });
 
+      const preparedTasks = await Promise.all(uploadTasks);
+      
+      // Uploader les fichiers en parallèle avec concurrence maximale
+      for (let i = 0; i < preparedTasks.length; i += CONCURRENCY) {
+        const batch = preparedTasks.slice(i, i + CONCURRENCY);
+        await Promise.all(batch.map(async ({ file, uploadUrl, s3Key }) => {
+          // Upload vers S3 (bloquant pour la progression)
           await fetch(uploadUrl, {
             method: "PUT",
             body: file,
             headers: { "Content-Type": file.type || "application/octet-stream" },
           });
 
-          await confirmFileUploadAction({
+          // Mettre à jour la progression immédiatement après l'upload S3
+          uploadedCountRef.current++;
+          const current = uploadedCountRef.current;
+          
+          if (isLocalUpload) {
+            setUploadProgress({ current, total: files.length });
+          }
+          if (onProgress) {
+            onProgress(current, files.length);
+          }
+
+          // Confirmer l'upload en arrière-plan (non-bloquant)
+          confirmFileUploadAction({
             name: file.name,
             size: file.size,
             mimeType: file.type,
             s3Key: s3Key,
-            folderId: folder.id,
-          });
+            folderId: targetFolderId,
+          }).catch(err => console.error("Erreur confirmation:", err));
         }));
       }
+      
       router.refresh();
     } catch (error) {
-      alert("Erreur lors de l'upload");
+      setErrorModal({
+        isOpen: true,
+        title: "Erreur d'upload",
+        message: "Erreur lors de l'upload des fichiers"
+      });
+    } finally {
+      if (isLocalUpload) {
+        setIsUploading(false);
+        setUploadProgress({ current: 0, total: 0 });
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  // Fonction récursive pour lire les fichiers d'un dossier
+  const readDirectoryEntries = async (
+    directoryEntry: FileSystemDirectoryEntry
+  ): Promise<{ files: File[]; subFolders: { name: string; entry: FileSystemDirectoryEntry }[] }> => {
+    const files: File[] = [];
+    const subFolders: { name: string; entry: FileSystemDirectoryEntry }[] = [];
+
+    return new Promise((resolve) => {
+      const reader = directoryEntry.createReader();
+      const readEntries = () => {
+        reader.readEntries((entries) => {
+          if (entries.length === 0) {
+            resolve({ files, subFolders });
+            return;
+          }
+
+          const promises = entries.map((entry) => {
+            return new Promise<void>((resolveEntry) => {
+              if (entry.isFile) {
+                (entry as FileSystemFileEntry).file((file) => {
+                  files.push(file);
+                  resolveEntry();
+                });
+              } else if (entry.isDirectory) {
+                subFolders.push({
+                  name: entry.name,
+                  entry: entry as FileSystemDirectoryEntry,
+                });
+                resolveEntry();
+              } else {
+                resolveEntry();
+              }
+            });
+          });
+
+          Promise.all(promises).then(() => {
+            readEntries(); // Continuer à lire
+          });
+        });
+      };
+
+      readEntries();
+    });
+  };
+
+  // Fonction récursive pour compter tous les fichiers dans un dossier
+  const countAllFilesInDirectory = async (
+    directoryEntry: FileSystemDirectoryEntry
+  ): Promise<number> => {
+    const { files, subFolders } = await readDirectoryEntries(directoryEntry);
+    let totalCount = files.length;
+    
+    // Compter récursivement dans les sous-dossiers
+    for (const subFolder of subFolders) {
+      totalCount += await countAllFilesInDirectory(subFolder.entry);
+    }
+    
+    return totalCount;
+  };
+
+  // Fonction récursive pour créer un dossier et uploader son contenu
+  const createFolderAndUploadContent = async (
+    folderName: string,
+    parentFolderId: string,
+    directoryEntry: FileSystemDirectoryEntry,
+    onFileUploaded: () => void
+  ): Promise<void> => {
+    try {
+      // Créer le dossier
+      const newFolderId = await createFolderAction(folderName, parentFolderId);
+      
+      // Lire le contenu du dossier
+      const { files, subFolders } = await readDirectoryEntries(directoryEntry);
+      
+      // Uploader les fichiers et créer les sous-dossiers en parallèle pour optimiser
+      const uploadPromise = files.length > 0 ? (async () => {
+        let lastProgress = 0;
+        await uploadFiles(files, newFolderId, (current, total) => {
+          // Pour chaque nouveau fichier uploadé depuis le dernier appel, appeler onFileUploaded
+          const newFilesCount = current - lastProgress;
+          for (let i = 0; i < newFilesCount; i++) {
+            onFileUploaded();
+          }
+          lastProgress = current;
+        });
+      })() : Promise.resolve();
+      
+      // Créer récursivement les sous-dossiers en parallèle (optimisation maximale)
+      const subFolderPromises = subFolders.map(subFolder =>
+        createFolderAndUploadContent(subFolder.name, newFolderId, subFolder.entry, onFileUploaded)
+      );
+      
+      // Attendre que les fichiers ET les sous-dossiers soient traités en parallèle
+      await Promise.all([uploadPromise, ...subFolderPromises]);
+    } catch (error: any) {
+      console.error(`Erreur lors de la création du dossier "${folderName}":`, error);
+      throw error;
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const droppedFiles = Array.from(e.target.files || []);
+    await uploadFiles(droppedFiles);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (canEdit) {
+      setIsDraggingOver(true);
+      e.dataTransfer.dropEffect = "copy";
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Vérifier si on quitte vraiment le conteneur
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      setIsDraggingOver(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    
+    if (!canEdit) {
+      setErrorModal({
+        isOpen: true,
+        title: "Permission refusée",
+        message: "Vous n'avez pas les permissions pour ajouter des fichiers ou dossiers"
+      });
+      return;
+    }
+
+    const items = Array.from(e.dataTransfer.items || []);
+    if (items.length === 0) {
+      // Fallback: essayer avec dataTransfer.files
+      const droppedFiles = Array.from(e.dataTransfer.files || []);
+      if (droppedFiles.length > 0) {
+        await uploadFiles(droppedFiles);
+      }
+      return;
+    }
+
+    const files: File[] = [];
+    const folderPromises: Promise<void>[] = [];
+    let totalFilesToUpload = 0;
+
+    try {
+      // Compter d'abord tous les fichiers pour vérifier la limite
+      for (const item of items) {
+        if (item.kind === "file") {
+          const entry = item.webkitGetAsEntry();
+          if (entry) {
+            if (entry.isFile) {
+              totalFilesToUpload++;
+            } else if (entry.isDirectory) {
+              try {
+                const dirEntry = entry as FileSystemDirectoryEntry;
+                const folderFileCount = await countAllFilesInDirectory(dirEntry);
+                totalFilesToUpload += folderFileCount;
+              } catch (error) {
+                console.error("Erreur lors du comptage des fichiers du dossier:", error);
+              }
+            }
+          }
+        }
+      }
+
+      // Vérifier la limite globale
+      if (totalFilesToUpload > MAX_FILES_PER_UPLOAD) {
+        setLimitModal({ isOpen: true, selectedCount: totalFilesToUpload });
+        return;
+      }
+
+      // Initialiser l'upload
+      setIsUploading(true);
+      setUploadProgress({ current: 0, total: totalFilesToUpload || 1 });
+
+      let uploadedFilesCounter = 0;
+      const onFileUploaded = () => {
+        uploadedFilesCounter++;
+        setUploadProgress({ current: uploadedFilesCounter, total: totalFilesToUpload || uploadedFilesCounter });
+      };
+
+      // Traiter tous les items pour lire les fichiers et créer les dossiers
+      for (const item of items) {
+        if (item.kind === "file") {
+          const entry = item.webkitGetAsEntry();
+          if (entry) {
+            if (entry.isFile) {
+              try {
+                const file = await new Promise<File>((resolve, reject) => {
+                  (entry as FileSystemFileEntry).file(resolve, reject);
+                });
+                files.push(file);
+              } catch (error) {
+                console.error("Erreur lors de la lecture du fichier:", error);
+              }
+            } else if (entry.isDirectory) {
+              // Créer le dossier et uploader son contenu récursivement
+              const dirEntry = entry as FileSystemDirectoryEntry;
+              folderPromises.push(
+                createFolderAndUploadContent(entry.name, folder.id, dirEntry, onFileUploaded).catch((error) => {
+                  console.error(`Erreur lors de la création du dossier "${entry.name}":`, error);
+                  setErrorModal({
+                    isOpen: true,
+                    title: "Erreur",
+                    message: error.message || `Erreur lors de la création du dossier "${entry.name}"`
+                  });
+                })
+              );
+            }
+          }
+        }
+      }
+
+      // Uploader les fichiers directement dans le dossier actuel
+      if (files.length > 0) {
+        let lastCount = 0;
+        await uploadFiles(files, folder.id, (current, total) => {
+          // Pour chaque nouveau fichier uploadé, appeler onFileUploaded
+          const newFiles = current - lastCount;
+          for (let i = 0; i < newFiles; i++) {
+            onFileUploaded();
+          }
+          lastCount = current;
+        });
+      }
+
+      // Attendre que tous les dossiers soient créés
+      if (folderPromises.length > 0) {
+        await Promise.all(folderPromises);
+      }
+
+      router.refresh();
+    } catch (error: any) {
+      console.error("Erreur globale dans handleDrop:", error);
+      setErrorModal({
+        isOpen: true,
+        title: "Erreur",
+        message: error.message || "Erreur lors du dépôt des fichiers"
+      });
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setUploadProgress({ current: 0, total: 0 });
     }
   };
 
@@ -168,7 +495,11 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
       const url = await getFileDownloadUrlAction(fileId);
       window.open(url, "_blank");
     } catch (error) {
-      alert("Erreur lors du téléchargement");
+      setErrorModal({
+        isOpen: true,
+        title: "Erreur",
+        message: "Erreur lors du téléchargement"
+      });
     }
   };
 
@@ -211,7 +542,23 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto text-black animate-in fade-in duration-700 select-none">
+    <div 
+      className={`p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto text-black animate-in fade-in duration-700 select-none relative ${
+        isDraggingOver && canEdit ? "bg-brand-primary/5 border-2 border-dashed border-brand-primary rounded-2xl" : ""
+      }`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDraggingOver && canEdit && (
+        <div className="absolute inset-0 flex items-center justify-center bg-brand-primary/10 backdrop-blur-sm rounded-2xl z-50 pointer-events-none">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl border-2 border-brand-primary">
+            <Upload className="w-12 h-12 text-brand-primary mx-auto mb-4" />
+            <p className="text-lg font-semibold text-black text-center">Déposez vos fichiers ici</p>
+            <p className="text-sm text-black/40 text-center mt-2">Les fichiers et dossiers seront ajoutés</p>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8 lg:mb-12">
         <div className="flex items-center gap-3 sm:gap-6">
           <Link 
@@ -251,43 +598,63 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
           </AnimatePresence>
 
           {canEdit && (
-            <button 
-              onClick={() => setShowCreateInput(true)}
-              className="h-9 sm:h-11 px-3 sm:px-5 bg-white border border-black/10 rounded-lg sm:rounded-xl text-xs sm:text-[13px] font-semibold hover:bg-black/5 transition-all flex items-center gap-1.5 sm:gap-2 shadow-sm text-black flex-shrink-0"
-            >
-              <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 opacity-40" />
-              <span className="hidden sm:inline">Nouveau sous-dossier</span>
-              <span className="sm:hidden">Sous-dossier</span>
-            </button>
+          <button 
+            onClick={() => setShowCreateInput(true)}
+            className="h-9 sm:h-11 px-3 sm:px-5 bg-white border border-black/10 rounded-lg sm:rounded-xl text-xs sm:text-[13px] font-semibold hover:bg-black/5 transition-all flex items-center gap-1.5 sm:gap-2 shadow-sm text-black flex-shrink-0"
+          >
+            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 opacity-40" />
+            <span className="hidden sm:inline">Nouveau sous-dossier</span>
+            <span className="sm:hidden">Sous-dossier</span>
+          </button>
           )}
           {canShare && (
-            <button 
-              onClick={() => setIsShareModalOpen(true)}
-              className="h-9 sm:h-11 px-3 sm:px-5 bg-white border border-black/10 rounded-lg sm:rounded-xl text-xs sm:text-[13px] font-semibold hover:bg-black/5 transition-all flex items-center gap-1.5 sm:gap-2 shadow-sm text-black flex-shrink-0"
-            >
-              <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 opacity-40" />
-              <span className="hidden sm:inline">Partager</span>
-              <span className="sm:hidden">Partager</span>
-            </button>
+          <button 
+            onClick={() => setIsShareModalOpen(true)}
+            className="h-9 sm:h-11 px-3 sm:px-5 bg-white border border-black/10 rounded-lg sm:rounded-xl text-xs sm:text-[13px] font-semibold hover:bg-black/5 transition-all flex items-center gap-1.5 sm:gap-2 shadow-sm text-black flex-shrink-0"
+          >
+            <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 opacity-40" />
+            <span className="hidden sm:inline">Partager</span>
+            <span className="sm:hidden">Partager</span>
+          </button>
           )}
           
           {canEdit && (
             <>
-              <input 
-                type="file" 
-                multiple
-                className="hidden" 
-                ref={fileInputRef}
-                onChange={handleFileUpload}
-              />
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="h-9 sm:h-11 px-4 sm:px-6 bg-black text-white rounded-lg sm:rounded-xl font-semibold text-xs sm:text-[13px] disabled:opacity-50 shadow-lg shadow-black/10 hover:bg-black/90 transition-all flex items-center gap-1.5 sm:gap-2 flex-shrink-0"
-              >
-                {isUploading ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                {isUploading ? "Envoi..." : "Ajouter"}
-              </button>
+          <input 
+            type="file" 
+            multiple
+            className="hidden" 
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+          />
+          <div className="flex flex-col items-end gap-2">
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="h-9 sm:h-11 px-4 sm:px-6 bg-black text-white rounded-lg sm:rounded-xl font-semibold text-xs sm:text-[13px] disabled:opacity-50 shadow-lg shadow-black/10 hover:bg-black/90 transition-all flex items-center gap-1.5 sm:gap-2 flex-shrink-0"
+          >
+            {isUploading ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+            {isUploading ? "Envoi..." : "Ajouter"}
+          </button>
+            {isUploading && uploadProgress.total > 0 && (
+              <div className="w-full sm:w-auto min-w-[200px] sm:min-w-[250px] bg-black/5 rounded-lg sm:rounded-xl p-2 sm:p-2.5">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-black/60">
+                    {uploadProgress.current} / {uploadProgress.total} fichiers
+                  </span>
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-black/60">
+                    {Math.round((uploadProgress.current / uploadProgress.total) * 100)}%
+                  </span>
+                </div>
+                <div className="w-full bg-black/10 rounded-full h-1.5 sm:h-2 overflow-hidden">
+                  <div 
+                    className="h-full bg-brand-primary transition-all duration-300 ease-out rounded-full"
+                    style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
             </>
           )}
         </div>
@@ -387,14 +754,14 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
                   </td>
                   <td className="px-8 py-6 text-right">
                     {canEdit && (
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                        <button 
-                          onClick={(e) => handleDeleteSubFolder(child.id, e)}
-                          className="p-3 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                      <button 
+                        onClick={(e) => handleDeleteSubFolder(child.id, e)}
+                        className="p-3 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
                     )}
                   </td>
                 </tr>
@@ -433,12 +800,12 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
                         <Download className="w-5 h-5" />
                       </button>
                       {canEdit && (
-                        <button 
-                          onClick={(e) => handleDeleteFile(file.id, e)}
-                          className="p-3 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
+                      <button 
+                        onClick={(e) => handleDeleteFile(file.id, e)}
+                        className="p-3 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
                       )}
                     </div>
                   </td>
@@ -535,12 +902,12 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
                 </div>
               </Link>
               {canEdit && (
-                <button 
-                  onClick={(e) => handleDeleteSubFolder(child.id, e)}
-                  className="p-2 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all flex-shrink-0"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+              <button 
+                onClick={(e) => handleDeleteSubFolder(child.id, e)}
+                className="p-2 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all flex-shrink-0"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
               )}
             </div>
           </div>
@@ -583,12 +950,12 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
                   <Download className="w-4 h-4" />
                 </button>
                 {canEdit && (
-                  <button 
-                    onClick={(e) => handleDeleteFile(file.id, e)}
-                    className="p-2 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                <button 
+                  onClick={(e) => handleDeleteFile(file.id, e)}
+                  className="p-2 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
                 )}
               </div>
             </div>
@@ -611,6 +978,52 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
         message={confirmModal.message}
         isDestructive={confirmModal.isDestructive}
       />
+
+      <ErrorModal
+        isOpen={errorModal.isOpen}
+        onClose={() => setErrorModal({ isOpen: false, title: "", message: "" })}
+        title={errorModal.title}
+        message={errorModal.message}
+      />
+
+      {/* Modal pour la limite de fichiers */}
+      {limitModal.isOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/20" onClick={() => setLimitModal({ isOpen: false, selectedCount: 0 })}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-black/[0.05]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-8 text-center space-y-6">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto bg-orange-50 text-orange-500">
+                <AlertTriangle className="w-8 h-8" />
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="text-xl font-medium tracking-tight text-black">Limite de fichiers dépassée</h3>
+                <p className="text-[15px] text-black/40 font-normal leading-relaxed">
+                  Vous avez sélectionné <strong className="text-black">{limitModal.selectedCount} fichiers</strong>, mais la limite est de <strong className="text-black">{MAX_FILES_PER_UPLOAD} fichiers</strong> maximum par upload.
+                </p>
+                <p className="text-[14px] text-black/30 font-normal mt-3">
+                  Veuillez réduire le nombre de fichiers ou diviser votre upload en plusieurs fois.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setLimitModal({ isOpen: false, selectedCount: 0 })}
+                  className="flex-1 px-6 py-3 bg-black text-white hover:bg-black/90 rounded-xl text-[14px] font-medium transition-all"
+                >
+                  Compris
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

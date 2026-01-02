@@ -36,8 +36,8 @@ export async function getPresignedUploadUrlAction(data: {
 
   const [permsByUserId, permsByEmail] = await Promise.all([
     db.collection("permissions")
-      .where("folderId", "==", data.folderId)
-      .where("userId", "==", userId)
+    .where("folderId", "==", data.folderId)
+    .where("userId", "==", userId)
       .get(),
     userEmail ? db.collection("permissions")
       .where("folderId", "==", data.folderId)
@@ -203,8 +203,8 @@ export async function deleteFileAction(fileId: string) {
 
   const [permsByUserId, permsByEmail] = await Promise.all([
     db.collection("permissions")
-      .where("folderId", "==", fileData.folderId)
-      .where("userId", "==", userId)
+    .where("folderId", "==", fileData.folderId)
+    .where("userId", "==", userId)
       .get(),
     userEmail ? db.collection("permissions")
       .where("folderId", "==", fileData.folderId)
