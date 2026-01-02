@@ -43,18 +43,18 @@ export async function createShareLink(data: {
 }
 
 export async function validateShareLink(token: string) {
-  console.log("[VALIDATE_SHARE] Starting validation for token:", token.substring(0, 10) + "...");
+  console.error("[VALIDATE_SHARE] Starting validation for token:", token.substring(0, 10) + "...");
   try {
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-    console.log("[VALIDATE_SHARE] Token hash calculated");
+    console.error("[VALIDATE_SHARE] Token hash calculated");
 
-    console.log("[VALIDATE_SHARE] Querying shareLinks collection");
+    console.error("[VALIDATE_SHARE] Querying shareLinks collection");
     const snapshot = await db.collection("shareLinks")
       .where("tokenHash", "==", tokenHash)
       .limit(1)
       .get();
 
-    console.log("[VALIDATE_SHARE] Query result:", snapshot.empty ? "EMPTY" : "FOUND");
+    console.error("[VALIDATE_SHARE] Query result:", snapshot.empty ? "EMPTY" : "FOUND");
 
     if (snapshot.empty) {
       console.error("[VALIDATE_SHARE] No link found for token hash");
@@ -63,7 +63,7 @@ export async function validateShareLink(token: string) {
 
     const linkDoc = snapshot.docs[0];
     const linkData = linkDoc.data();
-    console.log("[VALIDATE_SHARE] Link data retrieved:", {
+    console.error("[VALIDATE_SHARE] Link data retrieved:", {
       linkId: linkDoc.id,
       folderId: linkData?.folderId,
       isRevoked: linkData?.isRevoked,
@@ -76,33 +76,33 @@ export async function validateShareLink(token: string) {
     }
 
     // Vérifier expiration
-    console.log("[VALIDATE_SHARE] Checking expiration");
+    console.error("[VALIDATE_SHARE] Checking expiration");
     if (linkData.expiresAt) {
       const expiresAt = linkData.expiresAt?.toDate ? linkData.expiresAt.toDate() : new Date(linkData.expiresAt);
       if (expiresAt < new Date()) {
-        console.log("[VALIDATE_SHARE] Link expired");
+        console.error("[VALIDATE_SHARE] Link expired");
         return { error: "EXPIRED", linkId: linkDoc.id, folderId: linkData.folderId };
       }
     }
 
     // Vérifier limites de vues
-    console.log("[VALIDATE_SHARE] Checking view quota");
+    console.error("[VALIDATE_SHARE] Checking view quota");
     if (linkData.maxViews && (linkData.viewCount || 0) > linkData.maxViews) {
-      console.log("[VALIDATE_SHARE] View quota exceeded");
+      console.error("[VALIDATE_SHARE] View quota exceeded");
       return { error: "QUOTA_EXCEEDED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
     // Vérifier si révoqué manuellement
-    console.log("[VALIDATE_SHARE] Checking if revoked");
+    console.error("[VALIDATE_SHARE] Checking if revoked");
     if (linkData.isRevoked === true) {
-      console.log("[VALIDATE_SHARE] Link is revoked");
+      console.error("[VALIDATE_SHARE] Link is revoked");
       return { error: "REVOKED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
     // Récupérer le dossier, les fichiers et les sous-dossiers
-    console.log("[VALIDATE_SHARE] Fetching folder:", linkData.folderId);
+    console.error("[VALIDATE_SHARE] Fetching folder:", linkData.folderId);
     const folderDoc = await db.collection("folders").doc(linkData.folderId).get();
-    console.log("[VALIDATE_SHARE] Folder exists:", folderDoc.exists);
+    console.error("[VALIDATE_SHARE] Folder exists:", folderDoc.exists);
     
     if (!folderDoc.exists) {
       console.error("[VALIDATE_SHARE] Folder does not exist, revoking link");
@@ -113,7 +113,7 @@ export async function validateShareLink(token: string) {
           revokedAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        console.log("[VALIDATE_SHARE] Link revoked successfully");
+        console.error("[VALIDATE_SHARE] Link revoked successfully");
       } catch (e) {
         console.error("[VALIDATE_SHARE] Error revoking link:", e);
       }
@@ -121,7 +121,7 @@ export async function validateShareLink(token: string) {
     }
 
     const folderData = folderDoc.data();
-    console.log("[VALIDATE_SHARE] Folder data:", {
+    console.error("[VALIDATE_SHARE] Folder data:", {
       name: folderData?.name,
       isDeleted: folderData?.isDeleted,
       workspaceId: folderData?.workspaceId
@@ -129,7 +129,7 @@ export async function validateShareLink(token: string) {
     
     // Vérifier si le dossier est supprimé (isDeleted = true)
     if (folderData?.isDeleted === true) {
-      console.log("[VALIDATE_SHARE] Folder is deleted, revoking link");
+      console.error("[VALIDATE_SHARE] Folder is deleted, revoking link");
       // Si le dossier est dans la corbeille, révoquer automatiquement le lien
       try {
         await db.collection("shareLinks").doc(linkDoc.id).update({
@@ -137,7 +137,7 @@ export async function validateShareLink(token: string) {
           revokedAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        console.log("[VALIDATE_SHARE] Link revoked successfully");
+        console.error("[VALIDATE_SHARE] Link revoked successfully");
       } catch (e) {
         console.error("[VALIDATE_SHARE] Error revoking link:", e);
       }
@@ -145,7 +145,7 @@ export async function validateShareLink(token: string) {
     }
 
     // Récupérer les fichiers et sous-dossiers avec gestion d'erreur
-    console.log("[VALIDATE_SHARE] Fetching files and children");
+    console.error("[VALIDATE_SHARE] Fetching files and children");
     let filesSnapshot: any = { docs: [] };
     let childrenSnapshot: any = { docs: [] };
     
@@ -154,7 +154,7 @@ export async function validateShareLink(token: string) {
         db.collection("files").where("folderId", "==", linkData.folderId).get(),
         db.collection("folders").where("parentId", "==", linkData.folderId).get(),
       ]);
-      console.log("[VALIDATE_SHARE] Files and children fetched:", {
+      console.error("[VALIDATE_SHARE] Files and children fetched:", {
         filesCount: filesSnapshot.docs?.length || 0,
         childrenCount: childrenSnapshot.docs?.length || 0
       });
@@ -176,7 +176,7 @@ export async function validateShareLink(token: string) {
       },
     };
 
-    console.log("[VALIDATE_SHARE] Validation successful, returning result");
+    console.error("[VALIDATE_SHARE] Validation successful, returning result");
     return result;
   } catch (error: any) {
     console.error("[VALIDATE_SHARE] CRITICAL ERROR in validateShareLink:", error);

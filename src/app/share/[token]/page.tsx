@@ -15,13 +15,13 @@ export default async function PublicSharePage({
   params: Promise<{ token: string }>, 
   searchParams: Promise<{ pwd?: string }> 
 }) {
-  console.log("[SHARE_PAGE] Starting PublicSharePage");
+  console.error("[SHARE_PAGE] Starting PublicSharePage");
   try {
-    console.log("[SHARE_PAGE] Awaiting params and searchParams");
+    console.error("[SHARE_PAGE] Awaiting params and searchParams");
     const { token } = await params;
     const { pwd } = await searchParams;
-    console.log("[SHARE_PAGE] Token received:", token ? `${token.substring(0, 10)}...` : "null");
-    console.log("[SHARE_PAGE] Password provided:", !!pwd);
+    console.error("[SHARE_PAGE] Token received:", token ? `${token.substring(0, 10)}...` : "null");
+    console.error("[SHARE_PAGE] Password provided:", !!pwd);
     
     if (!token || typeof token !== 'string') {
       console.error("[SHARE_PAGE] Invalid token:", token);
@@ -42,9 +42,9 @@ export default async function PublicSharePage({
     
     let result;
     try {
-      console.log("[SHARE_PAGE] Calling validateShareLink with token:", token.substring(0, 10) + "...");
+      console.error("[SHARE_PAGE] Calling validateShareLink with token:", token.substring(0, 10) + "...");
       result = await validateShareLink(token);
-      console.log("[SHARE_PAGE] validateShareLink result:", result ? ((result as any).error ? `ERROR: ${(result as any).error}` : "SUCCESS") : "NULL");
+      console.error("[SHARE_PAGE] validateShareLink result:", result ? ((result as any).error ? `ERROR: ${(result as any).error}` : "SUCCESS") : "NULL");
     } catch (error: any) {
       console.error("[SHARE_PAGE] CRITICAL ERROR in validateShareLink:", error);
       console.error("[SHARE_PAGE] Error message:", error?.message);
@@ -68,16 +68,16 @@ export default async function PublicSharePage({
     }
 
     // 1. Gérer les erreurs de validation
-    console.log("[SHARE_PAGE] Checking result for errors");
+    console.error("[SHARE_PAGE] Checking result for errors");
     if (!result || (result as any).error) {
       const errorResult = result as any;
-      console.log("[SHARE_PAGE] Error result detected:", errorResult?.error);
-      console.log("[SHARE_PAGE] Error folderId:", errorResult?.folderId);
+      console.error("[SHARE_PAGE] Error result detected:", errorResult?.error);
+      console.error("[SHARE_PAGE] Error folderId:", errorResult?.folderId);
       
       // Récupérer le propriétaire pour notifier de l'expiration/quota (sans bloquer si ça échoue)
       if (errorResult?.folderId) {
         try {
-          console.log("[SHARE_PAGE] Attempting to get owner for folder:", errorResult.folderId);
+          console.error("[SHARE_PAGE] Attempting to get owner for folder:", errorResult.folderId);
           const ownerPerm = await db.collection("permissions")
             .where("folderId", "==", errorResult.folderId)
             .where("role", "==", "OWNER")
@@ -85,7 +85,7 @@ export default async function PublicSharePage({
             .get();
           
           const ownerId = !ownerPerm.empty ? ownerPerm.docs[0].data()?.userId : null;
-          console.log("[SHARE_PAGE] Owner ID:", ownerId);
+          console.error("[SHARE_PAGE] Owner ID:", ownerId);
           
           if (ownerId && errorResult.error === "EXPIRED") {
             try {
@@ -121,7 +121,7 @@ export default async function PublicSharePage({
     }
 
     const link = result as any;
-    console.log("[SHARE_PAGE] Link object received:", {
+    console.error("[SHARE_PAGE] Link object received:", {
       hasLink: !!link,
       hasFolderId: !!link?.folderId,
       hasFolder: !!link?.folder,
@@ -148,7 +148,7 @@ export default async function PublicSharePage({
     }
 
     // Vérifier que le dossier existe toujours
-    console.log("[SHARE_PAGE] Checking folder existence");
+    console.error("[SHARE_PAGE] Checking folder existence");
     if (!link.folder) {
       console.error("[SHARE_PAGE] Folder object missing from link");
       return (
@@ -167,7 +167,7 @@ export default async function PublicSharePage({
     }
 
     // 2. Récupérer le propriétaire pour les notifications de succès (sans bloquer)
-    console.log("[SHARE_PAGE] Getting owner for folder:", link.folderId);
+    console.error("[SHARE_PAGE] Getting owner for folder:", link.folderId);
     let ownerId: string | null = null;
     try {
       const ownerPerm = await db.collection("permissions")
@@ -177,16 +177,16 @@ export default async function PublicSharePage({
         .get();
       
       ownerId = !ownerPerm.empty ? ownerPerm.docs[0].data()?.userId || null : null;
-      console.log("[SHARE_PAGE] Owner ID retrieved:", ownerId);
+      console.error("[SHARE_PAGE] Owner ID retrieved:", ownerId);
     } catch (e) {
       console.error("[SHARE_PAGE] Error getting owner:", e);
     }
 
     // 3. Incrémenter le nombre de vues via analytics (sans bloquer)
-    console.log("[SHARE_PAGE] Tracking link activity for link:", link.id);
+    console.error("[SHARE_PAGE] Tracking link activity for link:", link.id);
     try {
       await trackLinkActivity(link.id, "VIEW");
-      console.log("[SHARE_PAGE] Link activity tracked successfully");
+      console.error("[SHARE_PAGE] Link activity tracked successfully");
     } catch (e) {
       console.error("[SHARE_PAGE] Error tracking link activity:", e);
       // Ne pas bloquer si le tracking échoue
@@ -263,7 +263,7 @@ export default async function PublicSharePage({
     }
 
     // Vérifier que link.folder existe et a les données nécessaires
-    console.log("[SHARE_PAGE] Final folder check:", {
+    console.error("[SHARE_PAGE] Final folder check:", {
       hasFolder: !!link.folder,
       folderName: link.folder?.name,
       filesCount: link.folder?.files?.length || 0,
@@ -292,7 +292,7 @@ export default async function PublicSharePage({
     const files = Array.isArray(link.folder.files) ? link.folder.files : [];
     const children = Array.isArray(link.folder.children) ? link.folder.children : [];
 
-    console.log("[SHARE_PAGE] Rendering share page successfully:", {
+    console.error("[SHARE_PAGE] Rendering share page successfully:", {
       folderName,
       filesCount: files.length,
       childrenCount: children.length
