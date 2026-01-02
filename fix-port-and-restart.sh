@@ -40,16 +40,21 @@ if command -v fuser &> /dev/null; then
     sleep 1
 fi
 
-# Méthode 3: ss + kill
+# Méthode 3: ss + kill (plus agressif)
 if command -v ss &> /dev/null; then
     SS_OUTPUT=$(ss -tlnp 2>/dev/null | grep ":3000" || true)
     if [ ! -z "$SS_OUTPUT" ]; then
         echo "   → Processus trouvés avec ss, arrêt..."
         SS_PIDS=$(echo "$SS_OUTPUT" | grep -oP 'pid=\K[0-9]+' || true)
         if [ ! -z "$SS_PIDS" ]; then
-            echo "$SS_PIDS" | xargs kill -9 2>/dev/null || true
+            echo "   → PIDs à tuer: $SS_PIDS"
+            for pid in $SS_PIDS; do
+                echo "   → Tentative de kill pour PID: $pid"
+                kill -9 $pid 2>/dev/null || true
+                sleep 0.5
+            done
         fi
-        sleep 1
+        sleep 2
     fi
 fi
 
