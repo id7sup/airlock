@@ -232,21 +232,26 @@ export default async function PublicSharePage({
     }
 
     // Vérifier que link.folder existe et a les données nécessaires
-    if (!link.folder || !link.folder.name) {
+    if (!link.folder) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
           <div className="apple-card p-12 text-center max-w-md shadow-2xl">
             <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <Info className="w-8 h-8" />
             </div>
-            <h1 className="text-2xl font-bold mb-2 tracking-tight">Erreur</h1>
+            <h1 className="text-2xl font-bold mb-2 tracking-tight">Dossier introuvable</h1>
             <p className="text-apple-secondary font-medium">
-              Les données du dossier sont incomplètes.
+              Le dossier partagé n'existe plus ou a été supprimé.
             </p>
           </div>
         </div>
       );
     }
+
+    // Vérifier que le nom du dossier existe
+    const folderName = link.folder.name || "Dossier sans nom";
+    const files = Array.isArray(link.folder.files) ? link.folder.files : [];
+    const children = Array.isArray(link.folder.children) ? link.folder.children : [];
 
     return (
       <div className="min-h-screen bg-apple-gray py-12 px-6 text-apple-text animate-in fade-in duration-700">
@@ -263,17 +268,17 @@ export default async function PublicSharePage({
                   <FolderOpen className="w-8 h-8 fill-current" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold tracking-tight">{link.folder.name}</h1>
+                  <h1 className="text-2xl font-bold tracking-tight">{folderName}</h1>
                   <p className="text-apple-secondary text-sm font-semibold uppercase tracking-widest mt-1 opacity-50">
-                    {(link.folder.files?.length || 0)} fichiers • Partage Sécurisé
+                    {files.length} fichiers • Partage Sécurisé
                   </p>
                 </div>
               </div>
             </div>
 
             <FileList 
-              files={link.folder.files || []} 
-              children={link.folder.children || []}
+              files={files} 
+              children={children}
               shareLinkId={link.id} 
               token={token} 
             />

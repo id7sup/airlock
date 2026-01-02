@@ -110,19 +110,28 @@ export async function validateShareLink(token: string) {
       return { error: "REVOKED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
-    const [filesSnapshot, childrenSnapshot] = await Promise.all([
-      db.collection("files").where("folderId", "==", linkData.folderId).get(),
-      db.collection("folders").where("parentId", "==", linkData.folderId).get(),
-    ]);
+    // Récupérer les fichiers et sous-dossiers avec gestion d'erreur
+    let filesSnapshot: any = { docs: [] };
+    let childrenSnapshot: any = { docs: [] };
+    
+    try {
+      [filesSnapshot, childrenSnapshot] = await Promise.all([
+        db.collection("files").where("folderId", "==", linkData.folderId).get(),
+        db.collection("folders").where("parentId", "==", linkData.folderId).get(),
+      ]);
+    } catch (error) {
+      console.error("Error fetching files/children for share link:", error);
+      // Continuer avec des tableaux vides plutôt que de crasher
+    }
 
     return {
       id: linkDoc.id,
       ...linkData,
       folder: {
         id: folderDoc.id,
-        name: folderDoc.data()?.name || "Dossier inconnu",
-        files: filesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-        children: childrenSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+        name: folderData?.name || "Dossier inconnu",
+        files: filesSnapshot.docs?.map((doc: any) => ({ id: doc.id, ...doc.data() })) || [],
+        children: childrenSnapshot.docs?.map((doc: any) => ({ id: doc.id, ...doc.data() })) || [],
       },
     };
   } catch (error) {

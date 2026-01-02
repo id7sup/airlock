@@ -58,26 +58,47 @@ export default async function SharingDashboardPage() {
   }
 
   // 3. Enrichir les liens avec le nom du dossier et les analytics
-  const links = await Promise.all(uniqueLinkDocs.map(async (doc) => {
+  // FILTRER les liens dont le dossier est supprimé ou n'existe plus
+  const linksWithFolders = await Promise.all(uniqueLinkDocs.map(async (doc) => {
     const data = doc.data();
     
-    const folderDoc = await db.collection("folders").doc(data.folderId).get();
-    const analytics = await getLinkAnalytics(doc.id);
+    try {
+      const folderDoc = await db.collection("folders").doc(data.folderId).get();
+      
+      // Si le dossier n'existe plus ou est supprimé, exclure ce lien
+      if (!folderDoc.exists) {
+        return null;
+      }
+      
+      const folderData = folderDoc.data();
+      if (folderData?.isDeleted === true) {
+        return null;
+      }
+      
+      const analytics = await getLinkAnalytics(doc.id).catch(() => null);
 
-    return {
-      id: doc.id,
-      token: data.token || "", 
-      folderId: data.folderId,
-      folderName: folderDoc.data()?.name || "Dossier inconnu",
-      viewCount: data.viewCount || 0,
-      downloadCount: data.downloadCount || 0,
-      allowDownload: data.allowDownload !== false,
-      maxViews: data.maxViews || null,
-      expiresAt: data.expiresAt?.toDate().toISOString() || null,
-      createdAt: data.createdAt?.toDate().toISOString() || new Date().toISOString(),
-      analytics: analytics
-    };
+      return {
+        id: doc.id,
+        token: data.token || "", 
+        folderId: data.folderId,
+        folderName: folderData?.name || "Dossier inconnu",
+        viewCount: data.viewCount || 0,
+        downloadCount: data.downloadCount || 0,
+        allowDownload: data.allowDownload !== false,
+        maxViews: data.maxViews || null,
+        expiresAt: data.expiresAt?.toDate ? data.expiresAt.toDate().toISOString() : (data.expiresAt ? new Date(data.expiresAt).toISOString() : null),
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : (data.createdAt ? new Date(data.createdAt).toISOString() : new Date().toISOString()),
+        isRevoked: data.isRevoked === true,
+        analytics: analytics
+      };
+    } catch (error) {
+      console.error(`Error processing link ${doc.id}:`, error);
+      return null; // Exclure les liens en erreur
+    }
   }));
 
-  return <SharingListClient initialLinks={links as any} />;
+  // Filtrer les null (liens avec dossiers supprimés ou erreurs)
+  const validLinks = linksWithFolders.filter(link => link !== null) as any[];
+
+  return <SharingListClient initialLinks={validLinks} />;
 }
