@@ -38,8 +38,12 @@ export default async function PublicSharePage({
     let result;
     try {
       result = await validateShareLink(token);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error validating share link:", error);
+      // Log plus de détails en développement
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error details:", error?.message, error?.stack);
+      }
       return (
         <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
           <div className="apple-card p-12 text-center max-w-md shadow-2xl">

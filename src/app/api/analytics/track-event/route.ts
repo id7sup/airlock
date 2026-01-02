@@ -25,20 +25,40 @@ export async function POST(req: NextRequest) {
     // Générer visitorId
     const visitorId = generateVisitorId(clientIP, userAgent);
     
-    // Capturer la géolocalisation
-    const geolocation = clientIP !== 'unknown' ? await getGeolocationFromIP(clientIP) : undefined;
+    // Capturer la géolocalisation (avec gestion d'erreur)
+    let geolocation;
+    try {
+      if (clientIP !== 'unknown') {
+        geolocation = await getGeolocationFromIP(clientIP);
+        // Nettoyer les valeurs undefined
+        if (geolocation) {
+          geolocation = Object.fromEntries(
+            Object.entries(geolocation).filter(([_, v]) => v !== undefined)
+          ) as any;
+        }
+      }
+    } catch (error) {
+      console.error("Error getting geolocation:", error);
+      // Continuer sans géolocalisation plutôt que de crasher
+      geolocation = undefined;
+    }
 
-    // Tracker l'événement
-    await trackEvent({
-      linkId,
-      eventType,
-      geolocation,
-      visitorId,
-      referer,
-      userAgent,
-      fileId,
-      folderId,
-    });
+    // Tracker l'événement (avec gestion d'erreur)
+    try {
+      await trackEvent({
+        linkId,
+        eventType,
+        geolocation,
+        visitorId,
+        referer,
+        userAgent,
+        fileId,
+        folderId,
+      });
+    } catch (error) {
+      console.error("Error tracking event:", error);
+      // Ne pas bloquer la requête si le tracking échoue
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -47,8 +47,8 @@ export async function trackEvent(data: TrackingData) {
   const linkDoc = await db.collection("shareLinks").doc(data.linkId).get();
   const ownerId = linkDoc.data()?.creatorId || null;
 
-  // Enregistrer l'événement complet
-  await db.collection("shareAnalytics").add({
+  // Construire l'objet de données en filtrant les valeurs undefined
+  const analyticsData: any = {
     linkId: data.linkId,
     ownerId: ownerId,
     eventType: data.eventType,
@@ -58,20 +58,27 @@ export async function trackEvent(data: TrackingData) {
     date: dateStr,
     hour: hourStr,
     minute: minuteStr,
-    ...(data.geolocation && {
-      ip: data.geolocation.ip,
-      country: data.geolocation.country,
-      city: data.geolocation.city,
-      region: data.geolocation.region,
-      latitude: data.geolocation.latitude,
-      longitude: data.geolocation.longitude,
-    }),
-    referer: data.referer || null,
-    refererCategory: refererCategory,
-    userAgent: data.userAgent || null,
-    fileId: data.fileId || null,
-    folderId: data.folderId || null,
-  });
+  };
+
+  // Ajouter les données de géolocalisation seulement si elles existent et ne sont pas undefined
+  if (data.geolocation) {
+    if (data.geolocation.ip !== undefined) analyticsData.ip = data.geolocation.ip;
+    if (data.geolocation.country !== undefined) analyticsData.country = data.geolocation.country;
+    if (data.geolocation.city !== undefined) analyticsData.city = data.geolocation.city;
+    if (data.geolocation.region !== undefined) analyticsData.region = data.geolocation.region;
+    if (data.geolocation.latitude !== undefined) analyticsData.latitude = data.geolocation.latitude;
+    if (data.geolocation.longitude !== undefined) analyticsData.longitude = data.geolocation.longitude;
+  }
+
+  // Ajouter les autres champs seulement s'ils ne sont pas undefined
+  if (data.referer !== undefined) analyticsData.referer = data.referer;
+  if (refererCategory !== undefined) analyticsData.refererCategory = refererCategory;
+  if (data.userAgent !== undefined) analyticsData.userAgent = data.userAgent;
+  if (data.fileId !== undefined) analyticsData.fileId = data.fileId;
+  if (data.folderId !== undefined) analyticsData.folderId = data.folderId;
+
+  // Enregistrer l'événement complet
+  await db.collection("shareAnalytics").add(analyticsData);
 
   // Mettre à jour les compteurs sur le lien (pour compatibilité)
   const linkRef = db.collection("shareLinks").doc(data.linkId);

@@ -9,7 +9,6 @@ import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import { StructuredData } from "@/components/shared/StructuredData";
 import { homeFaqStructuredData } from "@/lib/structured-data";
-import { IndexedPagesCount } from "@/components/shared/IndexedPagesCount";
 
 const generateData = () => {
   return Array.from({ length: 20 }, (_, i) => ({
@@ -398,7 +397,6 @@ export default function Home() {
                   Découvrir
                 </Link>
               </div>
-              <IndexedPagesCount />
             </div>
           </div>
         </section>
