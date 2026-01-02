@@ -28,18 +28,24 @@ echo "🔨 Nettoyage et rebuild complet..."
 rm -rf .next
 npm run build
 
-# 4. TUER TOUS les processus
+# 4. TUER TOUS les processus (ORDRE CRITIQUE)
 echo "🛑 Arrêt de tous les processus..."
+
+# D'abord arrêter PM2 proprement
+echo "   → Arrêt de PM2..."
 pm2 delete airlock 2>/dev/null || true
 pm2 stop all 2>/dev/null || true
+sleep 2
 pm2 kill 2>/dev/null || true
+sleep 2
 
-# Tuer tous les processus Node/Next
-echo "🔍 Libération du port 3000..."
+# Ensuite tuer tous les processus Node/Next
+echo "   → Arrêt de tous les processus Node/Next..."
 pkill -9 -f "next" 2>/dev/null || true
 pkill -9 -f "node.*3000" 2>/dev/null || true
 pkill -9 -f "node.*start" 2>/dev/null || true
-pkill -9 node 2>/dev/null || true
+pkill -9 -f "node.*airlock" 2>/dev/null || true
+sleep 2
 
 # Libérer le port 3000 avec différentes méthodes (plus agressif)
 if command -v lsof &> /dev/null; then
@@ -70,7 +76,10 @@ if command -v ss &> /dev/null; then
 fi
 
 # Attendre que tout soit arrêté
-sleep 2
+sleep 3
+
+# Nettoyer les logs PM2 pour éviter la confusion
+pm2 flush 2>/dev/null || true
 
 # Vérifier que le port est libre (logique améliorée)
 echo "⏳ Vérification que le port 3000 est libre..."
@@ -134,11 +143,17 @@ if [ "$PORT_FREE" = false ]; then
     echo "⚠️  Continuation quand même (PM2 devrait gérer)..."
 fi
 
-# 5. DÉMARRER avec PM2
+# 5. Redémarrer le daemon PM2 proprement
+echo "🔄 Redémarrage du daemon PM2..."
+pm2 ping 2>/dev/null || pm2 kill 2>/dev/null || true
+sleep 1
+
+# 6. DÉMARRER avec PM2
 echo "🚀 Démarrage de l'application..."
 npm install -g pm2 2>/dev/null || true
 pm2 start npm --name "airlock" -- start
 pm2 save
+pm2 startup 2>/dev/null || true
 
 # 6. Attendre et vérifier
 echo "⏳ Attente du démarrage..."
