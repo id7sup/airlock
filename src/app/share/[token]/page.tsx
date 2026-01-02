@@ -106,16 +106,33 @@ export default async function PublicSharePage({
     const link = result as any;
 
     // Vérifier que le lien a les données nécessaires
-    if (!link || !link.folderId || !link.folder) {
+    if (!link || !link.folderId) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
           <div className="apple-card p-12 text-center max-w-md shadow-2xl">
             <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <Info className="w-8 h-8" />
             </div>
-            <h1 className="text-2xl font-bold mb-2 tracking-tight">Erreur</h1>
+            <h1 className="text-2xl font-bold mb-2 tracking-tight">Lien invalide</h1>
             <p className="text-apple-secondary font-medium">
-              Les données du partage sont incomplètes.
+              Ce lien de partage n'est plus valide ou a été supprimé.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // Vérifier que le dossier existe toujours
+    if (!link.folder) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
+          <div className="apple-card p-12 text-center max-w-md shadow-2xl">
+            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Info className="w-8 h-8" />
+            </div>
+            <h1 className="text-2xl font-bold mb-2 tracking-tight">Dossier introuvable</h1>
+            <p className="text-apple-secondary font-medium">
+              Le dossier partagé n'existe plus ou a été supprimé.
             </p>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { db } from "@/lib/firebase";
+import * as admin from "firebase-admin";
 import crypto from "crypto";
 
 export async function createShareLink(data: {
@@ -79,7 +80,34 @@ export async function validateShareLink(token: string) {
     const folderDoc = await db.collection("folders").doc(linkData.folderId).get();
     
     if (!folderDoc.exists) {
+      // Si le dossier n'existe plus, révoquer automatiquement le lien
+      try {
+        await db.collection("shareLinks").doc(linkDoc.id).update({
+          isRevoked: true,
+          revokedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        // Ignorer les erreurs de mise à jour
+      }
       return { error: "NOT_FOUND", linkId: linkDoc.id, folderId: linkData.folderId };
+    }
+
+    const folderData = folderDoc.data();
+    
+    // Vérifier si le dossier est supprimé (isDeleted = true)
+    if (folderData?.isDeleted === true) {
+      // Si le dossier est dans la corbeille, révoquer automatiquement le lien
+      try {
+        await db.collection("shareLinks").doc(linkDoc.id).update({
+          isRevoked: true,
+          revokedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        // Ignorer les erreurs de mise à jour
+      }
+      return { error: "REVOKED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
     const [filesSnapshot, childrenSnapshot] = await Promise.all([

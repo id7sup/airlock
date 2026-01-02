@@ -278,7 +278,21 @@ export async function deleteFolderAction(folderId: string) {
 
   findRecursive(folderId);
 
-  // 3. Suppression par batches (limite Firestore de 500 opérations par batch)
+  // 3. RÉVOQUER TOUS LES LIENS DE PARTAGE des dossiers supprimés
+  const folderIdsArray = Array.from(folderIdsToDelete);
+  // Firestore limite "in" à 30 éléments, donc on fait par batches
+  const shareLinksToRevoke: string[] = [];
+  for (let i = 0; i < folderIdsArray.length; i += 30) {
+    const batchIds = folderIdsArray.slice(i, i + 30);
+    const shareLinksSnap = await db.collection("shareLinks")
+      .where("folderId", "in", batchIds)
+      .get();
+    shareLinksSnap.docs.forEach(doc => {
+      shareLinksToRevoke.push(doc.id);
+    });
+  }
+
+  // 4. Suppression par batches (limite Firestore de 500 opérations par batch)
   const batch = db.batch();
   let count = 0;
 
@@ -299,8 +313,18 @@ export async function deleteFolderAction(folderId: string) {
   // Pour faire simple et efficace, on ne supprime que celles du dossier racine ici 
   // car une suppression complète de permissions nécessiterait une autre boucle massive.
   // OPTIMISATION : Supprimer les permissions via une requête batchée
-  const permsSnap = await db.collection("permissions").where("folderId", "in", Array.from(folderIdsToDelete).slice(0, 30)).get();
+  const permsSnap = await db.collection("permissions").where("folderId", "in", folderIdsArray.slice(0, 30)).get();
   permsSnap.docs.forEach(d => batch.delete(d.ref));
+
+  // RÉVOQUER les liens de partage (marquer comme révoqués plutôt que supprimer pour garder l'historique)
+  shareLinksToRevoke.forEach(linkId => {
+    batch.update(db.collection("shareLinks").doc(linkId), {
+      isRevoked: true,
+      revokedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    count++;
+  });
 
   // Mettre à jour le stockage du workspace
   if (totalSizeRemoved > 0) {
