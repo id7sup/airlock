@@ -265,7 +265,10 @@ export default function SecurityPage() {
             {/* Bottom Bar inside the Card */}
             <div className="pt-12 border-t border-black/5 flex flex-col md:flex-row justify-between items-center gap-10">
               <div className="flex items-center gap-3 text-black/40 font-medium bg-white/50 px-4 py-2 rounded-full border border-black/[0.03]"><Compass className="w-4 h-4 text-[#96A982]" /><span>Français</span><ChevronDown className="w-3 h-3 opacity-50" /></div>
-              <div className="flex items-center gap-8 text-black/40"><Link href="#" className="hover:text-black transition-colors font-semibold">LinkedIn</Link><Link href="#" className="hover:text-black transition-colors font-semibold">𝕏 (Twitter)</Link></div>
+              <div className="flex items-center gap-8 text-black/40">
+                <a href="https://linkedin.com/company/airlck" target="_blank" rel="noopener noreferrer" className="hover:text-black transition-colors font-semibold">LinkedIn</a>
+                <a href="https://twitter.com/airlck" target="_blank" rel="noopener noreferrer" className="hover:text-black transition-colors font-semibold">𝕏 (Twitter)</a>
+              </div>
               <p className="text-black/20 text-[11px] font-bold uppercase tracking-[0.4em]">© 2025 AIRLOCK TECHNOLOGIES</p>
             </div>
           </div>

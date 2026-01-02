@@ -1,12 +1,14 @@
 "use client";
 
 import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
-import { ChevronDown, Compass, Search, MousePointer2, Layers, Database, Zap, LayoutDashboard, Activity, Timer, BarChart3, History, Power, ArrowRight, Lock, Eye, Download, ShieldCheck, RefreshCw, Linkedin, Menu, X } from "lucide-react";
+import { ChevronDown, Compass, Search, MousePointer2, Layers, Database, Zap, LayoutDashboard, Activity, Timer, BarChart3, History, Power, ArrowRight, Lock, Eye, Download, ShieldCheck, RefreshCw, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/shared/Logo";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
+import { StructuredData } from "@/components/shared/StructuredData";
+import { homeFaqStructuredData } from "@/lib/structured-data";
 
 const generateData = () => {
   return Array.from({ length: 20 }, (_, i) => ({
@@ -193,7 +195,15 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white text-[#1d1d1f] font-sans selection:bg-black selection:text-white">
+    <>
+      <StructuredData />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(homeFaqStructuredData),
+        }}
+      />
+      <div className="min-h-screen bg-white text-[#1d1d1f] font-sans selection:bg-black selection:text-white">
       {/* Dynamic Island Navbar */}
       <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-full px-4 flex justify-center">
         <nav 
@@ -390,10 +400,17 @@ export default function Home() {
         </section>
 
         <section className="relative w-full h-[92vh] flex items-center justify-center overflow-hidden select-none">
-          <img src="/assets/background.jpg" alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none" />
-          <div className="relative z-10 w-[88%] md:w-[72%] max-w-6xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[8px] md:rounded-[24px] overflow-hidden border border-white/10 transition-transform duration-1000 hover:scale-[1.01]">
-            <img src="/assets/dashboard.png" alt="Dashboard Preview" className="w-full h-auto pointer-events-none select-none" />
-          </div>
+          <img src="/assets/background.jpg" alt="Airlock - Interface de partage de fichiers sécurisé en arrière-plan" className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none" />
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
+            whileHover={{ scale: 1.02, transition: { duration: 0.3 } }}
+            className="relative z-10 w-[88%] md:w-[72%] max-w-6xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[8px] md:rounded-[24px] overflow-hidden border border-white/10"
+          >
+            <img src="/assets/dashboard.png" alt="Airlock Dashboard - Interface de gestion de fichiers avec workspace, dossiers et navigation intuitive" className="w-full h-auto pointer-events-none select-none" loading="lazy" />
+          </motion.div>
         </section>
 
         <section id="workspace" className="py-32 md:py-56 px-6 bg-white">
@@ -429,10 +446,17 @@ export default function Home() {
         </section>
 
         <section className="relative w-full h-[92vh] flex items-center justify-center overflow-hidden select-none bg-white">
-          <img src="/assets/backgroundtwo.jpg" alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none" />
-          <div className="relative z-10 w-[88%] md:w-[72%] max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[8px] md:rounded-[24px] overflow-hidden border border-white/10 transition-transform duration-1000 hover:scale-[1.01]">
-            <img src="/assets/dashboardtwo.png" alt="Rules Preview" className="w-full h-auto pointer-events-none select-none" />
-          </div>
+          <img src="/assets/backgroundtwo.jpg" alt="Airlock - Règles de partage et contrôle d'accès en arrière-plan" className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none" />
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
+            whileHover={{ scale: 1.02, transition: { duration: 0.3 } }}
+            className="relative z-10 w-[88%] md:w-[72%] max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[8px] md:rounded-[24px] overflow-hidden border border-white/10"
+          >
+            <img src="/assets/dashboardtwo.png" alt="Airlock Règles de Partage - Configuration des paramètres de sécurité : mot de passe, expiration, quota de vues" className="w-full h-auto pointer-events-none select-none" loading="lazy" />
+          </motion.div>
         </section>
 
         <section id="rules" className="bg-[#fbfbfd] py-32 md:py-64 px-6 overflow-hidden border-t border-black/[0.02]">
@@ -478,10 +502,17 @@ export default function Home() {
         </section>
 
         <section className="relative w-full h-[92vh] flex flex-col items-center justify-center overflow-hidden select-none bg-white">
-          <img src="/assets/backgroundthree.jpg" alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none" />
-          <div className="relative z-10 w-[88%] md:w-[72%] max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[8px] md:rounded-[24px] overflow-hidden border border-white/10 transition-transform duration-1000 hover:scale-[1.01]">
-            <img src="/assets/dashboardthree.png" alt="Analytics Preview" className="w-full h-auto pointer-events-none select-none" />
-          </div>
+          <img src="/assets/backgroundthree.jpg" alt="Airlock - Analytics et suivi des partages en arrière-plan" className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none" />
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
+            whileHover={{ scale: 1.02, transition: { duration: 0.3 } }}
+            className="relative z-10 w-[88%] md:w-[72%] max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[8px] md:rounded-[24px] overflow-hidden border border-white/10"
+          >
+            <img src="/assets/dashboardthree.png" alt="Airlock Analytics - Tableau de bord avec statistiques en temps réel : vues, téléchargements, sessions actives" className="w-full h-auto pointer-events-none select-none" loading="lazy" />
+          </motion.div>
         </section>
 
         <section id="analytics" className="py-32 md:py-64 px-6 bg-white overflow-hidden border-t border-black/[0.02]">
@@ -622,12 +653,16 @@ export default function Home() {
             </div>
             <div className="pt-12 border-t border-black/5 flex flex-col md:flex-row justify-between items-center gap-10">
               <div className="flex items-center gap-3 text-black/40 font-medium bg-white/50 px-4 py-2 rounded-full border border-black/[0.03]"><Compass className="w-4 h-4 text-[#96A982]" /><span>Français</span><ChevronDown className="w-3 h-3 opacity-50" /></div>
-              <div className="flex items-center gap-8 text-black/40"><Link href="#" className="hover:text-black transition-colors font-semibold">LinkedIn</Link><Link href="#" className="hover:text-black transition-colors font-semibold">𝕏 (Twitter)</Link></div>
+              <div className="flex items-center gap-8 text-black/40">
+                <a href="https://linkedin.com/company/airlck" target="_blank" rel="noopener noreferrer" className="hover:text-black transition-colors font-semibold">LinkedIn</a>
+                <a href="https://twitter.com/airlck" target="_blank" rel="noopener noreferrer" className="hover:text-black transition-colors font-semibold">𝕏 (Twitter)</a>
+              </div>
               <p className="text-black/20 text-[11px] font-bold uppercase tracking-[0.4em]">© 2025 AIRLOCK TECHNOLOGIES</p>
             </div>
           </div>
         </div>
       </footer>
     </div>
+    </>
   );
 }

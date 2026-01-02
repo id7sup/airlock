@@ -2,20 +2,43 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
+import { defaultMetadata } from "@/lib/seo";
 
 const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500"],
   variable: "--font-inter",
+  display: "swap",
+  preload: true,
 });
 
 export const metadata: Metadata = {
-  title: "Airlock | Dossiers Sécurisés",
-  description: "Partagez vos fichiers en toute sécurité avec une expérience premium.",
+  ...defaultMetadata,
   icons: {
-    icon: "/assets/logo.png",
+    icon: [
+      { url: "/assets/logo.png", sizes: "any" },
+      { url: "/assets/logo.png", type: "image/png" },
+    ],
     shortcut: "/assets/logo.png",
-    apple: "/assets/logo.png",
+    apple: [
+      { url: "/assets/logo.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  manifest: "/manifest.json",
+  themeColor: "#96A982",
+  colorScheme: "light",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 5,
+  },
+  other: {
+    "geo.region": "FR",
+    "geo.placename": "France",
+    "language": "French",
+    "revisit-after": "7 days",
+    "distribution": "global",
+    "rating": "general",
   },
 };
 
@@ -34,4 +57,3 @@ export default function RootLayout({
     </ClerkProvider>
   );
 }
-

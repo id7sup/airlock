@@ -1,15 +1,30 @@
 import Link from "next/link";
 import { Logo } from "@/components/shared/Logo";
 import { ArrowLeft } from "lucide-react";
+import { Metadata } from "next";
+import { legalMetadata, breadcrumbSchema } from "@/lib/seo";
+import { StructuredData } from "@/components/shared/StructuredData";
 
-export const metadata = {
-  title: "Mentions Légales | Airlock",
-  description: "Mentions légales d'Airlock - Informations légales et conditions d'utilisation",
-};
+export const metadata: Metadata = legalMetadata;
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://airlck.com";
+
+const breadcrumbData = breadcrumbSchema([
+  { name: "Accueil", url: siteUrl },
+  { name: "Mentions Légales", url: `${siteUrl}/mentions` },
+]);
 
 export default function MentionsPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <>
+      <StructuredData />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbData),
+        }}
+      />
+      <div className="min-h-screen bg-white">
       <header className="px-6 py-8 border-b border-black/[0.03]">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
@@ -139,6 +154,7 @@ export default function MentionsPage() {
         </div>
       </main>
     </div>
+    </>
   );
 }
 
