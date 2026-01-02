@@ -9,6 +9,7 @@ import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import { StructuredData } from "@/components/shared/StructuredData";
 import { homeFaqStructuredData } from "@/lib/structured-data";
+import { IndexedPagesCount } from "@/components/shared/IndexedPagesCount";
 
 const generateData = () => {
   return Array.from({ length: 20 }, (_, i) => ({
@@ -388,13 +389,16 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-              <Link href="/dashboard" className="bg-[#96A982] text-white px-8 md:px-10 py-4 md:py-4.5 rounded-[22px] font-medium text-[17px] hover:opacity-90 transition-all shadow-xl shadow-[#96A982]/20 w-full sm:w-auto min-w-[220px]">
+            <div className="flex flex-col items-center justify-center gap-4 pt-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Link href="/dashboard" className="bg-[#96A982] text-white px-8 md:px-10 py-4 md:py-4.5 rounded-[22px] font-medium text-[17px] hover:opacity-90 transition-all shadow-xl shadow-[#96A982]/20 w-full sm:w-auto min-w-[220px]">
                   Démarrer gratuitement
                 </Link>
-              <Link href="#demo" className="bg-[#f5f5f7] text-[#1d1d1f] px-8 md:px-10 py-4 md:py-4.5 rounded-[22px] font-medium text-[17px] hover:bg-[#e8e8ed] transition-all w-full sm:w-auto min-w-[220px]">
+                <Link href="#demo" className="bg-[#f5f5f7] text-[#1d1d1f] px-8 md:px-10 py-4 md:py-4.5 rounded-[22px] font-medium text-[17px] hover:bg-[#e8e8ed] transition-all w-full sm:w-auto min-w-[220px]">
                   Découvrir
                 </Link>
+              </div>
+              <IndexedPagesCount />
             </div>
           </div>
         </section>
@@ -539,7 +543,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="flex-1 w-full pt-10 min-h-[200px]">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                     <AreaChart data={chartData}>
                       <defs><linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#96A982" stopOpacity={0.3}/><stop offset="95%" stopColor="#96A982" stopOpacity={0}/></linearGradient></defs>
                       <Area type="monotone" dataKey="value" stroke="#96A982" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" isAnimationActive={true} animationDuration={1500} />
@@ -639,6 +643,7 @@ export default function Home() {
                     <li><Link href="/#workspace" className="hover:text-black transition-colors">Workspace</Link></li>
                     <li><Link href="/#rules" className="hover:text-black transition-colors">Partages</Link></li>
                     <li><Link href="/security" className="hover:text-black transition-colors">Sécurité</Link></li>
+                    <li><Link href="/faq" className="hover:text-black transition-colors">FAQ</Link></li>
                   </ul>
                 </div>
                 <div className="space-y-8">

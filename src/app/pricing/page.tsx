@@ -181,6 +181,7 @@ export default function PricingPage() {
                     <li><Link href="/#workspace" className="hover:text-black transition-colors">Workspace</Link></li>
                     <li><Link href="/#rules" className="hover:text-black transition-colors">Partages</Link></li>
                     <li><Link href="/security" className="hover:text-black transition-colors">Sécurité</Link></li>
+                    <li><Link href="/faq" className="hover:text-black transition-colors">FAQ</Link></li>
                   </ul>
                 </div>
                 <div className="space-y-8">

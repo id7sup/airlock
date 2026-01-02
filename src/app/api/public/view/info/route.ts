@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
     mimeType: file.mimeType || "application/octet-stream",
     size: file.size,
     downloadAllowed,
+    linkId: link.id,
   });
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   FolderOpen, 
   Eye, 
@@ -16,9 +16,12 @@ import {
   CalendarClock,
   Check,
   X as CloseIcon,
-  CircleDot
+  CircleDot,
+  Globe
 } from "lucide-react";
 import { SharingAnalyticsChart } from "./SharingAnalyticsChart";
+import { MapboxGlobe } from "./MapboxGlobe";
+import { AnalyticsDashboard } from "./AnalyticsDashboard";
 import { revokeShareLinkAction } from "@/lib/actions/sharing";
 import { updateShareLinkAction } from "@/lib/actions/sharing_update";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
@@ -41,6 +44,10 @@ interface SharedLink {
 
 export default function SharingListClient({ initialLinks }: { initialLinks: SharedLink[] }) {
   const [links, setLinks] = useState(initialLinks);
+  const [activeTab, setActiveTab] = useState<"list" | "live">("list");
+  const [selectedLinkId, setSelectedLinkId] = useState<string | "all">("all");
+  const [geolocationAnalytics, setGeolocationAnalytics] = useState<any[]>([]);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<{ id: string, type: 'views' | 'expiry' } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{
@@ -164,6 +171,35 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
     });
   };
 
+  // Charger les analytics de géolocalisation quand l'onglet "live" est actif
+  useEffect(() => {
+    if (activeTab === "live") {
+      const fetchGeolocationAnalytics = async () => {
+        setLoadingAnalytics(true);
+        try {
+          const url = selectedLinkId === "all" 
+            ? "/api/analytics/geolocation?days=30"
+            : `/api/analytics/geolocation?days=30&linkId=${selectedLinkId}`;
+          const response = await fetch(url);
+          if (response.ok) {
+            const data = await response.json();
+            setGeolocationAnalytics(data.analytics || []);
+          }
+        } catch (error) {
+          console.error("Erreur lors du chargement des analytics:", error);
+        } finally {
+          setLoadingAnalytics(false);
+        }
+      };
+
+      fetchGeolocationAnalytics();
+      
+      // Rafraîchir toutes les 30 secondes
+      const interval = setInterval(fetchGeolocationAnalytics, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, selectedLinkId]);
+
   return (
     <div className="p-10 max-w-6xl mx-auto animate-in fade-in duration-1000 text-black">
       {/* Page Header Simplifié */}
@@ -185,8 +221,46 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
         </div>
       </div>
 
-      {/* Liste Compacte */}
-      <div className="grid grid-cols-1 gap-10">
+      {/* Onglets */}
+      <div className="mb-8 flex gap-2 border-b border-black/[0.05]">
+        <button
+          onClick={() => setActiveTab("list")}
+          className={`px-6 py-3 text-sm font-bold uppercase tracking-widest transition-all relative ${
+            activeTab === "list"
+              ? "text-black"
+              : "text-black/40 hover:text-black/60"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <LayoutList className="w-4 h-4" />
+            <span>Liste</span>
+          </div>
+          {activeTab === "list" && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("live")}
+          className={`px-6 py-3 text-sm font-bold uppercase tracking-widest transition-all relative ${
+            activeTab === "live"
+              ? "text-black"
+              : "text-black/40 hover:text-black/60"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4" />
+            <span>Suivi en direct</span>
+          </div>
+          {activeTab === "live" && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black" />
+          )}
+        </button>
+      </div>
+
+      {/* Contenu des onglets */}
+      {activeTab === "list" ? (
+        /* Liste Compacte */
+        <div className="grid grid-cols-1 gap-10">
         {links.length === 0 ? (
           <div className="col-span-full py-32 text-center bg-[#f5f5f7] rounded-2xl border border-black/5">
             <FolderOpen className="w-16 h-16 text-black/10 mx-auto mb-4" />
@@ -363,7 +437,65 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
             </div>
           ))
         )}
-      </div>
+        </div>
+      ) : (
+        /* Suivi en direct - Globe + Statistiques complètes intégrées */
+        <div className="space-y-8 -mt-4">
+          {/* Header avec sélecteur - Style Apple */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
+            <div>
+              <h2 className="text-2xl font-medium tracking-tight mb-1">Suivi en direct</h2>
+              <p className="text-sm text-black/40 font-medium">
+                Visualisation géographique et analytics détaillées
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {loadingAnalytics && (
+                <Loader2 className="w-5 h-5 text-black/40 animate-spin" />
+              )}
+              <select
+                value={selectedLinkId}
+                onChange={(e) => setSelectedLinkId(e.target.value)}
+                className="px-4 py-2.5 bg-white border border-black/[0.08] rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 transition-all hover:border-black/15 shadow-sm"
+              >
+                <option value="all">Tous les partages</option>
+                {links.map((link) => (
+                  <option key={link.id} value={link.id}>
+                    {link.folderName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Globe terrestre */}
+          <div className="h-[500px] w-full -mx-10">
+            {loadingAnalytics ? (
+              <div className="h-full flex items-center justify-center bg-transparent">
+                <div className="text-center">
+                  <Loader2 className="w-8 h-8 text-brand-primary animate-spin mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">Chargement des données...</p>
+                </div>
+              </div>
+            ) : geolocationAnalytics.length === 0 ? (
+              <div className="h-full flex items-center justify-center bg-transparent">
+                <div className="text-center">
+                  <Globe className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-lg font-medium text-gray-400 mb-1">Aucune donnée géographique</p>
+                  <p className="text-sm text-gray-400">
+                    Les données de géolocalisation apparaîtront ici après les premières vues
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <MapboxGlobe analytics={geolocationAnalytics} />
+            )}
+          </div>
+
+          {/* Statistiques complètes intégrées */}
+          <AnalyticsDashboard linkId={selectedLinkId === "all" ? null : selectedLinkId} />
+        </div>
+      )}
 
       <ConfirmModal
         isOpen={confirmModal.isOpen}
@@ -372,6 +504,12 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
         title={confirmModal.title}
         message={confirmModal.message}
         isDestructive={confirmModal.isDestructive}
+      />
+      <ErrorModal
+        isOpen={errorModal.isOpen}
+        onClose={() => setErrorModal(prev => ({ ...prev, isOpen: false }))}
+        title={errorModal.title}
+        message={errorModal.message}
       />
     </div>
   );

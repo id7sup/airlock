@@ -51,6 +51,13 @@ export const defaultMetadata: Metadata = {
         height: 630,
         alt: `${siteName} - Partage de fichiers sécurisé`,
       },
+      {
+        url: `${siteUrl}/assets/logo.png`,
+        width: 512,
+        height: 512,
+        alt: `${siteName} Logo`,
+        type: "image/png",
+      },
     ],
   },
   twitter: {
@@ -174,7 +181,13 @@ export const organizationSchema = {
   "@type": "Organization",
   name: siteName,
   url: siteUrl,
-  logo: `${siteUrl}/assets/logo.png`,
+  logo: {
+    "@type": "ImageObject",
+    url: `${siteUrl}/assets/logo.png`,
+    width: 512,
+    height: 512,
+  },
+  image: `${siteUrl}/assets/logo.png`,
   description: siteDescription,
   sameAs: [
     "https://twitter.com/airlck",
@@ -184,6 +197,12 @@ export const organizationSchema = {
     "@type": "ContactPoint",
     contactType: "Support client",
     email: "contact@airlck.com",
+    availableLanguage: ["French", "English"],
+  },
+  foundingDate: "2024",
+  numberOfEmployees: {
+    "@type": "QuantitativeValue",
+    value: "1-10",
   },
 };
 

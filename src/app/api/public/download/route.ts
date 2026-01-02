@@ -5,6 +5,7 @@ import { db } from "@/lib/firebase";
 import * as admin from "firebase-admin";
 import { trackLinkActivity } from "@/services/analytics";
 import { createNotification } from "@/services/notifications";
+import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -58,8 +59,10 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // 7. Incrémenter le compteur via analytics
-  await trackLinkActivity(link.id, "DOWNLOAD");
+  // 7. Capturer la géolocalisation et incrémenter le compteur via analytics
+  const clientIP = getClientIP(req);
+  const geolocation = clientIP !== 'unknown' ? await getGeolocationFromIP(clientIP) : undefined;
+  await trackLinkActivity(link.id, "DOWNLOAD", geolocation);
 
   // 8. Servir l'original (pas de watermark pour les téléchargements autorisés)
   const downloadUrl = await getDownloadUrl(file.s3Key, file.name);

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useParams } from "next/navigation";
 import { Logo } from "@/components/shared/Logo";
+import { TrackEvent } from "@/components/shared/TrackEvent";
 import { X, Loader2, FileIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -58,6 +59,20 @@ export default function FileViewerPage() {
           const data = await res.json();
           setFileName(data.name || "Fichier");
           setFileType(data.mimeType || "");
+          
+          // Track VIEW_FILE event
+          if (data.linkId) {
+            fetch("/api/analytics/track-event", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                linkId: data.linkId,
+                eventType: "VIEW_FILE",
+                fileId: fileId,
+                fileName: data.name,
+              }),
+            }).catch(console.error);
+          }
           
           // Construire l'URL du viewer
           const viewUrl = `/api/public/view?fileId=${fileId}&token=${token}`;

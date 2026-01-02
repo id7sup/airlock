@@ -6,6 +6,7 @@ import { createNotification } from "@/services/notifications";
 import { FolderOpen, Info, Lock } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import { FileList } from "@/components/shared/FileList";
+import { TrackEvent } from "@/components/shared/TrackEvent";
 import crypto from "crypto";
 
 export default async function PublicSharePage({ 
@@ -119,6 +120,7 @@ export default async function PublicSharePage({
 
   return (
     <div className="min-h-screen bg-apple-gray py-12 px-6 text-apple-text animate-in fade-in duration-700">
+      <TrackEvent linkId={link.id} eventType="OPEN_SHARE" />
       <div className="max-w-4xl mx-auto">
         <header className="flex items-center justify-center mb-12">
           <Logo className="w-20 h-20" />
