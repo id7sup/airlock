@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = 'force-static';
+export const revalidate = 3600;
+
 export async function GET() {
+  console.log("[MANIFEST] Serving manifest.json");
   const manifest = {
     name: "Airlock - Partage de Fichiers Sécurisé",
     short_name: "Airlock",

@@ -43,43 +43,69 @@ export async function createShareLink(data: {
 }
 
 export async function validateShareLink(token: string) {
+  console.log("[VALIDATE_SHARE] Starting validation for token:", token.substring(0, 10) + "...");
   try {
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    console.log("[VALIDATE_SHARE] Token hash calculated");
 
+    console.log("[VALIDATE_SHARE] Querying shareLinks collection");
     const snapshot = await db.collection("shareLinks")
       .where("tokenHash", "==", tokenHash)
       .limit(1)
       .get();
 
-    if (snapshot.empty) return { error: "NOT_FOUND" };
+    console.log("[VALIDATE_SHARE] Query result:", snapshot.empty ? "EMPTY" : "FOUND");
+
+    if (snapshot.empty) {
+      console.error("[VALIDATE_SHARE] No link found for token hash");
+      return { error: "NOT_FOUND" };
+    }
 
     const linkDoc = snapshot.docs[0];
     const linkData = linkDoc.data();
+    console.log("[VALIDATE_SHARE] Link data retrieved:", {
+      linkId: linkDoc.id,
+      folderId: linkData?.folderId,
+      isRevoked: linkData?.isRevoked,
+      hasExpiresAt: !!linkData?.expiresAt
+    });
 
-    if (!linkData) return { error: "NOT_FOUND" };
+    if (!linkData) {
+      console.error("[VALIDATE_SHARE] Link data is null/undefined");
+      return { error: "NOT_FOUND" };
+    }
 
     // Vérifier expiration
+    console.log("[VALIDATE_SHARE] Checking expiration");
     if (linkData.expiresAt) {
       const expiresAt = linkData.expiresAt?.toDate ? linkData.expiresAt.toDate() : new Date(linkData.expiresAt);
       if (expiresAt < new Date()) {
+        console.log("[VALIDATE_SHARE] Link expired");
         return { error: "EXPIRED", linkId: linkDoc.id, folderId: linkData.folderId };
       }
     }
 
     // Vérifier limites de vues
+    console.log("[VALIDATE_SHARE] Checking view quota");
     if (linkData.maxViews && (linkData.viewCount || 0) > linkData.maxViews) {
+      console.log("[VALIDATE_SHARE] View quota exceeded");
       return { error: "QUOTA_EXCEEDED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
     // Vérifier si révoqué manuellement
+    console.log("[VALIDATE_SHARE] Checking if revoked");
     if (linkData.isRevoked === true) {
+      console.log("[VALIDATE_SHARE] Link is revoked");
       return { error: "REVOKED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
     // Récupérer le dossier, les fichiers et les sous-dossiers
+    console.log("[VALIDATE_SHARE] Fetching folder:", linkData.folderId);
     const folderDoc = await db.collection("folders").doc(linkData.folderId).get();
+    console.log("[VALIDATE_SHARE] Folder exists:", folderDoc.exists);
     
     if (!folderDoc.exists) {
+      console.error("[VALIDATE_SHARE] Folder does not exist, revoking link");
       // Si le dossier n'existe plus, révoquer automatiquement le lien
       try {
         await db.collection("shareLinks").doc(linkDoc.id).update({
@@ -87,16 +113,23 @@ export async function validateShareLink(token: string) {
           revokedAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
+        console.log("[VALIDATE_SHARE] Link revoked successfully");
       } catch (e) {
-        // Ignorer les erreurs de mise à jour
+        console.error("[VALIDATE_SHARE] Error revoking link:", e);
       }
       return { error: "NOT_FOUND", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
     const folderData = folderDoc.data();
+    console.log("[VALIDATE_SHARE] Folder data:", {
+      name: folderData?.name,
+      isDeleted: folderData?.isDeleted,
+      workspaceId: folderData?.workspaceId
+    });
     
     // Vérifier si le dossier est supprimé (isDeleted = true)
     if (folderData?.isDeleted === true) {
+      console.log("[VALIDATE_SHARE] Folder is deleted, revoking link");
       // Si le dossier est dans la corbeille, révoquer automatiquement le lien
       try {
         await db.collection("shareLinks").doc(linkDoc.id).update({
@@ -104,13 +137,15 @@ export async function validateShareLink(token: string) {
           revokedAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
+        console.log("[VALIDATE_SHARE] Link revoked successfully");
       } catch (e) {
-        // Ignorer les erreurs de mise à jour
+        console.error("[VALIDATE_SHARE] Error revoking link:", e);
       }
       return { error: "REVOKED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
     // Récupérer les fichiers et sous-dossiers avec gestion d'erreur
+    console.log("[VALIDATE_SHARE] Fetching files and children");
     let filesSnapshot: any = { docs: [] };
     let childrenSnapshot: any = { docs: [] };
     
@@ -119,12 +154,18 @@ export async function validateShareLink(token: string) {
         db.collection("files").where("folderId", "==", linkData.folderId).get(),
         db.collection("folders").where("parentId", "==", linkData.folderId).get(),
       ]);
-    } catch (error) {
-      console.error("Error fetching files/children for share link:", error);
+      console.log("[VALIDATE_SHARE] Files and children fetched:", {
+        filesCount: filesSnapshot.docs?.length || 0,
+        childrenCount: childrenSnapshot.docs?.length || 0
+      });
+    } catch (error: any) {
+      console.error("[VALIDATE_SHARE] ERROR fetching files/children:", error);
+      console.error("[VALIDATE_SHARE] Error message:", error?.message);
+      console.error("[VALIDATE_SHARE] Error stack:", error?.stack);
       // Continuer avec des tableaux vides plutôt que de crasher
     }
 
-    return {
+    const result = {
       id: linkDoc.id,
       ...linkData,
       folder: {
@@ -134,8 +175,21 @@ export async function validateShareLink(token: string) {
         children: childrenSnapshot.docs?.map((doc: any) => ({ id: doc.id, ...doc.data() })) || [],
       },
     };
-  } catch (error) {
-    console.error("Error validating share link:", error);
+
+    console.log("[VALIDATE_SHARE] Validation successful, returning result");
+    return result;
+  } catch (error: any) {
+    console.error("[VALIDATE_SHARE] CRITICAL ERROR in validateShareLink:", error);
+    console.error("[VALIDATE_SHARE] Error type:", typeof error);
+    console.error("[VALIDATE_SHARE] Error message:", error?.message);
+    console.error("[VALIDATE_SHARE] Error stack:", error?.stack);
+    console.error("[VALIDATE_SHARE] Error name:", error?.name);
+    console.error("[VALIDATE_SHARE] Error code:", error?.code);
+    try {
+      console.error("[VALIDATE_SHARE] Error JSON:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    } catch (e) {
+      console.error("[VALIDATE_SHARE] Could not stringify error:", e);
+    }
     return { error: "NOT_FOUND" };
   }
 }

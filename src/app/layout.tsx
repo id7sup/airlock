@@ -29,6 +29,7 @@ export const metadata: Metadata = {
     ],
   },
   manifest: "/manifest.json",
+  // Ne pas utiliser le manifest du layout pour éviter les conflits
   other: {
     "geo.region": "FR",
     "geo.placename": "France",

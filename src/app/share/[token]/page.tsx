@@ -15,11 +15,16 @@ export default async function PublicSharePage({
   params: Promise<{ token: string }>, 
   searchParams: Promise<{ pwd?: string }> 
 }) {
+  console.log("[SHARE_PAGE] Starting PublicSharePage");
   try {
+    console.log("[SHARE_PAGE] Awaiting params and searchParams");
     const { token } = await params;
     const { pwd } = await searchParams;
+    console.log("[SHARE_PAGE] Token received:", token ? `${token.substring(0, 10)}...` : "null");
+    console.log("[SHARE_PAGE] Password provided:", !!pwd);
     
     if (!token || typeof token !== 'string') {
+      console.error("[SHARE_PAGE] Invalid token:", token);
       return (
         <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
           <div className="apple-card p-12 text-center max-w-md shadow-2xl">
@@ -37,13 +42,16 @@ export default async function PublicSharePage({
     
     let result;
     try {
+      console.log("[SHARE_PAGE] Calling validateShareLink with token:", token.substring(0, 10) + "...");
       result = await validateShareLink(token);
+      console.log("[SHARE_PAGE] validateShareLink result:", result ? ((result as any).error ? `ERROR: ${(result as any).error}` : "SUCCESS") : "NULL");
     } catch (error: any) {
-      console.error("Error validating share link:", error);
-      // Log plus de détails en développement
-      if (process.env.NODE_ENV === 'development') {
-        console.error("Error details:", error?.message, error?.stack);
-      }
+      console.error("[SHARE_PAGE] CRITICAL ERROR in validateShareLink:", error);
+      console.error("[SHARE_PAGE] Error message:", error?.message);
+      console.error("[SHARE_PAGE] Error stack:", error?.stack);
+      console.error("[SHARE_PAGE] Error name:", error?.name);
+      console.error("[SHARE_PAGE] Error code:", error?.code);
+      console.error("[SHARE_PAGE] Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
       return (
         <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
           <div className="apple-card p-12 text-center max-w-md shadow-2xl">
@@ -60,12 +68,16 @@ export default async function PublicSharePage({
     }
 
     // 1. Gérer les erreurs de validation
+    console.log("[SHARE_PAGE] Checking result for errors");
     if (!result || (result as any).error) {
       const errorResult = result as any;
+      console.log("[SHARE_PAGE] Error result detected:", errorResult?.error);
+      console.log("[SHARE_PAGE] Error folderId:", errorResult?.folderId);
       
       // Récupérer le propriétaire pour notifier de l'expiration/quota (sans bloquer si ça échoue)
       if (errorResult?.folderId) {
         try {
+          console.log("[SHARE_PAGE] Attempting to get owner for folder:", errorResult.folderId);
           const ownerPerm = await db.collection("permissions")
             .where("folderId", "==", errorResult.folderId)
             .where("role", "==", "OWNER")
@@ -73,6 +85,7 @@ export default async function PublicSharePage({
             .get();
           
           const ownerId = !ownerPerm.empty ? ownerPerm.docs[0].data()?.userId : null;
+          console.log("[SHARE_PAGE] Owner ID:", ownerId);
           
           if (ownerId && errorResult.error === "EXPIRED") {
             try {
@@ -82,11 +95,11 @@ export default async function PublicSharePage({
                 folderName: folderDoc.data()?.name || "Dossier inconnu"
               }).catch(() => {}); // Ignorer les erreurs de notification
             } catch (e) {
-              // Ignorer les erreurs
+              console.error("[SHARE_PAGE] Error creating expiration notification:", e);
             }
           }
         } catch (e) {
-          // Ignorer les erreurs de récupération du propriétaire
+          console.error("[SHARE_PAGE] Error getting owner:", e);
         }
       }
 
@@ -108,9 +121,17 @@ export default async function PublicSharePage({
     }
 
     const link = result as any;
+    console.log("[SHARE_PAGE] Link object received:", {
+      hasLink: !!link,
+      hasFolderId: !!link?.folderId,
+      hasFolder: !!link?.folder,
+      linkId: link?.id,
+      folderId: link?.folderId
+    });
 
     // Vérifier que le lien a les données nécessaires
     if (!link || !link.folderId) {
+      console.error("[SHARE_PAGE] Link data incomplete:", { link: !!link, folderId: link?.folderId });
       return (
         <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
           <div className="apple-card p-12 text-center max-w-md shadow-2xl">
@@ -127,7 +148,9 @@ export default async function PublicSharePage({
     }
 
     // Vérifier que le dossier existe toujours
+    console.log("[SHARE_PAGE] Checking folder existence");
     if (!link.folder) {
+      console.error("[SHARE_PAGE] Folder object missing from link");
       return (
         <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
           <div className="apple-card p-12 text-center max-w-md shadow-2xl">
@@ -144,6 +167,7 @@ export default async function PublicSharePage({
     }
 
     // 2. Récupérer le propriétaire pour les notifications de succès (sans bloquer)
+    console.log("[SHARE_PAGE] Getting owner for folder:", link.folderId);
     let ownerId: string | null = null;
     try {
       const ownerPerm = await db.collection("permissions")
@@ -153,15 +177,18 @@ export default async function PublicSharePage({
         .get();
       
       ownerId = !ownerPerm.empty ? ownerPerm.docs[0].data()?.userId || null : null;
+      console.log("[SHARE_PAGE] Owner ID retrieved:", ownerId);
     } catch (e) {
-      // Ignorer les erreurs de récupération du propriétaire
+      console.error("[SHARE_PAGE] Error getting owner:", e);
     }
 
     // 3. Incrémenter le nombre de vues via analytics (sans bloquer)
+    console.log("[SHARE_PAGE] Tracking link activity for link:", link.id);
     try {
       await trackLinkActivity(link.id, "VIEW");
+      console.log("[SHARE_PAGE] Link activity tracked successfully");
     } catch (e) {
-      console.error("Error tracking link activity:", e);
+      console.error("[SHARE_PAGE] Error tracking link activity:", e);
       // Ne pas bloquer si le tracking échoue
     }
     
@@ -236,7 +263,15 @@ export default async function PublicSharePage({
     }
 
     // Vérifier que link.folder existe et a les données nécessaires
+    console.log("[SHARE_PAGE] Final folder check:", {
+      hasFolder: !!link.folder,
+      folderName: link.folder?.name,
+      filesCount: link.folder?.files?.length || 0,
+      childrenCount: link.folder?.children?.length || 0
+    });
+
     if (!link.folder) {
+      console.error("[SHARE_PAGE] Folder object is missing");
       return (
         <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
           <div className="apple-card p-12 text-center max-w-md shadow-2xl">
@@ -256,6 +291,12 @@ export default async function PublicSharePage({
     const folderName = link.folder.name || "Dossier sans nom";
     const files = Array.isArray(link.folder.files) ? link.folder.files : [];
     const children = Array.isArray(link.folder.children) ? link.folder.children : [];
+
+    console.log("[SHARE_PAGE] Rendering share page successfully:", {
+      folderName,
+      filesCount: files.length,
+      childrenCount: children.length
+    });
 
     return (
       <div className="min-h-screen bg-apple-gray py-12 px-6 text-apple-text animate-in fade-in duration-700">
@@ -297,8 +338,19 @@ export default async function PublicSharePage({
         </div>
       </div>
     );
-  } catch (error) {
-    console.error("Critical error in PublicSharePage:", error);
+  } catch (error: any) {
+    console.error("[SHARE_PAGE] CRITICAL ERROR in PublicSharePage:", error);
+    console.error("[SHARE_PAGE] Error type:", typeof error);
+    console.error("[SHARE_PAGE] Error message:", error?.message);
+    console.error("[SHARE_PAGE] Error stack:", error?.stack);
+    console.error("[SHARE_PAGE] Error name:", error?.name);
+    console.error("[SHARE_PAGE] Error code:", error?.code);
+    console.error("[SHARE_PAGE] Error cause:", error?.cause);
+    try {
+      console.error("[SHARE_PAGE] Error JSON:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    } catch (e) {
+      console.error("[SHARE_PAGE] Could not stringify error:", e);
+    }
     return (
       <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
         <div className="apple-card p-12 text-center max-w-md shadow-2xl">
