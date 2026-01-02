@@ -1,6 +1,15 @@
 import { Metadata } from "next";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://airlck.com";
+// Utiliser une fonction pour éviter les erreurs si la variable d'environnement n'est pas définie
+function getSiteUrl(): string {
+  try {
+    return process.env.NEXT_PUBLIC_SITE_URL || "https://airlck.com";
+  } catch {
+    return "https://airlck.com";
+  }
+}
+
+const siteUrl = getSiteUrl();
 const siteName = "Airlock";
 const siteDescription = "Partagez vos fichiers en toute sécurité avec une expérience premium. Liens expirables, lecture seule, mot de passe, quota de vues. Une data room simple, sécurisée et souveraine.";
 const defaultImage = `${siteUrl}/assets/logo.png`;

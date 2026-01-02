@@ -52,13 +52,28 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    <ClerkProvider>
-      <html lang="fr" className={inter.variable} data-scroll-behavior="smooth">
+  try {
+    return (
+      <ClerkProvider>
+        <html lang="fr" className={inter.variable} data-scroll-behavior="smooth">
+          <body>
+            {children}
+          </body>
+        </html>
+      </ClerkProvider>
+    );
+  } catch (error) {
+    console.error("Critical error in RootLayout:", error);
+    // Fallback minimal en cas d'erreur
+    return (
+      <html lang="fr">
         <body>
-          {children}
+          <div style={{ padding: "2rem", textAlign: "center", fontFamily: "system-ui" }}>
+            <h1>Erreur de chargement</h1>
+            <p>Une erreur est survenue. Veuillez réessayer plus tard.</p>
+          </div>
         </body>
       </html>
-    </ClerkProvider>
-  );
+    );
+  }
 }
