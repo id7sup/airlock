@@ -31,12 +31,16 @@ npm run build
 # 4. TUER TOUS les processus (ORDRE CRITIQUE)
 echo "🛑 Arrêt de tous les processus..."
 
-# D'abord arrêter PM2 proprement
+# D'abord arrêter PM2 proprement et désactiver le redémarrage automatique
 echo "   → Arrêt de PM2..."
 pm2 delete airlock 2>/dev/null || true
 pm2 stop all 2>/dev/null || true
-sleep 2
 pm2 kill 2>/dev/null || true
+sleep 3
+
+# Tuer TOUS les processus next-server avant de continuer
+echo "   → Tuer tous les processus next-server..."
+pkill -9 -f "next-server" 2>/dev/null || true
 sleep 2
 
 # Ensuite tuer tous les processus Node/Next (INCLUANT next-server)
@@ -82,8 +86,10 @@ if command -v ss &> /dev/null; then
     fi
 fi
 
-# Attendre que tout soit arrêté
+# Attendre que tout soit arrêté et tuer à nouveau les processus next-server
 sleep 3
+pkill -9 -f "next-server" 2>/dev/null || true
+sleep 2
 
 # Nettoyer les logs PM2 pour éviter la confusion
 pm2 flush 2>/dev/null || true
@@ -172,10 +178,26 @@ echo "🔄 Redémarrage du daemon PM2..."
 pm2 ping 2>/dev/null || pm2 kill 2>/dev/null || true
 sleep 1
 
-# 6. DÉMARRER avec PM2
+# 6. DÉMARRER avec PM2 (sans redémarrage automatique en cas d'erreur)
 echo "🚀 Démarrage de l'application..."
 npm install -g pm2 2>/dev/null || true
-pm2 start npm --name "airlock" -- start
+
+# Démarrer avec max_restarts=0 pour éviter les boucles infinies
+pm2 start npm --name "airlock" -- start --max-restarts 0
+
+# Attendre un peu pour voir si ça démarre
+sleep 3
+
+# Vérifier le statut
+PM2_STATUS=$(pm2 jlist | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "unknown")
+if [ "$PM2_STATUS" != "online" ]; then
+    echo "⚠️  L'application n'a pas démarré correctement. Statut: $PM2_STATUS"
+    echo "📋 Logs d'erreur:"
+    pm2 logs airlock --lines 30 --nostream || true
+    echo ""
+    echo "💡 Vérifiez les logs ci-dessus pour identifier le problème."
+fi
+
 pm2 save
 pm2 startup 2>/dev/null || true
 
