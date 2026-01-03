@@ -463,7 +463,18 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           source: "analytics-points",
           filter: ["has", "point_count"],
           paint: {
-            "circle-opacity": 0, // Masquer les cercles natifs
+            "circle-opacity": 0.01, // Presque invisible mais visible pour queryRenderedFeatures
+            "circle-radius": [
+              "step",
+              ["get", "point_count"],
+              20,
+              10,
+              24,
+              50,
+              28,
+              100,
+              32,
+            ],
           },
         });
 
@@ -490,15 +501,15 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 8,
-              1, 9,
-              2, 10,
-              3, 11,
-              5, 13,
+              0.5, 12,
+              1, 13,
+              2, 14,
+              3, 15,
+              5, 16,
             ],
             "circle-color": [
               "case",
-              ["%", ["get", "colorIndex"], 3],
+              ["%", ["to-number", ["get", "colorIndex"]], 3],
               0, "#C4B5A0", // beige/sable de background.jpg
               1, "#8B7355", // terre/brun de backgroundtwo.jpg
               2, "#9A9E8B", // gris/vert de backgroundthree.jpg
@@ -509,10 +520,10 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 2.5,
-              2, 3,
-              3, 3.5,
-              5, 4,
+              0.5, 3.5,
+              2, 4,
+              3, 4.5,
+              5, 5,
             ],
             "circle-stroke-color": "#ffffff",
             "circle-stroke-opacity": 1,
@@ -532,15 +543,15 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 8,
-              1, 9,
-              2, 10,
-              3, 11,
-              5, 13,
+              0.5, 12,
+              1, 13,
+              2, 14,
+              3, 15,
+              5, 16,
             ],
             "circle-color": [
               "case",
-              ["%", ["get", "colorIndex"], 3],
+              ["%", ["to-number", ["get", "colorIndex"]], 3],
               0, "#C4B5A0", // beige/sable de background.jpg
               1, "#8B7355", // terre/brun de backgroundtwo.jpg
               2, "#9A9E8B", // gris/vert de backgroundthree.jpg
@@ -551,10 +562,10 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 2.5,
-              2, 3,
-              3, 3.5,
-              5, 4,
+              0.5, 3.5,
+              2, 4,
+              3, 4.5,
+              5, 5,
             ],
             "circle-stroke-color": "#ffffff",
             "circle-stroke-opacity": 1,
@@ -700,21 +711,22 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           // Créer un élément HTML pour le marker avec l'image
           const el = document.createElement("div");
           el.className = "cluster-marker";
-          const size = pointCount < 10 ? 42 : pointCount < 50 ? 50 : pointCount < 100 ? 58 : 66;
+          const size = pointCount < 10 ? 48 : pointCount < 50 ? 56 : pointCount < 100 ? 64 : 72;
           el.style.width = `${size}px`;
           el.style.height = `${size}px`;
           el.style.borderRadius = "50%";
           el.style.backgroundImage = `url(${clusterImages[imageIndex]})`;
           el.style.backgroundSize = "cover";
           el.style.backgroundPosition = "center";
-          el.style.border = "3px solid #ffffff";
-          el.style.boxShadow = "0 2px 10px rgba(0,0,0,0.3)";
+          el.style.border = "4px solid #ffffff";
+          el.style.boxShadow = "0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.1)";
           el.style.display = "flex";
           el.style.alignItems = "center";
           el.style.justifyContent = "center";
           el.style.cursor = "pointer";
-          el.style.transition = "transform 0.2s";
-          el.style.zIndex = "10";
+          el.style.transition = "transform 0.2s, box-shadow 0.2s";
+          el.style.zIndex = "1000";
+          el.style.pointerEvents = "auto";
           
           // Ajouter le texte du nombre
           const text = document.createElement("span");
@@ -779,12 +791,17 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         });
       };
       
-      // Mettre à jour les markers quand la carte bouge
+      // Mettre à jour les markers quand la carte bouge ou que les données changent
       map.current.on("moveend", createClusterMarkers);
       map.current.on("zoomend", createClusterMarkers);
+      map.current.on("data", (e) => {
+        if (e.sourceId === "analytics-points" && e.isSourceLoaded) {
+          setTimeout(createClusterMarkers, 200);
+        }
+      });
       
       // Créer les markers après le chargement initial
-      setTimeout(createClusterMarkers, 1000);
+      setTimeout(createClusterMarkers, 1500);
 
       // Gérer les clics sur les clusters - Zoomer et afficher les détails
       map.current.on("click", "clusters", async (e) => {

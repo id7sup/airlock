@@ -115,14 +115,14 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
     : null;
 
   return (
-    <div className="fixed bottom-8 right-8 z-50 w-80">
-      <div className="bg-white rounded-2xl shadow-2xl border border-black/5 overflow-hidden">
+    <div className="fixed bottom-1/2 right-8 transform translate-y-1/2 z-50 w-72">
+      <div className="bg-white rounded-3xl shadow-2xl border border-black/5 overflow-hidden">
         {/* Header compact */}
-        <div className="flex items-center justify-between p-4 border-b border-black/5">
+        <div className="flex items-center justify-between p-5 border-b border-black/5">
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-lg bg-black/5 hover:bg-black/10 flex items-center justify-center transition-colors"
+              className="w-9 h-9 rounded-xl bg-black/5 hover:bg-black/10 flex items-center justify-center transition-colors"
             >
               <ChevronLeft className="w-4 h-4 text-black/60" />
             </button>
@@ -137,7 +137,7 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-black/5 hover:bg-black/10 flex items-center justify-center transition-colors"
+            className="w-9 h-9 rounded-xl bg-black/5 hover:bg-black/10 flex items-center justify-center transition-colors"
           >
             <X className="w-4 h-4 text-black/60" />
           </button>
@@ -192,22 +192,22 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
             <div className="space-y-4">
               {/* Stats compactes */}
               <div className="grid grid-cols-4 gap-2">
-                <div className="bg-black/5 rounded-xl p-3 text-center">
+                <div className="bg-black/5 rounded-2xl p-3 text-center">
                   <Eye className="w-4 h-4 text-black/60 mx-auto mb-1.5" />
                   <p className="text-lg font-semibold text-black tabular-nums">{stats.views}</p>
                   <p className="text-[10px] text-black/40 font-medium">Vues</p>
                 </div>
-                <div className="bg-black/5 rounded-xl p-3 text-center">
+                <div className="bg-black/5 rounded-2xl p-3 text-center">
                   <Download className="w-4 h-4 text-black/60 mx-auto mb-1.5" />
                   <p className="text-lg font-semibold text-black tabular-nums">{stats.downloads}</p>
                   <p className="text-[10px] text-black/40 font-medium">Téléch.</p>
                 </div>
-                <div className="bg-black/5 rounded-xl p-3 text-center">
+                <div className="bg-black/5 rounded-2xl p-3 text-center">
                   <Lock className="w-4 h-4 text-red-500 mx-auto mb-1.5" />
                   <p className="text-lg font-semibold text-black tabular-nums">{stats.denied}</p>
                   <p className="text-[10px] text-black/40 font-medium">Refusés</p>
                 </div>
-                <div className="bg-black/5 rounded-xl p-3 text-center">
+                <div className="bg-black/5 rounded-2xl p-3 text-center">
                   <Monitor className="w-4 h-4 text-black/60 mx-auto mb-1.5" />
                   <p className="text-lg font-semibold text-black tabular-nums">{stats.folders}</p>
                   <p className="text-[10px] text-black/40 font-medium">Dossiers</p>
@@ -216,7 +216,7 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
 
               {/* Dernière activité compacte */}
               {lastEvent && (
-                <div className="bg-black/5 rounded-xl p-3 space-y-2">
+                <div className="bg-black/5 rounded-2xl p-3 space-y-2">
                   <div className="flex items-center gap-2 mb-2">
                     <Clock className="w-3.5 h-3.5 text-black/40" />
                     <p className="text-xs font-semibold text-black/60 uppercase tracking-wider">Dernière activité</p>
@@ -275,9 +275,9 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
                 }
 
                 return (
-                  <div key={event.id || idx} className="bg-black/5 rounded-xl p-3 hover:bg-black/10 transition-colors">
+                  <div key={event.id || idx} className="bg-black/5 rounded-2xl p-3 hover:bg-black/10 transition-colors">
                     <div className="flex items-start gap-3">
-                      <div className={`w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center flex-shrink-0 ${eventColor}`}>
+                      <div className={`w-8 h-8 rounded-xl bg-black/5 flex items-center justify-center flex-shrink-0 ${eventColor}`}>
                         {eventIcon === Eye && <Eye className="w-4 h-4" />}
                         {eventIcon === Download && <Download className="w-4 h-4" />}
                         {eventIcon === Lock && <Lock className="w-4 h-4" />}
@@ -318,9 +318,9 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
           {activeTab === "location" && (
             <div className="space-y-2">
               {Object.values(locations).map((location, idx) => (
-                <div key={idx} className="bg-black/5 rounded-xl p-3 hover:bg-black/10 transition-colors">
+                <div key={idx} className="bg-black/5 rounded-2xl p-3 hover:bg-black/10 transition-colors">
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 rounded-xl bg-black/5 flex items-center justify-center flex-shrink-0">
                       <MapPin className="w-4 h-4 text-black/60" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -328,7 +328,7 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
                         <p className="text-sm font-semibold text-black">
                           {location.city}, {location.country}
                         </p>
-                        <p className="text-xs font-semibold text-black/40 bg-black/5 px-2 py-0.5 rounded-lg">
+                        <p className="text-xs font-semibold text-black/40 bg-black/5 px-2 py-0.5 rounded-xl">
                           {location.count}
                         </p>
                       </div>
