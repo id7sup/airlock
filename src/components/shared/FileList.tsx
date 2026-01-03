@@ -12,25 +12,44 @@ export async function FileList({
   shareLinkId: string; 
   token: string;
 }) {
-  // Récupérer le downloadDefault du lien
-  const linkDoc = await db.collection("shareLinks").doc(shareLinkId).get();
-  const linkData = linkDoc.exists ? linkDoc.data() : null;
-  const downloadAllowed = linkData?.downloadDefault ?? (linkData?.allowDownload ?? true);
+  try {
+    // Récupérer le downloadDefault du lien
+    const linkDoc = await db.collection("shareLinks").doc(shareLinkId).get();
+    const linkData = linkDoc.exists ? linkDoc.data() : null;
+    const downloadAllowed = linkData?.downloadDefault ?? (linkData?.allowDownload ?? true);
 
-  // Ajouter la règle à tous les fichiers
-  const filesWithRules = files.map((file: any) => ({
-    ...file,
-    rule: { downloadAllowed },
-    type: 'file' as const
-  }));
+    // Ajouter la règle à tous les fichiers
+    const filesWithRules = files.map((file: any) => ({
+      ...file,
+      rule: { downloadAllowed },
+      type: 'file' as const
+    }));
 
-  return (
-    <FileListClient 
-      files={filesWithRules}
-      children={children}
-      shareLinkId={shareLinkId}
-      token={token}
-    />
-  );
+    return (
+      <FileListClient 
+        files={filesWithRules}
+        children={children || []}
+        shareLinkId={shareLinkId}
+        token={token}
+      />
+    );
+  } catch (error: any) {
+    console.error("[FILE_LIST] Error fetching share link data:", error);
+    // En cas d'erreur, utiliser les valeurs par défaut
+    const filesWithRules = files.map((file: any) => ({
+      ...file,
+      rule: { downloadAllowed: true },
+      type: 'file' as const
+    }));
+
+    return (
+      <FileListClient 
+        files={filesWithRules}
+        children={children || []}
+        shareLinkId={shareLinkId}
+        token={token}
+      />
+    );
+  }
 }
 
