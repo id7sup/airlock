@@ -16,6 +16,34 @@ export default async function PublicSharePage({
   searchParams: Promise<{ pwd?: string }> 
 }) {
   console.error("[SHARE_PAGE] Starting PublicSharePage");
+  
+  // Vérifier que Firebase est initialisé
+  try {
+    const { db } = await import("@/lib/firebase");
+    // Test simple pour vérifier que db est disponible
+    if (!db) {
+      throw new Error("Firebase db n'est pas disponible");
+    }
+  } catch (firebaseError: any) {
+    console.error("[SHARE_PAGE] Firebase initialization error:", firebaseError);
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
+        <div className="apple-card p-12 text-center max-w-md shadow-2xl">
+          <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Info className="w-8 h-8" />
+          </div>
+          <h1 className="text-2xl font-bold mb-2 tracking-tight">Erreur de configuration</h1>
+          <p className="text-apple-secondary font-medium">
+            Firebase n'est pas correctement configuré. Veuillez contacter l'administrateur.
+          </p>
+          <p className="text-xs text-red-500 mt-4 font-mono">
+            {firebaseError?.message || "Erreur inconnue"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  
   try {
     console.error("[SHARE_PAGE] Awaiting params and searchParams");
     const { token } = await params;
@@ -360,29 +388,9 @@ export default async function PublicSharePage({
     const errorMessage = error?.message || "Erreur inconnue";
     const errorName = error?.name || "Error";
     const errorCode = error?.code || "UNKNOWN";
+    const errorStack = error?.stack || "";
     
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-        <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-          <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Info className="w-8 h-8" />
-          </div>
-          <h1 className="text-2xl font-bold mb-2 tracking-tight">Erreur</h1>
-          <p className="text-apple-secondary font-medium mb-4">
-            Une erreur est survenue lors du chargement du partage.
-          </p>
-          <div className="mt-4 p-4 bg-red-50 rounded-xl text-left">
-            <p className="text-xs font-mono text-red-700 break-all">
-              <strong>Type:</strong> {errorName}<br/>
-              <strong>Code:</strong> {errorCode}<br/>
-              <strong>Message:</strong> {errorMessage}
-            </p>
-          </div>
-          <p className="text-xs text-apple-secondary/50 mt-4">
-            Si le problème persiste, contactez le support avec ces informations.
-          </p>
-        </div>
-      </div>
-    );
+    // Lancer l'erreur pour que error.tsx la capture
+    throw new Error(`[${errorName}] ${errorMessage} (Code: ${errorCode})`);
   }
 }
