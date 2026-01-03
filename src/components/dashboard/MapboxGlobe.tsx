@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Globe, MapPin, Clock, Monitor, Smartphone, Tablet, Globe as GlobeIcon } from "lucide-react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { AnalyticsDetailCard } from "./AnalyticsDetailCard";
 
 // Fonction pour parser le userAgent et extraire les infos du navigateur/device
 function parseUserAgent(userAgent: string): { browser: string; device: string; os: string; icon: string } {
@@ -150,11 +151,23 @@ interface MapboxGlobeProps {
   analytics: AnalyticsPoint[];
 }
 
+// Fonction pour générer une couleur de background basée sur un hash
+function getClusterBackgroundColor(clusterId: number): string {
+  const backgrounds = [
+    "#96A982", // brand-primary
+    "#8B9A7A", // variation 1
+    "#A8B896", // variation 2
+    "#7A8A6A", // variation 3
+  ];
+  return backgrounds[clusterId % backgrounds.length];
+}
+
 export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<any>(null);
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -437,7 +450,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         });
       }
 
-      // Ajouter les clusters - Style minimaliste et moderne
+      // Ajouter les clusters - Plus petits avec backgrounds variés
       if (!map.current.getLayer("clusters")) {
         map.current.addLayer({
           id: "clusters",
@@ -445,27 +458,35 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           source: "analytics-points",
           filter: ["has", "point_count"],
           paint: {
-            "circle-color": "#96A982",
+            "circle-color": [
+              "case",
+              ["%", ["get", "cluster_id"], 4],
+              0, "#96A982",
+              1, "#8B9A7A",
+              2, "#A8B896",
+              3, "#7A8A6A",
+              "#96A982"
+            ],
             "circle-radius": [
               "step",
               ["get", "point_count"],
-              24,
+              16,
               10,
-              32,
+              20,
               50,
-              40,
+              24,
               100,
-              48,
+              28,
             ],
-            "circle-opacity": 0.85,
+            "circle-opacity": 0.9,
             "circle-stroke-width": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 2.5,
-              2, 3,
-              3, 3.5,
-              5, 4,
+              0.5, 2,
+              2, 2.5,
+              3, 3,
+              5, 3.5,
             ],
             "circle-stroke-color": "#ffffff",
             "circle-stroke-opacity": 1,
@@ -484,17 +505,17 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 14,
-              2, 16,
-              3, 18,
-              5, 20,
+              0.5, 11,
+              2, 12,
+              3, 13,
+              5, 14,
             ],
           },
           paint: {
             "text-color": "#ffffff",
-            "text-halo-color": "#96A982",
-            "text-halo-width": 2,
-            "text-halo-blur": 1,
+            "text-halo-color": "#000000",
+            "text-halo-width": 1,
+            "text-halo-blur": 0.5,
           },
         });
       }
@@ -661,27 +682,62 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         }
       });
 
-      // Gérer les clics sur les clusters
-      map.current.on("click", "clusters", (e) => {
+      // Gérer les clics sur les clusters - Zoomer et afficher les détails
+      map.current.on("click", "clusters", async (e) => {
         if (!map.current || !e.features?.[0]) return;
         
         const features = e.features;
         const clusterId = features[0].properties?.cluster_id;
+        const pointCount = features[0].properties?.point_count;
         const source = map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource;
         
+        // Récupérer tous les points du cluster
+        source.getClusterLeaves(clusterId, pointCount, 0, (err, leaves) => {
+          if (err || !map.current || !leaves) return;
+          
+          // Convertir les leaves en format AnalyticsDetail
+          const clusterPoints = leaves.map((leaf: any) => {
+            const props = leaf.properties;
+            const point = analytics.find(p => p.id === props.id);
+            return {
+              id: props.id || leaf.id,
+              type: props.type || "VIEW",
+              eventType: props.eventType || props.type || "OPEN_SHARE",
+              country: props.country || point?.country || "Inconnu",
+              city: props.city || point?.city || "Inconnu",
+              region: props.region || point?.region || "",
+              timestamp: props.timestamp || point?.timestamp || new Date().toISOString(),
+              visitorId: props.visitorId || point?.visitorId || "",
+              userAgent: props.userAgent || point?.userAgent || "",
+            };
+          });
+          
+          // Afficher la card de détail
+          setSelectedDetail({
+            pointCount: pointCount,
+            center: [e.lngLat.lng, e.lngLat.lat],
+            points: clusterPoints,
+          });
+        });
+        
+        // Zoomer sur le cluster
         source.getClusterExpansionZoom(clusterId, (err, zoom) => {
           if (err || !map.current || zoom === null || zoom === undefined) return;
           
+          // Zoomer un peu plus pour mieux voir les points séparés
+          const targetZoom = Math.min(zoom + 1, 10);
+          
           map.current.easeTo({
             center: (e.lngLat as any),
-            zoom: zoom,
-            duration: 500,
+            zoom: targetZoom,
+            duration: 600,
+            easing: (t) => t * (2 - t),
           });
         });
       });
 
-      // Ajouter des popups au clic avec un design amélioré et détaillé
-      const showPopup = (e: any, type: string) => {
+      // Gérer les clics sur les points individuels - Afficher la card de détail
+      const showPointDetail = (e: any, type: string) => {
         if (!map.current || !e.features?.[0]) return;
 
         const props = e.features[0].properties;
@@ -689,110 +745,30 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         
         if (isCluster) return; // Les clusters sont gérés séparément
 
-        // Parser le userAgent
-        const userInfo = parseUserAgent(props.userAgent || "");
-        const timestamp = props.timestamp ? new Date(props.timestamp) : new Date();
-        const timeStr = timestamp.toLocaleString("fr-FR", { 
-          day: "numeric", 
-          month: "short", 
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit"
-        });
-        const timeAgo = getTimeAgo(timestamp);
+        // Trouver le point dans analytics
+        const point = analytics.find(p => p.id === props.id);
         
-        // Déterminer le type d'événement en français
-        let eventLabel = "Vue";
-        if (type === "DOWNLOAD") eventLabel = "Téléchargement";
-        else if (type === "FOLDER") eventLabel = "Dossier ouvert";
-        else if (type === "FILE") eventLabel = "Fichier consulté";
-        else if (type === "DENIED") eventLabel = "Accès refusé";
-
-        const popup = new mapboxgl.Popup({
-          closeButton: true,
-          closeOnClick: true,
-          className: "custom-popup",
-          maxWidth: "320px",
-        })
-          .setLngLat(e.lngLat)
-          .setHTML(`
-            <div class="p-5 min-w-[280px]">
-              <!-- En-tête avec type d'événement -->
-              <div class="flex items-center gap-3 mb-4 pb-4 border-b border-black/5">
-                <div class="w-2.5 h-2.5 rounded-full bg-brand-primary shadow-sm"></div>
-                <div class="flex-1">
-                  <p class="font-bold text-sm text-black">${eventLabel}</p>
-                  <p class="text-xs text-black/40 font-medium">${timeAgo}</p>
-                </div>
-              </div>
-              
-              <!-- Localisation -->
-              <div class="space-y-3">
-                <div class="flex items-start gap-3">
-                  <div class="w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-4 h-4 text-black/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <p class="text-xs font-bold text-black/30 uppercase tracking-wider mb-1">Localisation</p>
-                    <p class="text-sm font-medium text-black">${props.city || "Ville inconnue"}, ${props.country || "Pays inconnu"}</p>
-                    ${props.region ? `<p class="text-xs text-black/40 mt-0.5">${props.region}</p>` : ""}
-                  </div>
-                </div>
-                
-                <!-- Device & Browser -->
-                <div class="flex items-start gap-3">
-                  <div class="w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-4 h-4 text-black/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <p class="text-xs font-bold text-black/30 uppercase tracking-wider mb-1">Appareil</p>
-                    <p class="text-sm font-medium text-black">${userInfo.device}</p>
-                    <p class="text-xs text-black/40 mt-0.5">${userInfo.browser} • ${userInfo.os}</p>
-                  </div>
-                </div>
-                
-                <!-- Timestamp -->
-                <div class="flex items-start gap-3 pt-2 border-t border-black/5">
-                  <div class="w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-4 h-4 text-black/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <p class="text-xs font-bold text-black/30 uppercase tracking-wider mb-1">Date & Heure</p>
-                    <p class="text-sm font-medium text-black">${timeStr}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          `)
-          .addTo(map.current);
+        // Créer l'objet de détail
+        const detail = {
+          id: props.id || point?.id || "",
+          type: type || props.type || "VIEW",
+          eventType: props.eventType || point?.eventType || "OPEN_SHARE",
+          country: props.country || point?.country || "Inconnu",
+          city: props.city || point?.city || "Inconnu",
+          region: props.region || point?.region || "",
+          timestamp: props.timestamp || point?.timestamp || new Date().toISOString(),
+          visitorId: props.visitorId || point?.visitorId || "",
+          userAgent: props.userAgent || point?.userAgent || "",
+        };
+        
+        // Afficher la card de détail
+        setSelectedDetail(detail);
       };
-      
-      // Fonction helper pour formater le temps écoulé
-      function getTimeAgo(date: Date): string {
-        const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-        
-        if (diffMins < 1) return "À l'instant";
-        if (diffMins < 60) return `Il y a ${diffMins} min`;
-        if (diffHours < 24) return `Il y a ${diffHours}h`;
-        if (diffDays < 7) return `Il y a ${diffDays}j`;
-        return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
-      }
 
-      map.current.on("click", "views-layer", (e) => showPopup(e, "VIEW"));
-      map.current.on("click", "downloads-layer", (e) => showPopup(e, "DOWNLOAD"));
-      map.current.on("click", "views-halo", (e) => showPopup(e, "VIEW"));
-      map.current.on("click", "downloads-halo", (e) => showPopup(e, "DOWNLOAD"));
+      map.current.on("click", "views-layer", (e) => showPointDetail(e, "VIEW"));
+      map.current.on("click", "downloads-layer", (e) => showPointDetail(e, "DOWNLOAD"));
+      map.current.on("click", "views-halo", (e) => showPointDetail(e, "VIEW"));
+      map.current.on("click", "downloads-halo", (e) => showPointDetail(e, "DOWNLOAD"));
 
       // Changer le curseur au survol pour toutes les couches
       const layers = ["views-layer", "downloads-layer", "views-halo", "downloads-halo", "clusters"];
@@ -956,6 +932,12 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           </div>
         </div>
       )}
+      
+      {/* Card de détail centrée en bas */}
+      <AnalyticsDetailCard 
+        detail={selectedDetail} 
+        onClose={() => setSelectedDetail(null)} 
+      />
     </div>
   );
 }
