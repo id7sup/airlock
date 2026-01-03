@@ -10,13 +10,14 @@ function convertFirestoreData(data: any): any {
   for (const [key, value] of Object.entries(data)) {
     // Convertir les timestamps Firestore
     if (value && typeof value === 'object') {
-      if (value instanceof admin.firestore.Timestamp) {
-        converted[key] = value.toDate().toISOString();
-      } else if (value._seconds !== undefined && value._nanoseconds !== undefined) {
+      const val = value as any;
+      if (val instanceof admin.firestore.Timestamp) {
+        converted[key] = val.toDate().toISOString();
+      } else if (val._seconds !== undefined && val._nanoseconds !== undefined) {
         // Format {_seconds, _nanoseconds}
-        converted[key] = new Date(value._seconds * 1000 + value._nanoseconds / 1000000).toISOString();
-      } else if (value.toDate && typeof value.toDate === 'function') {
-        converted[key] = value.toDate().toISOString();
+        converted[key] = new Date(val._seconds * 1000 + val._nanoseconds / 1000000).toISOString();
+      } else if (val.toDate && typeof val.toDate === 'function') {
+        converted[key] = val.toDate().toISOString();
       } else if (Array.isArray(value)) {
         converted[key] = value.map(item => convertFirestoreData(item));
       } else if (value.constructor === Object) {
