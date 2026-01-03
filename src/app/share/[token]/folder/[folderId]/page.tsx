@@ -191,8 +191,32 @@ export default async function PublicShareFolderPage({
         db.collection("folders").where("parentId", "==", folderId).get(),
       ]);
 
-      files = filesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      children = childrenSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Fonction pour convertir les timestamps Firestore
+      const convertFirestoreData = (data: any): any => {
+        if (!data || typeof data !== 'object') return data;
+        const converted: any = {};
+        for (const [key, value] of Object.entries(data)) {
+          if (value && typeof value === 'object') {
+            if (value._seconds !== undefined && value._nanoseconds !== undefined) {
+              converted[key] = new Date(value._seconds * 1000 + value._nanoseconds / 1000000).toISOString();
+            } else if (value.toDate && typeof value.toDate === 'function') {
+              converted[key] = value.toDate().toISOString();
+            } else if (Array.isArray(value)) {
+              converted[key] = value.map(item => convertFirestoreData(item));
+            } else if (value.constructor === Object) {
+              converted[key] = convertFirestoreData(value);
+            } else {
+              converted[key] = value;
+            }
+          } else {
+            converted[key] = value;
+          }
+        }
+        return converted;
+      };
+
+      files = filesSnapshot.docs.map(doc => ({ id: doc.id, ...convertFirestoreData(doc.data()) }));
+      children = childrenSnapshot.docs.map(doc => ({ id: doc.id, ...convertFirestoreData(doc.data()) }));
     } catch (error) {
       console.error("Error fetching files and children:", error);
       // Continuer avec des tableaux vides plutôt que de crasher

@@ -2,6 +2,35 @@ import { db } from "@/lib/firebase";
 import * as admin from "firebase-admin";
 import crypto from "crypto";
 
+// Fonction utilitaire pour convertir les timestamps Firestore en objets sérialisables
+function convertFirestoreData(data: any): any {
+  if (!data || typeof data !== 'object') return data;
+  
+  const converted: any = {};
+  for (const [key, value] of Object.entries(data)) {
+    // Convertir les timestamps Firestore
+    if (value && typeof value === 'object') {
+      if (value instanceof admin.firestore.Timestamp) {
+        converted[key] = value.toDate().toISOString();
+      } else if (value._seconds !== undefined && value._nanoseconds !== undefined) {
+        // Format {_seconds, _nanoseconds}
+        converted[key] = new Date(value._seconds * 1000 + value._nanoseconds / 1000000).toISOString();
+      } else if (value.toDate && typeof value.toDate === 'function') {
+        converted[key] = value.toDate().toISOString();
+      } else if (Array.isArray(value)) {
+        converted[key] = value.map(item => convertFirestoreData(item));
+      } else if (value.constructor === Object) {
+        converted[key] = convertFirestoreData(value);
+      } else {
+        converted[key] = value;
+      }
+    } else {
+      converted[key] = value;
+    }
+  }
+  return converted;
+}
+
 export async function createShareLink(data: {
   folderId: string;
   userId: string; // Ajouté
@@ -171,14 +200,18 @@ export async function validateShareLink(token: string) {
       return { error: "NOT_FOUND", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
+    // Convertir les données pour qu'elles soient sérialisables
+    const convertedLinkData = convertFirestoreData(linkData);
+    const convertedFolderData = convertFirestoreData(folderData);
+    
     const result = {
       id: linkDoc.id,
-      ...linkData,
+      ...convertedLinkData,
       folder: {
         id: folderDoc.id,
-        name: folderData.name || "Dossier inconnu",
+        name: convertedFolderData.name || "Dossier inconnu",
         files: (filesSnapshot.docs || []).map((doc: any) => {
-          const data = doc.data();
+          const data = convertFirestoreData(doc.data());
           return {
             id: doc.id,
             ...data,
@@ -189,7 +222,7 @@ export async function validateShareLink(token: string) {
           };
         }),
         children: (childrenSnapshot.docs || []).map((doc: any) => {
-          const data = doc.data();
+          const data = convertFirestoreData(doc.data());
           return {
             id: doc.id,
             ...data,
