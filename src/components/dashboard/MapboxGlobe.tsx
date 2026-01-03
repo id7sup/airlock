@@ -794,8 +794,9 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       // Mettre à jour les markers quand la carte bouge ou que les données changent
       map.current.on("moveend", createClusterMarkers);
       map.current.on("zoomend", createClusterMarkers);
-      map.current.on("data", (e) => {
-        if (e.sourceId === "analytics-points" && e.isSourceLoaded) {
+      map.current.on("data", (e: any) => {
+        // Vérifier si c'est un événement de source et si c'est notre source analytics-points
+        if (e.sourceId && e.sourceId === "analytics-points" && e.isSourceLoaded) {
           setTimeout(createClusterMarkers, 200);
         }
       });
