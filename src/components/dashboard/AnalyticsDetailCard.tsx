@@ -115,8 +115,8 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
     : null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4">
-      <div className="bg-[#1a1a1a] rounded-2xl shadow-2xl border border-white/10 overflow-hidden">
+    <div className="fixed bottom-6 right-6 z-50 w-full max-w-sm">
+      <div className="bg-[#0f0f0f] rounded-xl shadow-2xl border border-white/5 overflow-hidden">
         {/* Header compact */}
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           <div className="flex items-center gap-3">

@@ -151,16 +151,20 @@ interface MapboxGlobeProps {
   analytics: AnalyticsPoint[];
 }
 
-// Images de background pour les clusters
-const clusterBackgrounds = [
-  "/assets/background.jpg",
-  "/assets/backgroundtwo.jpg",
-  "/assets/backgroundthree.jpg",
+// Couleurs extraites des images pour les points et clusters
+// background.jpg -> couleur dominante beige/sable
+// backgroundtwo.jpg -> couleur dominante terre/brun
+// backgroundthree.jpg -> couleur dominante gris/vert
+const imageColors = [
+  "#C4B5A0", // beige/sable de background.jpg
+  "#8B7355", // terre/brun de backgroundtwo.jpg
+  "#9A9E8B", // gris/vert de backgroundthree.jpg
 ];
 
-// Fonction pour obtenir une image de background aléatoire basée sur cluster_id
-function getClusterBackground(clusterId: number): string {
-  return clusterBackgrounds[clusterId % clusterBackgrounds.length];
+// Fonction pour obtenir une couleur basée sur un ID
+function getColorFromId(id: string | number): string {
+  const numId = typeof id === 'string' ? id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : id;
+  return imageColors[numId % imageColors.length];
 }
 
 export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
@@ -451,7 +455,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         });
       }
 
-      // Ajouter les clusters - Plus petits avec backgrounds variés (couleurs inspirées des images)
+      // Ajouter les clusters - Avec couleurs des images
       if (!map.current.getLayer("clusters")) {
         map.current.addLayer({
           id: "clusters",
@@ -462,31 +466,31 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
             "circle-color": [
               "case",
               ["%", ["get", "cluster_id"], 3],
-              0, "#96A982", // brand-primary (inspiré de background.jpg)
-              1, "#7A8A6A", // plus foncé (inspiré de backgroundtwo.jpg)
-              2, "#A8B896", // plus clair (inspiré de backgroundthree.jpg)
-              "#96A982"
+              0, "#C4B5A0", // beige/sable de background.jpg
+              1, "#8B7355", // terre/brun de backgroundtwo.jpg
+              2, "#9A9E8B", // gris/vert de backgroundthree.jpg
+              "#C4B5A0"
             ],
             "circle-radius": [
               "step",
               ["get", "point_count"],
-              12,
+              14,
               10,
-              16,
+              18,
               50,
-              20,
+              22,
               100,
-              24,
+              26,
             ],
             "circle-opacity": 0.95,
             "circle-stroke-width": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 1.5,
-              2, 2,
-              3, 2.5,
-              5, 3,
+              0.5, 2,
+              2, 2.5,
+              3, 3,
+              5, 3.5,
             ],
             "circle-stroke-color": "#ffffff",
             "circle-stroke-opacity": 1,
@@ -520,7 +524,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         });
       }
 
-      // Ajouter les points de vue - Visibles et bien stylisés
+      // Ajouter les points de vue - Couleurs des images, visibles même dézoomés
       if (!map.current.getLayer("views-layer")) {
         map.current.addLayer({
           id: "views-layer",
@@ -532,21 +536,29 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 5,
-              2, 7,
-              3, 9,
-              5, 12,
+              0.5, 8,
+              1, 9,
+              2, 10,
+              3, 11,
+              5, 13,
             ],
-            "circle-color": "#96A982",
+            "circle-color": [
+              "case",
+              ["%", ["get", "colorIndex"], 3],
+              0, "#C4B5A0", // beige/sable de background.jpg
+              1, "#8B7355", // terre/brun de backgroundtwo.jpg
+              2, "#9A9E8B", // gris/vert de backgroundthree.jpg
+              "#C4B5A0"
+            ],
             "circle-opacity": 1,
             "circle-stroke-width": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 2,
-              2, 2.5,
-              3, 3,
-              5, 3.5,
+              0.5, 2.5,
+              2, 3,
+              3, 3.5,
+              5, 4,
             ],
             "circle-stroke-color": "#ffffff",
             "circle-stroke-opacity": 1,
@@ -554,7 +566,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         });
       }
 
-      // Ajouter les points de téléchargement - Visibles et bien stylisés
+      // Ajouter les points de téléchargement - Couleurs des images, visibles même dézoomés
       if (!map.current.getLayer("downloads-layer")) {
         map.current.addLayer({
           id: "downloads-layer",
@@ -566,21 +578,29 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 5,
-              2, 7,
-              3, 9,
-              5, 12,
+              0.5, 8,
+              1, 9,
+              2, 10,
+              3, 11,
+              5, 13,
             ],
-            "circle-color": "#96A982",
+            "circle-color": [
+              "case",
+              ["%", ["get", "colorIndex"], 3],
+              0, "#C4B5A0", // beige/sable de background.jpg
+              1, "#8B7355", // terre/brun de backgroundtwo.jpg
+              2, "#9A9E8B", // gris/vert de backgroundthree.jpg
+              "#C4B5A0"
+            ],
             "circle-opacity": 1,
             "circle-stroke-width": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 2,
-              2, 2.5,
-              3, 3,
-              5, 3.5,
+              0.5, 2.5,
+              2, 3,
+              3, 3.5,
+              5, 4,
             ],
             "circle-stroke-color": "#ffffff",
             "circle-stroke-opacity": 1,
@@ -644,6 +664,8 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               timestamp: point.timestamp,
               visitorId: point.visitorId || "",
               userAgent: point.userAgent || "",
+              // Index de couleur basé sur l'ID pour utiliser les couleurs des images
+              colorIndex: (point.id || "").split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) % 3,
             },
           };
         });
@@ -829,6 +851,8 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               timestamp: point.timestamp,
               visitorId: point.visitorId || "",
               userAgent: point.userAgent || "",
+              // Index de couleur basé sur l'ID pour utiliser les couleurs des images
+              colorIndex: (point.id || "").split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) % 3,
             },
           };
         });
