@@ -194,8 +194,8 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
 
       fetchGeolocationAnalytics();
       
-      // Rafraîchir toutes les 30 secondes
-      const interval = setInterval(fetchGeolocationAnalytics, 30000);
+      // Rafraîchir toutes les 2 minutes (réduire les chargements)
+      const interval = setInterval(fetchGeolocationAnalytics, 120000);
       return () => clearInterval(interval);
     }
   }, [activeTab, selectedLinkId]);
