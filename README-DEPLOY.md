@@ -1,42 +1,23 @@
-# 🚀 Guide de déploiement
+# Déploiement
 
-## Déploiement sur le serveur
-
-### Déploiement simple (recommandé)
+## Sur le serveur
 
 ```bash
 cd /var/www/airlock
-chmod +x deploy.sh
 ./deploy.sh
 ```
 
-Le script fait automatiquement :
-- ✅ Récupération depuis GitHub
-- ✅ Installation des dépendances
-- ✅ Build de l'application
-- ✅ Arrêt propre de l'ancienne version
-- ✅ Libération du port 3000
-- ✅ Démarrage avec PM2
-- ✅ Vérification du démarrage
+## Si le port 3000 est bloqué
 
-## Scripts disponibles
-
-- **`deploy.sh`** - Script de déploiement principal (unique et propre)
-- **`kill-port.sh`** - Libérer le port 3000 si bloqué
-
-## Dépannage
-
-### Le port 3000 est bloqué
 ```bash
 ./kill-port.sh
+./deploy.sh
 ```
 
-### L'application ne démarre pas
+## Commandes PM2
+
 ```bash
-pm2 logs airlock --lines 50
+pm2 status          # Voir le statut
+pm2 logs airlock    # Voir les logs
+pm2 restart airlock # Redémarrer
 ```
-
-## Configuration nginx
-
-Voir `nginx-config-example.conf` pour la configuration nginx recommandée.
-
