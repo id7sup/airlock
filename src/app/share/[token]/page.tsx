@@ -87,33 +87,28 @@ export default async function PublicSharePage({
       console.error("[SHARE_PAGE] Error result detected:", errorResult?.error);
       console.error("[SHARE_PAGE] Error folderId:", errorResult?.folderId);
       
-      // Récupérer le propriétaire pour notifier de l'expiration/quota (sans bloquer si ça échoue)
-      if (errorResult?.folderId) {
-        try {
-          console.error("[SHARE_PAGE] Attempting to get owner for folder:", errorResult.folderId);
-          const ownerPerm = await db.collection("permissions")
-            .where("folderId", "==", errorResult.folderId)
-            .where("role", "==", "OWNER")
-            .limit(1)
-            .get();
-          
-          const ownerId = !ownerPerm.empty ? ownerPerm.docs[0].data()?.userId : null;
-          console.error("[SHARE_PAGE] Owner ID:", ownerId);
-          
-          if (ownerId && errorResult.error === "EXPIRED") {
-            try {
+      // Notification d'expiration en arrière-plan (sans bloquer)
+      if (errorResult?.folderId && errorResult.error === "EXPIRED") {
+        (async () => {
+          try {
+            const ownerPerm = await db.collection("permissions")
+              .where("folderId", "==", errorResult.folderId)
+              .where("role", "==", "OWNER")
+              .limit(1)
+              .get();
+            
+            const ownerId = !ownerPerm.empty ? ownerPerm.docs[0].data()?.userId : null;
+            if (ownerId) {
               const folderDoc = await db.collection("folders").doc(errorResult.folderId).get();
               await createNotification(ownerId, "EXPIRATION", {
                 folderId: errorResult.folderId,
                 folderName: folderDoc.data()?.name || "Dossier inconnu"
-              }).catch(() => {}); // Ignorer les erreurs de notification
-            } catch (e) {
-              console.error("[SHARE_PAGE] Error creating expiration notification:", e);
+              }).catch(() => {});
             }
+          } catch (e) {
+            // Ignorer silencieusement
           }
-        } catch (e) {
-          console.error("[SHARE_PAGE] Error getting owner:", e);
-        }
+        })();
       }
 
       return (
@@ -179,43 +174,30 @@ export default async function PublicSharePage({
       );
     }
 
-    // 2. Récupérer le propriétaire pour les notifications de succès (sans bloquer)
-    console.error("[SHARE_PAGE] Getting owner for folder:", link.folderId);
-    let ownerId: string | null = null;
-    try {
-      const ownerPerm = await db.collection("permissions")
-        .where("folderId", "==", link.folderId)
-        .where("role", "==", "OWNER")
-        .limit(1)
-        .get();
-      
-      ownerId = !ownerPerm.empty ? ownerPerm.docs[0].data()?.userId || null : null;
-      console.error("[SHARE_PAGE] Owner ID retrieved:", ownerId);
-    } catch (e) {
-      console.error("[SHARE_PAGE] Error getting owner:", e);
-    }
-
-    // 3. Incrémenter le nombre de vues via analytics (sans bloquer)
-    console.error("[SHARE_PAGE] Tracking link activity for link:", link.id);
-    try {
-      await trackLinkActivity(link.id, "VIEW");
-      console.error("[SHARE_PAGE] Link activity tracked successfully");
-    } catch (e) {
-      console.error("[SHARE_PAGE] Error tracking link activity:", e);
-      // Ne pas bloquer si le tracking échoue
-    }
-    
-    // 4. Notification (sans bloquer)
-    if (ownerId && link.folder?.name) {
-      try {
-        await createNotification(ownerId, "VIEW", {
-          folderName: link.folder.name,
-          folderId: link.folderId,
-        });
-      } catch (e) {
-        // Ignorer les erreurs de notification
-      }
-    }
+    // 2. Incrémenter le nombre de vues via analytics (sans bloquer - en arrière-plan)
+    // On ne bloque pas le rendu pour ces opérations non critiques
+    Promise.all([
+      trackLinkActivity(link.id, "VIEW").catch(() => {}),
+      (async () => {
+        try {
+          const ownerPerm = await db.collection("permissions")
+            .where("folderId", "==", link.folderId)
+            .where("role", "==", "OWNER")
+            .limit(1)
+            .get();
+          
+          const ownerId = !ownerPerm.empty ? ownerPerm.docs[0].data()?.userId || null : null;
+          if (ownerId && link.folder?.name) {
+            await createNotification(ownerId, "VIEW", {
+              folderName: link.folder.name,
+              folderId: link.folderId,
+            }).catch(() => {});
+          }
+        } catch (e) {
+          // Ignorer silencieusement
+        }
+      })()
+    ]).catch(() => {}); // Ne pas bloquer le rendu
 
     // 5. Vérifier mot de passe
     if (link.passwordHash) {
@@ -245,17 +227,26 @@ export default async function PublicSharePage({
             </div>
           );
         } else {
-          // Notification d'accès réussi via mot de passe (sans bloquer)
-          if (ownerId && link.folder?.name) {
+          // Notification d'accès réussi via mot de passe (sans bloquer - en arrière-plan)
+          (async () => {
             try {
-              await createNotification(ownerId, "PASSWORD_ACCESS", {
-                folderName: link.folder.name,
-                folderId: link.folderId,
-              });
+              const ownerPerm = await db.collection("permissions")
+                .where("folderId", "==", link.folderId)
+                .where("role", "==", "OWNER")
+                .limit(1)
+                .get();
+              
+              const ownerId = !ownerPerm.empty ? ownerPerm.docs[0].data()?.userId || null : null;
+              if (ownerId && link.folder?.name) {
+                await createNotification(ownerId, "PASSWORD_ACCESS", {
+                  folderName: link.folder.name,
+                  folderId: link.folderId,
+                }).catch(() => {});
+              }
             } catch (e) {
-              // Ignorer les erreurs
+              // Ignorer silencieusement
             }
-          }
+          })();
         }
       } catch (e) {
         console.error("Error checking password:", e);

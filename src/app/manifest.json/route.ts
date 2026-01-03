@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-export const dynamic = 'force-static';
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
 
 export async function GET() {
   console.log("[MANIFEST] Serving manifest.json");
@@ -36,6 +36,8 @@ export async function GET() {
     headers: {
       "Content-Type": "application/manifest+json",
       "Cache-Control": "public, max-age=3600",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET",
     },
   });
 }
