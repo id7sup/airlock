@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Globe } from "lucide-react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
@@ -101,26 +102,56 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       pitch: 0, // Pas d'inclinaison pour voir le globe en entier
       bearing: 0,
       attributionControl: false, // Désactiver l'attribution
-      scrollZoom: false, // Désactiver le zoom au scroll
+      scrollZoom: false, // Désactiver le zoom au scroll par défaut
     });
 
-    // Désactiver toutes les interactions de zoom et de rotation
-    map.current.scrollZoom.disable();
+    // Désactiver certaines interactions par défaut
     map.current.doubleClickZoom.disable();
     map.current.touchZoomRotate.disable();
     map.current.boxZoom.disable();
     map.current.dragRotate.disable();
     
-    // Permettre au scroll de passer à travers la carte pour scroller la page
-    // On intercepte l'événement wheel et on le laisse se propager pour scroller la page
+    // Activer le zoom avec Cmd + molette (fluide)
     map.current.on("load", () => {
       const canvasContainer = map.current?.getCanvasContainer();
       if (canvasContainer) {
-        // Permettre au scroll de se propager vers le parent pour scroller la page
+        let zoomTimeout: ReturnType<typeof setTimeout> | null = null;
+        let isZooming = false;
+        
         canvasContainer.addEventListener('wheel', (e) => {
-          // Ne pas empêcher le comportement par défaut, laisser le scroll se propager
-          // Cela permettra de scroller la page normalement
-        }, { passive: true, capture: false });
+          // Vérifier si Cmd (Meta) ou Ctrl est pressé
+          if (e.metaKey || e.ctrlKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            isZooming = true;
+            
+            // Calculer le zoom avec accélération fluide
+            const currentZoom = map.current!.getZoom();
+            const delta = -e.deltaY;
+            const zoomFactor = 0.0008; // Facteur de zoom plus fluide
+            const zoomChange = delta * zoomFactor;
+            const newZoom = Math.max(0.5, Math.min(10, currentZoom + zoomChange));
+            
+            // Appliquer le zoom avec animation très fluide
+            map.current!.easeTo({
+              zoom: newZoom,
+              duration: 100,
+              easing: (t) => {
+                // Easing cubic-bezier pour un mouvement très fluide
+                return t * (2 - t);
+              }
+            });
+            
+            // Réinitialiser après un court délai
+            if (zoomTimeout) clearTimeout(zoomTimeout);
+            zoomTimeout = setTimeout(() => {
+              isZooming = false;
+            }, 100);
+          } else if (!isZooming) {
+            // Laisser le scroll se propager pour scroller la page seulement si on ne zoome pas
+          }
+        }, { passive: false, capture: false });
       }
     });
 
@@ -190,71 +221,315 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       }
     });
 
-    map.current.on("load", () => {
+    // Fonction pour créer les layers (réutilisable) - définie avant le on("load")
+    const createLayers = () => {
       if (!map.current) return;
-
-      // Filtrer les analytics avec des coordonnées valides
-      const pointsWithCoords = analytics.filter(
-        (point) => point.latitude && point.longitude
-      );
-
-      if (pointsWithCoords.length === 0) {
-        setIsLoading(false);
+      
+      // Attendre que la source soit disponible
+      if (!map.current.getSource("analytics-points")) {
+        setTimeout(createLayers, 100);
         return;
       }
 
-      // Créer les features GeoJSON avec mapping des types
-      const features = pointsWithCoords.map((point) => {
-        // Mapper les types d'événements
-        const eventType = point.eventType || point.type;
-        let displayType = "VIEW";
-        if (eventType === "OPEN_SHARE" || eventType === "VIEW") {
-          displayType = "VIEW";
-        } else if (eventType === "DOWNLOAD_FILE" || eventType === "DOWNLOAD") {
-          displayType = "DOWNLOAD";
-        } else if (eventType === "OPEN_FOLDER") {
-          displayType = "FOLDER";
-        } else if (eventType === "VIEW_FILE") {
-          displayType = "FILE";
-        } else if (eventType === "ACCESS_DENIED") {
-          displayType = "DENIED";
-        }
-        
-        return {
-          type: "Feature" as const,
-          geometry: {
-            type: "Point" as const,
-            coordinates: [point.longitude!, point.latitude!],
+      // Ajouter les halos en premier (en dessous) - Effets visuels améliorés
+      if (!map.current.getLayer("views-halo")) {
+        map.current.addLayer({
+          id: "views-halo",
+          type: "circle",
+          source: "analytics-points",
+          filter: ["all", ["==", ["get", "type"], "VIEW"], ["!", ["has", "point_count"]]],
+          paint: {
+            "circle-radius": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0.5, 30,
+              2, 40,
+              3, 50,
+              5, 70,
+            ],
+            "circle-color": "#96A982",
+            "circle-opacity": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0.5, 0.3,
+              2, 0.4,
+              3, 0.5,
+              5, 0.6,
+            ],
+            "circle-blur": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0.5, 4,
+              2, 5,
+              3, 6,
+              5, 8,
+            ],
           },
-          properties: {
-            id: point.id,
-            type: displayType,
-            eventType: eventType,
-            country: point.country || "Inconnu",
-            city: point.city || "Inconnu",
-            timestamp: point.timestamp,
-          },
-        };
-      });
-
-      // Ajouter la source de données avec clustering
-      if (map.current.getSource("analytics-points")) {
-        (map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource).setData({
-          type: "FeatureCollection",
-          features,
-        });
-      } else {
-        map.current.addSource("analytics-points", {
-          type: "geojson",
-          data: {
-            type: "FeatureCollection",
-            features,
-          },
-          cluster: true, // Activer le clustering
-          clusterMaxZoom: 5, // Zoom maximum pour le clustering
-          clusterRadius: 50, // Rayon du cluster en pixels
         });
       }
+
+      if (!map.current.getLayer("downloads-halo")) {
+        map.current.addLayer({
+          id: "downloads-halo",
+          type: "circle",
+          source: "analytics-points",
+          filter: ["all", ["==", ["get", "type"], "DOWNLOAD"], ["!", ["has", "point_count"]]],
+          paint: {
+            "circle-radius": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0.5, 30,
+              2, 40,
+              3, 50,
+              5, 70,
+            ],
+            "circle-color": "#96A982",
+            "circle-opacity": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0.5, 0.3,
+              2, 0.4,
+              3, 0.5,
+              5, 0.6,
+            ],
+            "circle-blur": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0.5, 4,
+              2, 5,
+              3, 6,
+              5, 8,
+            ],
+          },
+        });
+      }
+
+      // Ajouter les clusters
+      if (!map.current.getLayer("clusters")) {
+        map.current.addLayer({
+          id: "clusters",
+          type: "circle",
+          source: "analytics-points",
+          filter: ["has", "point_count"],
+          paint: {
+            "circle-color": "#96A982",
+            "circle-radius": [
+              "step",
+              ["get", "point_count"],
+              30,
+              10,
+              40,
+              50,
+              50,
+              100,
+              60,
+            ],
+            "circle-opacity": 0.9,
+            "circle-stroke-width": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0.5, 3,
+              2, 4,
+              3, 5,
+              5, 6,
+            ],
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-opacity": 1,
+          },
+        });
+
+        map.current.addLayer({
+          id: "cluster-count",
+          type: "symbol",
+          source: "analytics-points",
+          filter: ["has", "point_count"],
+          layout: {
+            "text-field": "{point_count_abbreviated}",
+            "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+            "text-size": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0.5, 14,
+              2, 16,
+              3, 18,
+              5, 20,
+            ],
+          },
+          paint: {
+            "text-color": "#ffffff",
+            "text-halo-color": "#96A982",
+            "text-halo-width": 2,
+            "text-halo-blur": 1,
+          },
+        });
+      }
+
+      // Ajouter les points de vue - Effets visuels améliorés
+      if (!map.current.getLayer("views-layer")) {
+        map.current.addLayer({
+          id: "views-layer",
+          type: "circle",
+          source: "analytics-points",
+          filter: ["all", ["==", ["get", "type"], "VIEW"], ["!", ["has", "point_count"]]],
+          paint: {
+            "circle-radius": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0.5, 12,
+              2, 16,
+              3, 20,
+              5, 28,
+            ],
+            "circle-color": "#96A982",
+            "circle-opacity": 1,
+            "circle-stroke-width": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0.5, 4,
+              2, 4.5,
+              3, 5,
+              5, 6,
+            ],
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-opacity": 1,
+          },
+        });
+      }
+
+      // Ajouter les points de téléchargement - Effets visuels améliorés
+      if (!map.current.getLayer("downloads-layer")) {
+        map.current.addLayer({
+          id: "downloads-layer",
+          type: "circle",
+          source: "analytics-points",
+          filter: ["all", ["==", ["get", "type"], "DOWNLOAD"], ["!", ["has", "point_count"]]],
+          paint: {
+            "circle-radius": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0.5, 12,
+              2, 16,
+              3, 20,
+              5, 28,
+            ],
+            "circle-color": "#96A982",
+            "circle-opacity": 1,
+            "circle-stroke-width": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0.5, 4,
+              2, 4.5,
+              3, 5,
+              5, 6,
+            ],
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-opacity": 1,
+          },
+        });
+      }
+    };
+
+    map.current.on("load", () => {
+      if (!map.current) return;
+      
+      // Fonction pour mettre à jour les données sur la carte
+      const updateMapData = () => {
+        if (!map.current) return;
+
+        // Filtrer les analytics avec des coordonnées valides
+        const pointsWithCoords = analytics.filter(
+          (point) => point.latitude != null && point.longitude != null && 
+                     !isNaN(point.latitude) && !isNaN(point.longitude) &&
+                     point.latitude >= -90 && point.latitude <= 90 &&
+                     point.longitude >= -180 && point.longitude <= 180
+        );
+
+        console.log(`[MapboxGlobe] Analytics: ${analytics.length}, With coords: ${pointsWithCoords.length}`);
+
+        if (pointsWithCoords.length === 0) {
+          setIsLoading(false);
+          return;
+        }
+
+        // Créer les features GeoJSON avec mapping des types
+        const features = pointsWithCoords.map((point) => {
+          // Mapper les types d'événements
+          const eventType = point.eventType || point.type;
+          let displayType = "VIEW";
+          if (eventType === "OPEN_SHARE" || eventType === "VIEW") {
+            displayType = "VIEW";
+          } else if (eventType === "DOWNLOAD_FILE" || eventType === "DOWNLOAD") {
+            displayType = "DOWNLOAD";
+          } else if (eventType === "OPEN_FOLDER") {
+            displayType = "FOLDER";
+          } else if (eventType === "VIEW_FILE") {
+            displayType = "FILE";
+          } else if (eventType === "ACCESS_DENIED") {
+            displayType = "DENIED";
+          }
+          
+          return {
+            type: "Feature" as const,
+            geometry: {
+              type: "Point" as const,
+              coordinates: [point.longitude!, point.latitude!],
+            },
+            properties: {
+              id: point.id,
+              type: displayType,
+              eventType: eventType,
+              country: point.country || "Inconnu",
+              city: point.city || "Inconnu",
+              timestamp: point.timestamp,
+            },
+          };
+        });
+
+        // Ajouter ou mettre à jour la source de données avec clustering
+        if (map.current.getSource("analytics-points")) {
+          (map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource).setData({
+            type: "FeatureCollection",
+            features,
+          });
+        } else {
+          map.current.addSource("analytics-points", {
+            type: "geojson",
+            data: {
+              type: "FeatureCollection",
+              features,
+            },
+            cluster: true,
+            clusterMaxZoom: 5,
+            clusterRadius: 50,
+          });
+          // Créer les layers après avoir ajouté la source
+          setTimeout(() => {
+            createLayers();
+          }, 150);
+        }
+      };
+      
+      // Mettre à jour les données initiales
+      updateMapData();
+      
+      // S'assurer que les layers sont créés même si les données arrivent plus tard
+      map.current.once("idle", () => {
+        if (map.current && map.current.getSource("analytics-points") && !map.current.getLayer("views-layer")) {
+          createLayers();
+        }
+      });
 
       // Gérer les clics sur les clusters
       map.current.on("click", "clusters", (e) => {
@@ -274,179 +549,6 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           });
         });
       });
-
-      // Créer des clusters pour regrouper les points proches
-      const source = map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource;
-      
-      // Ajouter les halos en premier (en dessous)
-      if (!map.current.getLayer("views-halo")) {
-        map.current.addLayer({
-          id: "views-halo",
-          type: "circle",
-          source: "analytics-points",
-          filter: ["all", ["==", ["get", "type"], "VIEW"], ["!", ["has", "point_count"]]],
-          paint: {
-            "circle-radius": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              2, 12,
-              3, 18,
-              5, 26,
-            ],
-            "circle-color": "#3b82f6",
-            "circle-opacity": 0.2,
-            "circle-blur": 1,
-          },
-        });
-      }
-
-      if (!map.current.getLayer("downloads-halo")) {
-        map.current.addLayer({
-          id: "downloads-halo",
-          type: "circle",
-          source: "analytics-points",
-          filter: ["all", ["==", ["get", "type"], "DOWNLOAD"], ["!", ["has", "point_count"]]],
-          paint: {
-            "circle-radius": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              2, 12,
-              3, 18,
-              5, 26,
-            ],
-            "circle-color": "#10b981",
-            "circle-opacity": 0.2,
-            "circle-blur": 1,
-          },
-        });
-      }
-
-      // Ajouter les clusters
-      if (!map.current.getLayer("clusters")) {
-        map.current.addLayer({
-          id: "clusters",
-          type: "circle",
-          source: "analytics-points",
-          filter: ["has", "point_count"],
-          paint: {
-            "circle-color": [
-              "step",
-              ["get", "point_count"],
-              "#3b82f6",
-              10,
-              "#2563eb",
-              50,
-              "#1d4ed8",
-            ],
-            "circle-radius": [
-              "step",
-              ["get", "point_count"],
-              20,
-              10,
-              30,
-              50,
-              40,
-            ],
-            "circle-opacity": 0.7,
-            "circle-stroke-width": 3,
-            "circle-stroke-color": "#ffffff",
-          },
-        });
-
-        // Ajouter le nombre dans les clusters
-        map.current.addLayer({
-          id: "cluster-count",
-          type: "symbol",
-          source: "analytics-points",
-          filter: ["has", "point_count"],
-          layout: {
-            "text-field": "{point_count_abbreviated}",
-            "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
-            "text-size": 14,
-          },
-          paint: {
-            "text-color": "#ffffff",
-          },
-        });
-      }
-
-      // Ajouter la couche pour les points de vue (non-clustered) - au-dessus des halos
-      if (!map.current.getLayer("views-layer")) {
-        map.current.addLayer({
-          id: "views-layer",
-          type: "circle",
-          source: "analytics-points",
-          filter: ["all", ["==", ["get", "type"], "VIEW"], ["!", ["has", "point_count"]]],
-          paint: {
-            "circle-radius": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              2, 10,
-              3, 14,
-              5, 20,
-            ],
-            "circle-color": "#3b82f6",
-            "circle-opacity": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              2, 0.9,
-              3, 0.95,
-              5, 1,
-            ],
-            "circle-stroke-width": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              2, 2,
-              3, 3,
-              5, 4,
-            ],
-            "circle-stroke-color": "#ffffff",
-          },
-        });
-      }
-
-      // Ajouter la couche pour les points de téléchargement (non-clustered)
-      if (!map.current.getLayer("downloads-layer")) {
-        map.current.addLayer({
-          id: "downloads-layer",
-          type: "circle",
-          source: "analytics-points",
-          filter: ["all", ["==", ["get", "type"], "DOWNLOAD"], ["!", ["has", "point_count"]]],
-          paint: {
-            "circle-radius": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              2, 10,
-              3, 14,
-              5, 20,
-            ],
-            "circle-color": "#10b981",
-            "circle-opacity": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              2, 0.9,
-              3, 0.95,
-              5, 1,
-            ],
-            "circle-stroke-width": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              2, 2,
-              3, 3,
-              5, 4,
-            ],
-            "circle-stroke-color": "#ffffff",
-          },
-        });
-      }
 
       // Ajouter des popups au clic avec un design amélioré
       const showPopup = (e: any, type: string) => {
@@ -505,6 +607,80 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
 
     // Ne pas ajouter de contrôles - carte minimaliste uniquement
 
+    // Mettre à jour les données quand analytics change (après le chargement initial)
+    if (map.current && map.current.loaded()) {
+      const pointsWithCoords = analytics.filter(
+        (point) => point.latitude != null && point.longitude != null && 
+                   !isNaN(point.latitude) && !isNaN(point.longitude) &&
+                   point.latitude >= -90 && point.latitude <= 90 &&
+                   point.longitude >= -180 && point.longitude <= 180
+      );
+
+      console.log(`[MapboxGlobe] Update - Analytics: ${analytics.length}, With coords: ${pointsWithCoords.length}`);
+
+      if (pointsWithCoords.length > 0) {
+        const features = pointsWithCoords.map((point) => {
+          const eventType = point.eventType || point.type;
+          let displayType = "VIEW";
+          if (eventType === "OPEN_SHARE" || eventType === "VIEW") {
+            displayType = "VIEW";
+          } else if (eventType === "DOWNLOAD_FILE" || eventType === "DOWNLOAD") {
+            displayType = "DOWNLOAD";
+          } else if (eventType === "OPEN_FOLDER") {
+            displayType = "FOLDER";
+          } else if (eventType === "VIEW_FILE") {
+            displayType = "FILE";
+          } else if (eventType === "ACCESS_DENIED") {
+            displayType = "DENIED";
+          }
+          
+          return {
+            type: "Feature" as const,
+            geometry: {
+              type: "Point" as const,
+              coordinates: [point.longitude!, point.latitude!],
+            },
+            properties: {
+              id: point.id,
+              type: displayType,
+              eventType: eventType,
+              country: point.country || "Inconnu",
+              city: point.city || "Inconnu",
+              timestamp: point.timestamp,
+            },
+          };
+        });
+
+        if (map.current.getSource("analytics-points")) {
+          (map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource).setData({
+            type: "FeatureCollection",
+            features,
+          });
+          // S'assurer que les layers existent
+          if (!map.current.getLayer("views-layer")) {
+            setTimeout(() => {
+              createLayers();
+            }, 50);
+          }
+        } else {
+          map.current.addSource("analytics-points", {
+            type: "geojson",
+            data: {
+              type: "FeatureCollection",
+              features,
+            },
+            cluster: true,
+            clusterMaxZoom: 5,
+            clusterRadius: 50,
+          });
+          // Créer les layers après avoir ajouté la source
+          setTimeout(() => {
+            createLayers();
+          }, 100);
+        }
+      }
+    }
+
     return () => {
       if (map.current) {
         map.current.remove();
@@ -544,28 +720,36 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         </div>
       )}
       <div ref={mapContainer} className="h-full w-full bg-transparent" />
-          {analytics.length > 0 && (
-            <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-sm rounded-2xl p-4 shadow-xl border border-black/5">
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-blue-500" />
-                  <span className="font-medium text-gray-700">Vues</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-green-500" />
-                  <span className="font-medium text-gray-700">Téléchargements</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-purple-500" />
-                  <span className="font-medium text-gray-700">Dossiers</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-orange-500" />
-                  <span className="font-medium text-gray-700">Fichiers</span>
-                </div>
-              </div>
+      
+      {/* Indicateur de données avec compteur */}
+      {analytics.length > 0 && (
+        <div className="absolute top-6 left-6 z-10 bg-white/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-black/5">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="w-3 h-3 rounded-full bg-brand-primary shadow-lg border-2 border-white/80 animate-pulse" />
+              <div className="absolute inset-0 w-3 h-3 rounded-full bg-brand-primary/30 animate-ping" />
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-black/70">Activité</span>
+              <span className="text-xs font-bold text-black/40 tabular-nums">({analytics.length})</span>
+            </div>
+            <div className="ml-2 px-2 py-0.5 bg-black/5 rounded-full">
+              <span className="text-[9px] text-black/40 font-medium">⌘</span>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Message si pas de données avec coordonnées */}
+      {analytics.length > 0 && analytics.filter(p => p.latitude && p.longitude).length === 0 && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+          <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-black/5 text-center">
+            <Globe className="w-8 h-8 text-black/20 mx-auto mb-3" />
+            <p className="text-sm font-medium text-black/50">En attente de données géolocalisées</p>
+            <p className="text-xs text-black/30 mt-1">Les points apparaîtront après les premières vues</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

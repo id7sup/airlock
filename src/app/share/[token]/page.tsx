@@ -1,6 +1,5 @@
 import { db } from "@/lib/firebase";
 import { validateShareLink } from "@/services/sharing";
-import { trackLinkActivity } from "@/services/analytics";
 import { createNotification } from "@/services/notifications";
 import { FolderOpen, Info, Lock } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
@@ -181,29 +180,27 @@ export default async function PublicSharePage({
       );
     }
 
-    // Tracker l'activité et notifier en arrière-plan (sans bloquer le rendu)
-    Promise.all([
-      trackLinkActivity(link.id, "VIEW").catch(() => {}),
-      (async () => {
-        try {
-          const ownerPerm = await db.collection("permissions")
-            .where("folderId", "==", link.folderId)
-            .where("role", "==", "OWNER")
-            .limit(1)
-            .get();
-          
-          const ownerId = !ownerPerm.empty ? ownerPerm.docs[0].data()?.userId || null : null;
-          if (ownerId && link.folder?.name) {
-            await createNotification(ownerId, "VIEW", {
-              folderName: link.folder.name,
-              folderId: link.folderId,
-            }).catch(() => {});
-          }
-        } catch (e) {
-          // Ignorer silencieusement
+    // Notifier en arrière-plan (sans bloquer le rendu)
+    // Le tracking est géré par le composant TrackEvent
+    (async () => {
+      try {
+        const ownerPerm = await db.collection("permissions")
+          .where("folderId", "==", link.folderId)
+          .where("role", "==", "OWNER")
+          .limit(1)
+          .get();
+        
+        const ownerId = !ownerPerm.empty ? ownerPerm.docs[0].data()?.userId || null : null;
+        if (ownerId && link.folder?.name) {
+          await createNotification(ownerId, "VIEW", {
+            folderName: link.folder.name,
+            folderId: link.folderId,
+          }).catch(() => {});
         }
-      })()
-    ]).catch(() => {});
+      } catch (e) {
+        // Ignorer silencieusement
+      }
+    })().catch(() => {});
 
     // Vérifier le mot de passe si requis
     if (link.passwordHash) {

@@ -131,37 +131,56 @@ function calculateStats(events: any[], userId: string, days: number): AnalyticsS
   };
 
   // 2. Visiteurs uniques
+  // Exclure les événements du propriétaire du lien pour un comptage plus précis
+  const externalEvents = events.filter(e => e.ownerId !== userId);
+  
   const now = new Date();
   const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   
-  const allVisitorIds = new Set(events.map(e => e.visitorId).filter(Boolean));
-  const visitorIds24h = new Set(
-    events
-      .filter(e => e.timestamp?.toDate?.() >= last24h)
+  // Filtrer les visitorIds valides et uniques
+  const allVisitorIds = new Set(
+    externalEvents
       .map(e => e.visitorId)
       .filter(Boolean)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
   );
-  const visitorIds7d = new Set(
-    events
-      .filter(e => e.timestamp?.toDate?.() >= last7d)
+  
+  const visitorIds24h = new Set(
+    externalEvents
+      .filter(e => {
+        const eventDate = e.timestamp?.toDate?.() || new Date(e.timestamp);
+        return eventDate >= last24h;
+      })
       .map(e => e.visitorId)
       .filter(Boolean)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
+  );
+  
+  const visitorIds7d = new Set(
+    externalEvents
+      .filter(e => {
+        const eventDate = e.timestamp?.toDate?.() || new Date(e.timestamp);
+        return eventDate >= last7d;
+      })
+      .map(e => e.visitorId)
+      .filter(Boolean)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
   );
 
   // Nouveaux vs retours (simplifié : si visitorId vu avant les 7 derniers jours = returning)
   const returningVisitorIds = new Set<string>();
   const newVisitorIds = new Set<string>();
   
-  events.forEach(event => {
+  externalEvents.forEach(event => {
     const vid = event.visitorId;
-    if (!vid) return;
+    if (!vid || typeof vid !== 'string' || vid.length === 0) return;
     
-    const eventDate = event.timestamp?.toDate?.() || new Date();
-    const earlierEvents = events.filter(e => 
+    const eventDate = event.timestamp?.toDate?.() || new Date(event.timestamp);
+    const earlierEvents = externalEvents.filter(e => 
       e.visitorId === vid && 
-      e.timestamp?.toDate?.() < eventDate &&
-      e.timestamp?.toDate?.() < last7d
+      (e.timestamp?.toDate?.() || new Date(e.timestamp)) < eventDate &&
+      (e.timestamp?.toDate?.() || new Date(e.timestamp)) < last7d
     );
     
     if (earlierEvents.length > 0) {

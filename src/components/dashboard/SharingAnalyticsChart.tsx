@@ -48,7 +48,14 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export function SharingAnalyticsChart({ data }: { data: AnalyticsData[] }) {
-  const filledData = [...data];
+  // Normaliser les données - s'assurer qu'elles ont le bon format
+  const normalizedData = (data || []).map(item => ({
+    date: item.date || new Date().toISOString().split('T')[0],
+    views: typeof item.views === 'number' ? item.views : 0,
+    downloads: typeof item.downloads === 'number' ? item.downloads : 0,
+  }));
+  
+  const filledData = [...normalizedData];
   if (filledData.length < 7) {
     const today = new Date();
     for (let i = 0; i < 7; i++) {
@@ -62,6 +69,9 @@ export function SharingAnalyticsChart({ data }: { data: AnalyticsData[] }) {
   }
   
   filledData.sort((a, b) => a.date.localeCompare(b.date));
+  
+  // Debug: afficher les données dans la console
+  console.log('[SharingAnalyticsChart] Data:', filledData);
 
   return (
     <div className="h-full w-full min-h-[200px] min-w-[200px]">
@@ -69,12 +79,14 @@ export function SharingAnalyticsChart({ data }: { data: AnalyticsData[] }) {
         <AreaChart data={filledData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#000000" stopOpacity={0.05}/>
-              <stop offset="95%" stopColor="#000000" stopOpacity={0.01}/>
+              <stop offset="5%" stopColor="#000000" stopOpacity={0.15}/>
+              <stop offset="50%" stopColor="#000000" stopOpacity={0.08}/>
+              <stop offset="95%" stopColor="#000000" stopOpacity={0.02}/>
             </linearGradient>
             <linearGradient id="colorDownloads" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#96A982" stopOpacity={0.1}/>
-              <stop offset="95%" stopColor="#96A982" stopOpacity={0.01}/>
+              <stop offset="5%" stopColor="#96A982" stopOpacity={0.25}/>
+              <stop offset="50%" stopColor="#96A982" stopOpacity={0.15}/>
+              <stop offset="95%" stopColor="#96A982" stopOpacity={0.03}/>
             </linearGradient>
           </defs>
           <CartesianGrid 
@@ -96,8 +108,10 @@ export function SharingAnalyticsChart({ data }: { data: AnalyticsData[] }) {
           <YAxis 
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 10, fontWeight: 600, fill: 'rgba(0,0,0,0.2)' }}
-            width={30}
+            tick={{ fontSize: 10, fontWeight: 600, fill: 'rgba(0,0,0,0.3)' }}
+            width={35}
+            domain={[0, 'auto']}
+            allowDecimals={false}
           />
           <Tooltip 
             content={<CustomTooltip />}
@@ -109,10 +123,11 @@ export function SharingAnalyticsChart({ data }: { data: AnalyticsData[] }) {
             type="monotone" 
             dataKey="views" 
             stroke="#000000" 
-            strokeWidth={3}
+            strokeWidth={2.5}
             fillOpacity={1} 
             fill="url(#colorViews)" 
-            activeDot={{ r: 6, strokeWidth: 0, fill: '#000000' }}
+            activeDot={{ r: 7, strokeWidth: 2, stroke: '#ffffff', fill: '#000000' }}
+            dot={{ r: 3, fill: '#000000', strokeWidth: 0 }}
           />
           <Area 
             isAnimationActive={true}
@@ -120,10 +135,11 @@ export function SharingAnalyticsChart({ data }: { data: AnalyticsData[] }) {
             type="monotone" 
             dataKey="downloads" 
             stroke="#96A982" 
-            strokeWidth={3}
+            strokeWidth={2.5}
             fillOpacity={1} 
             fill="url(#colorDownloads)" 
-            activeDot={{ r: 6, strokeWidth: 0, fill: '#96A982' }}
+            activeDot={{ r: 7, strokeWidth: 2, stroke: '#ffffff', fill: '#96A982' }}
+            dot={{ r: 3, fill: '#96A982', strokeWidth: 0 }}
           />
         </AreaChart>
       </ResponsiveContainer>

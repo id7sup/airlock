@@ -4,16 +4,13 @@ import { useEffect, useState } from "react";
 import { 
   Eye, 
   Download, 
-  FolderOpen, 
-  FileText, 
-  ShieldAlert,
   Users,
   TrendingUp,
   Globe,
   Clock,
   AlertTriangle,
-  BarChart3,
-  Activity
+  Activity,
+  Sparkles
 } from "lucide-react";
 import { Loader2 } from "lucide-react";
 
@@ -95,16 +92,16 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="w-8 h-8 text-black/20 animate-spin" />
       </div>
     );
   }
 
   if (!stats) {
     return (
-      <div className="text-center py-20 text-gray-400">
-        <p>Aucune donnée disponible</p>
+      <div className="text-center py-32">
+        <p className="text-base text-black/30">Aucune donnée disponible</p>
       </div>
     );
   }
@@ -118,174 +115,132 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
     
-    if (seconds < 60) return `Il y a ${seconds} sec`;
-    if (minutes < 60) return `Il y a ${minutes} min`;
-    if (hours < 24) return `Il y a ${hours}h`;
-    return date.toLocaleDateString("fr-FR");
+    if (seconds < 60) return `${seconds}s`;
+    if (minutes < 60) return `${minutes}m`;
+    if (hours < 24) return `${hours}h`;
+    return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
   };
 
   const totalEvents = stats.totals.openShare + stats.totals.openFolder + stats.totals.viewFile + stats.totals.downloadFile;
 
   return (
-    <div className="space-y-6">
-      {/* Header avec métriques principales - Style moderne */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard
-          icon={Users}
-          label="Visiteurs uniques"
-          value={stats.uniques.total}
-          subtitle={`${stats.uniques.last24h} aujourd'hui`}
-          color="blue"
-          trend={stats.uniques.last24h > 0 ? "up" : "neutral"}
-        />
-        <MetricCard
-          icon={Eye}
-          label="Vues totales"
-          value={stats.totals.openShare}
-          subtitle={`${stats.uniques.viewsPerVisitor.toFixed(1)} par visiteur`}
-          color="purple"
-        />
-        <MetricCard
-          icon={Download}
-          label="Téléchargements"
-          value={stats.totals.downloadFile}
-          subtitle={`${stats.funnel.viewToDownload.toFixed(1)}% conversion`}
-          color="green"
-        />
-        <MetricCard
-          icon={Activity}
-          label="Événements"
-          value={totalEvents}
-          subtitle={formatTimeAgo(stats.hotMoments.lastActivity)}
-          color="orange"
-        />
+    <div className="space-y-24">
+      {/* Métriques principales - Ultra minimaliste */}
+      <div className="grid grid-cols-4 gap-12 border-b border-black/[0.03] pb-12">
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold text-black/25 uppercase tracking-[0.25em]">Visiteurs</p>
+          <p className="text-6xl font-light tracking-[-0.02em] text-black tabular-nums leading-none">{stats.uniques.total}</p>
+          <p className="text-xs text-black/35 font-medium mt-3">{stats.uniques.last24h} aujourd'hui</p>
+        </div>
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold text-black/25 uppercase tracking-[0.25em]">Vues</p>
+          <p className="text-6xl font-light tracking-[-0.02em] text-black tabular-nums leading-none">{stats.totals.openShare}</p>
+          <p className="text-xs text-black/35 font-medium mt-3">{stats.uniques.viewsPerVisitor.toFixed(1)} par visiteur</p>
+        </div>
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold text-black/25 uppercase tracking-[0.25em]">Téléchargements</p>
+          <p className="text-6xl font-light tracking-[-0.02em] text-black tabular-nums leading-none">{stats.totals.downloadFile}</p>
+          <p className="text-xs text-black/35 font-medium mt-3">{stats.funnel.viewToDownload.toFixed(1)}% conversion</p>
+        </div>
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold text-black/25 uppercase tracking-[0.25em]">Événements</p>
+          <p className="text-6xl font-light tracking-[-0.02em] text-black tabular-nums leading-none">{totalEvents}</p>
+          <p className="text-xs text-black/35 font-medium mt-3">{formatTimeAgo(stats.hotMoments.lastActivity)}</p>
+        </div>
       </div>
 
-      {/* Graphique d'activité par heure - Style moderne */}
-      <div className="bg-white rounded-3xl border border-black/[0.05] p-8 shadow-sm">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-xl font-semibold tracking-tight mb-1">Activité en temps réel</h3>
-            <p className="text-sm text-gray-500">Pic d'activité à {stats.hotMoments.peakActivity.time}</p>
+      {/* Activité en temps réel - Design complètement repensé */}
+      <div className="space-y-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h2 className="text-3xl font-light tracking-tight text-black">Activité en temps réel</h2>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-primary/8 rounded-full border border-brand-primary/15">
+              <div className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
+              <span className="text-[8px] font-bold text-brand-primary uppercase tracking-[0.3em]">Live</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs font-medium text-gray-600">En direct</span>
+          <div className="text-right space-y-0.5">
+            <p className="text-sm text-black/35 font-medium">Pic à {stats.hotMoments.peakActivity.time}</p>
+            <p className="text-xs text-black/25">{stats.hotMoments.peakActivity.count} événements</p>
           </div>
         </div>
-        <ActivityChart data={stats.hotMoments.activityByHour} />
+        
+        {/* Nouvelle visualisation - Waveform style */}
+        <div className="relative pt-8">
+          <ActivityWaveform data={stats.hotMoments.activityByHour} />
+        </div>
       </div>
 
-      {/* Grid avec métriques détaillées */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Top Countries avec graphique */}
-        <div className="bg-white rounded-3xl border border-black/[0.05] p-8 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-blue-50 rounded-xl">
-              <Globe className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold tracking-tight">Top Pays</h3>
-              <p className="text-xs text-gray-500">{stats.topCountries.length} pays</p>
-            </div>
+      {/* Top Pays - Ultra minimaliste */}
+      {stats.topCountries.length > 0 && (
+        <div className="space-y-8">
+          <div className="flex items-center justify-between border-b border-black/[0.02] pb-6">
+            <h2 className="text-3xl font-light tracking-tight text-black">Top Pays</h2>
+            <p className="text-xs text-black/30 font-medium">{stats.topCountries.length} pays</p>
           </div>
-          <div className="space-y-4">
-            {stats.topCountries.slice(0, 5).map((item, idx) => (
-              <div key={idx} className="flex items-center gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-sm font-medium">{item.country}</span>
-                    <span className="text-sm font-bold text-gray-600">{item.count}</span>
-                  </div>
-                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div className="space-y-0.5">
+            {stats.topCountries.slice(0, 10).map((item, idx) => (
+              <div key={idx} className="flex items-center justify-between py-4 border-b border-black/[0.02] hover:bg-black/[0.01] transition-colors group">
+                <div className="flex items-center gap-6 flex-1 min-w-0">
+                  <span className="text-[10px] font-bold text-black/15 tabular-nums w-4 text-right shrink-0">{idx + 1}</span>
+                  <span className="text-lg font-light text-black truncate">{item.country}</span>
+                </div>
+                <div className="flex items-center gap-8 shrink-0">
+                  <div className="w-40 h-0.5 bg-black/[0.03] rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all"
+                      className="h-full bg-brand-primary rounded-full transition-all duration-700 ease-out"
                       style={{ width: `${item.percentage}%` }}
                     />
                   </div>
+                  <span className="text-lg font-light text-black tabular-nums w-16 text-right">{item.count}</span>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Funnel d'engagement */}
-        <div className="bg-white rounded-3xl border border-black/[0.05] p-8 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-purple-50 rounded-xl">
-              <BarChart3 className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold tracking-tight">Funnel d'engagement</h3>
-              <p className="text-xs text-gray-500">Taux de conversion</p>
-            </div>
-          </div>
-          <div className="space-y-5">
-            <FunnelItem
-              label="Vue → Téléchargement"
-              value={stats.funnel.viewToDownload}
-              color="blue"
-            />
-            <FunnelItem
-              label="Vue → Fichier consulté"
-              value={stats.funnel.viewToViewFile}
-              color="green"
-            />
-            <FunnelItem
-              label="Vue → Dossier ouvert"
-              value={stats.funnel.viewToOpenFolder}
-              color="purple"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Sources de trafic */}
-      {stats.referrers.length > 0 && (
-        <div className="bg-white rounded-3xl border border-black/[0.05] p-8 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-orange-50 rounded-xl">
-              <TrendingUp className="w-5 h-5 text-orange-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold tracking-tight">Sources de trafic</h3>
-              <p className="text-xs text-gray-500">D'où viennent vos visiteurs</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {stats.referrers.slice(0, 8).map((item, idx) => (
-              <div key={idx} className="text-center p-4 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 hover:border-gray-200 transition-all">
-                <p className="text-2xl font-bold tracking-tight mb-1">{item.count}</p>
-                <p className="text-xs font-medium text-gray-600 mb-1">{item.category}</p>
-                <p className="text-xs text-gray-400">{item.percentage.toFixed(1)}%</p>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Sécurité & Anomalies */}
-      {stats.security.totalDenials > 0 && (
-        <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-3xl border border-red-200 p-8 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-red-100 rounded-xl">
-              <AlertTriangle className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold tracking-tight text-red-900">Sécurité & Anomalies</h3>
-              <p className="text-xs text-red-700">{stats.security.totalDenials} refus total • {stats.security.denials24h} (24h)</p>
-            </div>
-          </div>
-          {stats.security.unusualCountries.length > 0 && (
-            <div className="mt-4 p-4 bg-white/60 rounded-2xl border border-red-200">
-              <p className="text-sm font-medium text-red-800 mb-2">⚠️ Pays inhabituels détectés:</p>
-              <div className="flex flex-wrap gap-2">
-                {stats.security.unusualCountries.map((country, idx) => (
-                  <span key={idx} className="px-3 py-1.5 bg-red-100 text-red-700 rounded-xl text-xs font-medium">
-                    {country}
-                  </span>
-                ))}
+      {/* Funnel d'engagement - Ultra minimaliste */}
+      <div className="space-y-8">
+        <h2 className="text-3xl font-light tracking-tight text-black border-b border-black/[0.02] pb-6">Funnel d'engagement</h2>
+        <div className="space-y-0.5">
+          <FunnelRow label="Vue → Téléchargement" value={stats.funnel.viewToDownload} />
+          <FunnelRow label="Vue → Fichier consulté" value={stats.funnel.viewToViewFile} />
+          <FunnelRow label="Vue → Dossier ouvert" value={stats.funnel.viewToOpenFolder} />
+        </div>
+      </div>
+
+      {/* Sources de trafic - Grid minimaliste */}
+      {stats.referrers.length > 0 && (
+        <div className="space-y-8">
+          <h2 className="text-3xl font-light tracking-tight text-black border-b border-black/[0.02] pb-6">Sources de trafic</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
+            {stats.referrers.slice(0, 8).map((item, idx) => (
+              <div key={idx} className="text-center space-y-2">
+                <p className="text-4xl font-light text-black tabular-nums tracking-tight">{item.count}</p>
+                <p className="text-sm font-light text-black/50">{item.category}</p>
+                <p className="text-xs text-black/30">{item.percentage.toFixed(1)}%</p>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Sécurité - Minimaliste */}
+      {stats.security.totalDenials > 0 && (
+        <div className="space-y-4 pt-8 border-t border-red-200/30">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-4 h-4 text-red-600" />
+            <h2 className="text-3xl font-light tracking-tight text-red-900">Sécurité & Anomalies</h2>
+          </div>
+          <p className="text-sm text-red-700/80 font-light">{stats.security.totalDenials} refus • {stats.security.denials24h} (24h)</p>
+          {stats.security.unusualCountries.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-3">
+              {stats.security.unusualCountries.map((country, idx) => (
+                <span key={idx} className="px-3 py-1.5 bg-red-50/50 text-red-700 rounded-lg text-xs font-light border border-red-200/50">
+                  {country}
+                </span>
+              ))}
             </div>
           )}
         </div>
@@ -294,99 +249,120 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
   );
 }
 
-function MetricCard({ 
-  icon: Icon, 
-  label, 
-  value, 
-  subtitle,
-  color,
-  trend
-}: { 
-  icon: any; 
-  label: string; 
-  value: number; 
-  subtitle?: string;
-  color: string;
-  trend?: "up" | "down" | "neutral";
-}) {
-  const colorClasses = {
-    blue: "bg-blue-500",
-    purple: "bg-purple-500",
-    green: "bg-green-500",
-    orange: "bg-orange-500",
-  };
-
-  return (
-    <div className="bg-white rounded-2xl border border-black/[0.05] p-6 shadow-sm hover:shadow-md transition-all">
-      <div className="flex items-start justify-between mb-4">
-        <div className={`p-2.5 ${colorClasses[color as keyof typeof colorClasses]} rounded-xl`}>
-          <Icon className="w-5 h-5 text-white" />
-        </div>
-        {trend === "up" && (
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-        )}
-      </div>
-      <p className="text-3xl font-bold tracking-tight mb-1">{value.toLocaleString()}</p>
-      <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mb-1">{label}</p>
-      {subtitle && (
-        <p className="text-xs text-gray-400">{subtitle}</p>
-      )}
-    </div>
-  );
-}
-
-function ActivityChart({ data }: { data: Array<{ hour: number; count: number }> }) {
+// Nouvelle visualisation - Waveform style (comme un oscilloscope)
+function ActivityWaveform({ data }: { data: Array<{ hour: number; count: number }> }) {
   const maxCount = Math.max(...data.map(h => h.count), 1);
-  
+  const currentHour = new Date().getHours();
+  const total = data.reduce((acc, h) => acc + h.count, 0);
+  const average = Math.round(total / 24);
+
   return (
-    <div className="flex items-end gap-1 h-32">
-      {data.map((item, idx) => {
-        const height = (item.count / maxCount) * 100;
-        return (
-          <div key={idx} className="flex-1 flex flex-col items-center group">
-            <div 
-              className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t transition-all hover:from-blue-600 hover:to-blue-500 cursor-pointer"
-              style={{ height: `${height}%` }}
-            />
-            <span className="text-xs text-gray-400 mt-2 group-hover:text-gray-600 transition-colors">{item.hour}h</span>
-            {item.count > 0 && (
-              <span className="text-xs font-medium text-gray-600 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {item.count}
-              </span>
-            )}
-          </div>
-        );
-      })}
+    <div className="relative">
+      {/* Ligne de base centrale */}
+      <div className="absolute top-1/2 left-0 right-0 h-px bg-black/[0.04] transform -translate-y-1/2" />
+      
+      {/* Waveform */}
+      <div className="relative flex items-center justify-between px-1 py-16">
+        {data.map((item, idx) => {
+          const isCurrentHour = currentHour === item.hour;
+          const isPast = item.hour < currentHour;
+          const isFuture = item.hour > currentHour;
+          const normalizedCount = maxCount > 0 ? item.count / maxCount : 0;
+          const amplitude = normalizedCount * 80; // Amplitude max 80px
+          const direction = idx % 2 === 0 ? 1 : -1; // Alternance haut/bas
+          
+          return (
+            <div key={idx} className="relative flex flex-col items-center group flex-1">
+              {/* Point de connexion */}
+              <div
+                className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full transition-all duration-700 cursor-pointer ${
+                  isCurrentHour 
+                    ? 'bg-brand-primary shadow-lg shadow-brand-primary/40' 
+                    : isPast 
+                    ? 'bg-brand-primary/50' 
+                    : 'bg-black/10'
+                }`}
+                style={{
+                  width: isCurrentHour ? '12px' : normalizedCount > 0 ? `${Math.max(6, normalizedCount * 10)}px` : '4px',
+                  height: isCurrentHour ? '12px' : normalizedCount > 0 ? `${Math.max(6, normalizedCount * 10)}px` : '4px',
+                  transform: `translate(-50%, -50%) translateY(${direction * amplitude}px)`,
+                }}
+              >
+                {/* Effet pulse pour l'heure actuelle */}
+                {isCurrentHour && (
+                  <div className="absolute inset-0 rounded-full bg-brand-primary animate-ping opacity-30" />
+                )}
+                
+                {/* Tooltip */}
+                {item.count > 0 && (
+                  <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                    <div className="bg-black text-white text-[10px] font-medium px-2 py-1 rounded whitespace-nowrap">
+                      {item.count} • {item.hour}h
+                    </div>
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-transparent border-t-black" />
+                  </div>
+                )}
+              </div>
+              
+              {/* Ligne de connexion (optionnelle, pour créer un effet de waveform) */}
+              {idx > 0 && item.count > 0 && (
+                <div 
+                  className="absolute top-1/2 left-0 w-full h-px bg-brand-primary/20"
+                  style={{
+                    transform: `translateY(${direction * amplitude}px)`,
+                    opacity: normalizedCount * 0.5
+                  }}
+                />
+              )}
+              
+              {/* Label heure */}
+              <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2">
+                <span className={`text-[9px] font-medium transition-colors ${
+                  isCurrentHour 
+                    ? 'text-brand-primary font-bold' 
+                    : isPast 
+                    ? 'text-black/30' 
+                    : 'text-black/15'
+                }`}>
+                  {item.hour.toString().padStart(2, '0')}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Métriques en bas - Ultra minimaliste */}
+      <div className="flex items-center justify-between pt-12 border-t border-black/[0.02] mt-8">
+        <div className="text-center">
+          <p className="text-[9px] font-bold text-black/20 uppercase tracking-[0.3em] mb-2">Total</p>
+          <p className="text-3xl font-light text-black tabular-nums tracking-tight">{total}</p>
+        </div>
+        <div className="text-center">
+          <p className="text-[9px] font-bold text-black/20 uppercase tracking-[0.3em] mb-2">Moyenne</p>
+          <p className="text-3xl font-light text-black tabular-nums tracking-tight">{average}</p>
+        </div>
+        <div className="text-center">
+          <p className="text-[9px] font-bold text-black/20 uppercase tracking-[0.3em] mb-2">Dernière</p>
+          <p className="text-xl font-light text-black">{data.find(h => h.count > 0)?.hour.toString().padStart(2, '0') || '00'}h</p>
+        </div>
+      </div>
     </div>
   );
 }
 
-function FunnelItem({ 
-  label, 
-  value, 
-  color 
-}: { 
-  label: string; 
-  value: number; 
-  color: string;
-}) {
-  const colorClasses = {
-    blue: "from-blue-500 to-blue-600",
-    green: "from-green-500 to-green-600",
-    purple: "from-purple-500 to-purple-600",
-  };
-
+function FunnelRow({ label, value }: { label: string; value: number }) {
   return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-gray-700">{label}</span>
-        <span className="text-sm font-bold text-gray-900">{value.toFixed(1)}%</span>
-      </div>
-      <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-        <div 
-          className={`h-full bg-gradient-to-r ${colorClasses[color as keyof typeof colorClasses]} rounded-full transition-all`}
-          style={{ width: `${Math.min(value, 100)}%` }}
-        />
+    <div className="flex items-center justify-between py-4 border-b border-black/[0.02] hover:bg-black/[0.01] transition-colors group">
+      <span className="text-lg font-light text-black flex-1">{label}</span>
+      <div className="flex items-center gap-8 shrink-0">
+        <div className="w-48 h-0.5 bg-black/[0.03] rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-gradient-to-r from-brand-primary to-brand-secondary rounded-full transition-all duration-700 ease-out"
+            style={{ width: `${Math.min(value, 100)}%` }}
+          />
+        </div>
+        <span className="text-lg font-light text-black tabular-nums w-16 text-right">{value.toFixed(1)}%</span>
       </div>
     </div>
   );

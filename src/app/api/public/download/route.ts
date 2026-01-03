@@ -3,7 +3,6 @@ import { validateShareLink } from "@/services/sharing";
 import { getDownloadUrl } from "@/services/storage";
 import { db } from "@/lib/firebase";
 import * as admin from "firebase-admin";
-import { trackLinkActivity } from "@/services/analytics";
 import { createNotification } from "@/services/notifications";
 import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
 
@@ -59,10 +58,8 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // 7. Capturer la géolocalisation et incrémenter le compteur via analytics
-  const clientIP = getClientIP(req);
-  const geolocation = clientIP !== 'unknown' ? await getGeolocationFromIP(clientIP) : undefined;
-  await trackLinkActivity(link.id, "DOWNLOAD", geolocation);
+  // 7. Le tracking est géré côté client via /api/analytics/track-event
+  // Pas besoin de tracker ici pour éviter le double comptage
 
   // 8. Servir l'original (pas de watermark pour les téléchargements autorisés)
   const downloadUrl = await getDownloadUrl(file.s3Key, file.name);

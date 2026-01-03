@@ -172,8 +172,13 @@ export async function getLinkAnalytics(linkId: string, days: number = 7) {
       if (!dataMap[date]) {
         dataMap[date] = { date, views: 0, downloads: 0 };
       }
-      if (data.type === "VIEW") dataMap[date].views++;
-      if (data.type === "DOWNLOAD") dataMap[date].downloads++;
+      // Mapper eventType vers type pour compatibilité
+      const eventType = data.eventType || data.type;
+      if (eventType === "OPEN_SHARE" || eventType === "VIEW") {
+        dataMap[date].views++;
+      } else if (eventType === "DOWNLOAD_FILE" || eventType === "DOWNLOAD") {
+        dataMap[date].downloads++;
+      }
     });
 
     return Object.values(dataMap);
