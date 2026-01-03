@@ -1,22 +1,78 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Globe } from "lucide-react";
+import { Globe, MapPin, Clock, Monitor, Smartphone, Tablet, Globe as GlobeIcon } from "lucide-react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-// Styles CSS personnalisés pour une carte minimaliste
+// Fonction pour parser le userAgent et extraire les infos du navigateur/device
+function parseUserAgent(userAgent: string): { browser: string; device: string; os: string; icon: string } {
+  if (!userAgent) return { browser: "Inconnu", device: "Inconnu", os: "Inconnu", icon: "monitor" };
+  
+  let browser = "Inconnu";
+  let device = "Desktop";
+  let os = "Inconnu";
+  let icon = "monitor";
+  
+  // Détecter le navigateur
+  if (userAgent.includes("Chrome") && !userAgent.includes("Edg")) {
+    browser = "Chrome";
+  } else if (userAgent.includes("Firefox")) {
+    browser = "Firefox";
+  } else if (userAgent.includes("Safari") && !userAgent.includes("Chrome")) {
+    browser = "Safari";
+  } else if (userAgent.includes("Edg")) {
+    browser = "Edge";
+  } else if (userAgent.includes("Opera") || userAgent.includes("OPR")) {
+    browser = "Opera";
+  }
+  
+  // Détecter l'OS
+  if (userAgent.includes("Windows")) {
+    os = "Windows";
+  } else if (userAgent.includes("Mac OS X") || userAgent.includes("macOS")) {
+    os = "macOS";
+  } else if (userAgent.includes("Linux")) {
+    os = "Linux";
+  } else if (userAgent.includes("Android")) {
+    os = "Android";
+    device = "Mobile";
+    icon = "smartphone";
+  } else if (userAgent.includes("iOS") || userAgent.includes("iPhone") || userAgent.includes("iPad")) {
+    os = "iOS";
+    if (userAgent.includes("iPad")) {
+      device = "Tablette";
+      icon = "tablet";
+    } else {
+      device = "Mobile";
+      icon = "smartphone";
+    }
+  }
+  
+  // Détecter les tablettes
+  if (userAgent.includes("iPad") || (userAgent.includes("Android") && !userAgent.includes("Mobile"))) {
+    device = "Tablette";
+    icon = "tablet";
+  }
+  
+  return { browser, device, os, icon };
+}
+
+// Styles CSS personnalisés pour une carte minimaliste et fluide
 const mapboxStyles = `
   .mapboxgl-map {
     background: transparent !important;
     pointer-events: auto !important;
+    transition: opacity 0.3s ease-in-out;
   }
   .mapboxgl-canvas-container {
     pointer-events: auto !important;
     overflow: visible !important;
+    will-change: transform;
   }
   .mapboxgl-canvas {
     pointer-events: auto !important;
+    transition: transform 0.1s ease-out;
   }
   .mapboxgl-ctrl {
     display: none !important;
@@ -32,25 +88,51 @@ const mapboxStyles = `
   }
   .mapboxgl-popup {
     max-width: 300px;
+    animation: popupFadeIn 0.2s ease-out;
+  }
+  @keyframes popupFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
   .mapboxgl-popup-content {
     border-radius: 12px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
     border: 1px solid rgba(0, 0, 0, 0.05);
+    transition: box-shadow 0.2s ease;
+  }
+  .mapboxgl-popup-content:hover {
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
   }
   .mapboxgl-popup-close-button {
     font-size: 18px;
     color: #666;
     padding: 4px 8px;
+    transition: all 0.2s ease;
   }
   .mapboxgl-popup-close-button:hover {
     color: #000;
     background-color: rgba(0, 0, 0, 0.05);
     border-radius: 4px;
+    transform: scale(1.1);
+  }
+  /* Améliorer la fluidité des interactions */
+  .mapboxgl-canvas-container {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-perspective: 1000;
+    perspective: 1000;
   }
 `;
 
 interface AnalyticsPoint {
+  visitorId?: string;
+  userAgent?: string;
   id: string;
   linkId: string;
   type: "VIEW" | "DOWNLOAD" | "OPEN_SHARE" | "OPEN_FOLDER" | "VIEW_FILE" | "DOWNLOAD_FILE" | "ACCESS_DENIED";
@@ -103,56 +185,101 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       bearing: 0,
       attributionControl: false, // Désactiver l'attribution
       scrollZoom: false, // Désactiver le zoom au scroll par défaut
+      // Améliorer les performances pour une meilleure fluidité
+      antialias: true,
+      preserveDrawingBuffer: false,
+      fadeDuration: 0,
     });
 
-    // Désactiver certaines interactions par défaut
+    // Configurer les interactions pour une UX fluide
     map.current.doubleClickZoom.disable();
     map.current.touchZoomRotate.disable();
     map.current.boxZoom.disable();
-    map.current.dragRotate.disable();
     
-    // Activer le zoom avec Cmd + molette (fluide)
+    // Activer la rotation par drag pour une interaction fluide
+    map.current.dragRotate.enable();
+    
+    // Configurer les paramètres de performance pour une meilleure fluidité
+    map.current.setRenderWorldCopies(false);
+    
+    // Activer le pan avec des mouvements naturels
+    map.current.dragPan.enable();
+    
+    // Activer le zoom avec Cmd + molette et améliorer l'UX globale
     map.current.on("load", () => {
-      const canvasContainer = map.current?.getCanvasContainer();
-      if (canvasContainer) {
-        let zoomTimeout: ReturnType<typeof setTimeout> | null = null;
-        let isZooming = false;
-        
-        canvasContainer.addEventListener('wheel', (e) => {
-          // Vérifier si Cmd (Meta) ou Ctrl est pressé
-          if (e.metaKey || e.ctrlKey) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            isZooming = true;
-            
-            // Calculer le zoom avec accélération fluide
-            const currentZoom = map.current!.getZoom();
-            const delta = -e.deltaY;
-            const zoomFactor = 0.0008; // Facteur de zoom plus fluide
-            const zoomChange = delta * zoomFactor;
-            const newZoom = Math.max(0.5, Math.min(10, currentZoom + zoomChange));
-            
-            // Appliquer le zoom avec animation très fluide
-            map.current!.easeTo({
-              zoom: newZoom,
-              duration: 100,
-              easing: (t) => {
-                // Easing cubic-bezier pour un mouvement très fluide
-                return t * (2 - t);
-              }
-            });
-            
-            // Réinitialiser après un court délai
-            if (zoomTimeout) clearTimeout(zoomTimeout);
-            zoomTimeout = setTimeout(() => {
-              isZooming = false;
-            }, 100);
-          } else if (!isZooming) {
-            // Laisser le scroll se propager pour scroller la page seulement si on ne zoome pas
-          }
-        }, { passive: false, capture: false });
-      }
+      if (!map.current) return;
+      
+      // Configurer les interactions pour des mouvements fluides
+      map.current.dragRotate.enable();
+      map.current.dragPan.enable();
+      
+      // Améliorer la sensibilité de la rotation
+      const handleWheel = (e: WheelEvent) => {
+        // Vérifier si Cmd (Meta) ou Ctrl est pressé pour le zoom
+        if (e.metaKey || e.ctrlKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          if (!map.current) return;
+          
+          // Obtenir le zoom actuel
+          const currentZoom = map.current.getZoom();
+          
+          // Calculer le delta de zoom (inversé car scroll up = zoom in)
+          const delta = -e.deltaY;
+          
+          // Facteur de zoom sensible (ajusté pour une meilleure réactivité)
+          // deltaY est généralement entre -100 et 100
+          const zoomSpeed = 0.15; // Facteur de sensibilité augmenté
+          const normalizedDelta = delta / 100;
+          const zoomChange = normalizedDelta * zoomSpeed;
+          
+          // Calculer le nouveau zoom avec échelle logarithmique
+          // Utiliser une base plus élevée pour un zoom plus sensible
+          const zoomMultiplier = Math.pow(2, zoomChange);
+          const newZoom = currentZoom * zoomMultiplier;
+          
+          // Limiter le zoom entre 0.5 et 10
+          const clampedZoom = Math.max(0.5, Math.min(10, newZoom));
+          
+          // Appliquer le zoom directement sans animation pour une réactivité immédiate
+          map.current.setZoom(clampedZoom);
+        }
+      };
+      
+      // Ajouter l'écouteur sur le container de la carte
+      const container = map.current.getContainer();
+      container.addEventListener('wheel', handleWheel, { 
+        passive: false,
+        capture: false
+      });
+      
+      // Améliorer le curseur pour indiquer les interactions possibles
+      map.current.on('mouseenter', () => {
+        if (map.current) {
+          map.current.getCanvas().style.cursor = 'grab';
+        }
+      });
+      
+      map.current.on('mousedown', () => {
+        if (map.current) {
+          map.current.getCanvas().style.cursor = 'grabbing';
+        }
+      });
+      
+      map.current.on('mouseup', () => {
+        if (map.current) {
+          map.current.getCanvas().style.cursor = 'grab';
+        }
+      });
+      
+      // Nettoyer les événements au démontage
+      return () => {
+        if (map.current) {
+          const container = map.current.getContainer();
+          container.removeEventListener('wheel', handleWheel);
+        }
+      };
     });
 
     map.current.on("style.load", () => {
@@ -231,7 +358,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         return;
       }
 
-      // Ajouter les halos en premier (en dessous) - Effets visuels améliorés
+      // Ajouter les halos en premier (en dessous) - Style minimaliste et moderne
       if (!map.current.getLayer("views-halo")) {
         map.current.addLayer({
           id: "views-halo",
@@ -243,29 +370,29 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 30,
-              2, 40,
-              3, 50,
-              5, 70,
+              0.5, 20,
+              2, 28,
+              3, 36,
+              5, 48,
             ],
             "circle-color": "#96A982",
             "circle-opacity": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 0.3,
-              2, 0.4,
-              3, 0.5,
-              5, 0.6,
+              0.5, 0.15,
+              2, 0.2,
+              3, 0.25,
+              5, 0.3,
             ],
             "circle-blur": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 4,
-              2, 5,
-              3, 6,
-              5, 8,
+              0.5, 3,
+              2, 4,
+              3, 5,
+              5, 6,
             ],
           },
         });
@@ -282,35 +409,35 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 30,
-              2, 40,
-              3, 50,
-              5, 70,
+              0.5, 20,
+              2, 28,
+              3, 36,
+              5, 48,
             ],
             "circle-color": "#96A982",
             "circle-opacity": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 0.3,
-              2, 0.4,
-              3, 0.5,
-              5, 0.6,
+              0.5, 0.15,
+              2, 0.2,
+              3, 0.25,
+              5, 0.3,
             ],
             "circle-blur": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 4,
-              2, 5,
-              3, 6,
-              5, 8,
+              0.5, 3,
+              2, 4,
+              3, 5,
+              5, 6,
             ],
           },
         });
       }
 
-      // Ajouter les clusters
+      // Ajouter les clusters - Style minimaliste et moderne
       if (!map.current.getLayer("clusters")) {
         map.current.addLayer({
           id: "clusters",
@@ -322,23 +449,23 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
             "circle-radius": [
               "step",
               ["get", "point_count"],
-              30,
+              24,
               10,
+              32,
+              50,
               40,
-              50,
-              50,
               100,
-              60,
+              48,
             ],
-            "circle-opacity": 0.9,
+            "circle-opacity": 0.85,
             "circle-stroke-width": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 3,
-              2, 4,
-              3, 5,
-              5, 6,
+              0.5, 2.5,
+              2, 3,
+              3, 3.5,
+              5, 4,
             ],
             "circle-stroke-color": "#ffffff",
             "circle-stroke-opacity": 1,
@@ -372,7 +499,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         });
       }
 
-      // Ajouter les points de vue - Effets visuels améliorés
+      // Ajouter les points de vue - Style minimaliste et moderne
       if (!map.current.getLayer("views-layer")) {
         map.current.addLayer({
           id: "views-layer",
@@ -384,21 +511,21 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 12,
-              2, 16,
-              3, 20,
-              5, 28,
+              0.5, 6,
+              2, 8,
+              3, 10,
+              5, 14,
             ],
             "circle-color": "#96A982",
-            "circle-opacity": 1,
+            "circle-opacity": 0.9,
             "circle-stroke-width": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 4,
-              2, 4.5,
-              3, 5,
-              5, 6,
+              0.5, 2.5,
+              2, 3,
+              3, 3.5,
+              5, 4,
             ],
             "circle-stroke-color": "#ffffff",
             "circle-stroke-opacity": 1,
@@ -406,7 +533,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         });
       }
 
-      // Ajouter les points de téléchargement - Effets visuels améliorés
+      // Ajouter les points de téléchargement - Style minimaliste et moderne
       if (!map.current.getLayer("downloads-layer")) {
         map.current.addLayer({
           id: "downloads-layer",
@@ -418,21 +545,21 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 12,
-              2, 16,
-              3, 20,
-              5, 28,
+              0.5, 6,
+              2, 8,
+              3, 10,
+              5, 14,
             ],
             "circle-color": "#96A982",
-            "circle-opacity": 1,
+            "circle-opacity": 0.9,
             "circle-stroke-width": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 4,
-              2, 4.5,
-              3, 5,
-              5, 6,
+              0.5, 2.5,
+              2, 3,
+              3, 3.5,
+              5, 4,
             ],
             "circle-stroke-color": "#ffffff",
             "circle-stroke-opacity": 1,
@@ -492,7 +619,10 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               eventType: eventType,
               country: point.country || "Inconnu",
               city: point.city || "Inconnu",
+              region: point.region || "",
               timestamp: point.timestamp,
+              visitorId: point.visitorId || "",
+              userAgent: point.userAgent || "",
             },
           };
         });
@@ -550,7 +680,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         });
       });
 
-      // Ajouter des popups au clic avec un design amélioré
+      // Ajouter des popups au clic avec un design amélioré et détaillé
       const showPopup = (e: any, type: string) => {
         if (!map.current || !e.features?.[0]) return;
 
@@ -559,32 +689,105 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         
         if (isCluster) return; // Les clusters sont gérés séparément
 
+        // Parser le userAgent
+        const userInfo = parseUserAgent(props.userAgent || "");
+        const timestamp = props.timestamp ? new Date(props.timestamp) : new Date();
+        const timeStr = timestamp.toLocaleString("fr-FR", { 
+          day: "numeric", 
+          month: "short", 
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+        const timeAgo = getTimeAgo(timestamp);
+        
+        // Déterminer le type d'événement en français
+        let eventLabel = "Vue";
+        if (type === "DOWNLOAD") eventLabel = "Téléchargement";
+        else if (type === "FOLDER") eventLabel = "Dossier ouvert";
+        else if (type === "FILE") eventLabel = "Fichier consulté";
+        else if (type === "DENIED") eventLabel = "Accès refusé";
+
         const popup = new mapboxgl.Popup({
           closeButton: true,
           closeOnClick: true,
           className: "custom-popup",
+          maxWidth: "320px",
         })
           .setLngLat(e.lngLat)
           .setHTML(`
-            <div class="p-3 min-w-[200px]">
-              <div class="flex items-center gap-2 mb-2">
-                <div class="w-2 h-2 rounded-full ${type === "VIEW" ? "bg-blue-500" : "bg-green-500"}"></div>
-                <p class="font-bold text-sm text-gray-900">${type === "VIEW" ? "Vue" : "Téléchargement"}</p>
+            <div class="p-5 min-w-[280px]">
+              <!-- En-tête avec type d'événement -->
+              <div class="flex items-center gap-3 mb-4 pb-4 border-b border-black/5">
+                <div class="w-2.5 h-2.5 rounded-full bg-brand-primary shadow-sm"></div>
+                <div class="flex-1">
+                  <p class="font-bold text-sm text-black">${eventLabel}</p>
+                  <p class="text-xs text-black/40 font-medium">${timeAgo}</p>
+                </div>
               </div>
-              <div class="space-y-1">
-                <p class="text-sm font-medium text-gray-700">${props.city || "Ville inconnue"}, ${props.country || "Pays inconnu"}</p>
-                <p class="text-xs text-gray-500">${new Date(props.timestamp).toLocaleString("fr-FR", { 
-                  day: "numeric", 
-                  month: "short", 
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit"
-                })}</p>
+              
+              <!-- Localisation -->
+              <div class="space-y-3">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-black/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-black/30 uppercase tracking-wider mb-1">Localisation</p>
+                    <p class="text-sm font-medium text-black">${props.city || "Ville inconnue"}, ${props.country || "Pays inconnu"}</p>
+                    ${props.region ? `<p class="text-xs text-black/40 mt-0.5">${props.region}</p>` : ""}
+                  </div>
+                </div>
+                
+                <!-- Device & Browser -->
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-black/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-black/30 uppercase tracking-wider mb-1">Appareil</p>
+                    <p class="text-sm font-medium text-black">${userInfo.device}</p>
+                    <p class="text-xs text-black/40 mt-0.5">${userInfo.browser} • ${userInfo.os}</p>
+                  </div>
+                </div>
+                
+                <!-- Timestamp -->
+                <div class="flex items-start gap-3 pt-2 border-t border-black/5">
+                  <div class="w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-black/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-black/30 uppercase tracking-wider mb-1">Date & Heure</p>
+                    <p class="text-sm font-medium text-black">${timeStr}</p>
+                  </div>
+                </div>
               </div>
             </div>
           `)
           .addTo(map.current);
       };
+      
+      // Fonction helper pour formater le temps écoulé
+      function getTimeAgo(date: Date): string {
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+        
+        if (diffMins < 1) return "À l'instant";
+        if (diffMins < 60) return `Il y a ${diffMins} min`;
+        if (diffHours < 24) return `Il y a ${diffHours}h`;
+        if (diffDays < 7) return `Il y a ${diffDays}j`;
+        return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+      }
 
       map.current.on("click", "views-layer", (e) => showPopup(e, "VIEW"));
       map.current.on("click", "downloads-layer", (e) => showPopup(e, "DOWNLOAD"));
@@ -646,7 +849,10 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               eventType: eventType,
               country: point.country || "Inconnu",
               city: point.city || "Inconnu",
+              region: point.region || "",
               timestamp: point.timestamp,
+              visitorId: point.visitorId || "",
+              userAgent: point.userAgent || "",
             },
           };
         });

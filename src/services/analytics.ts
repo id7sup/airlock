@@ -218,6 +218,8 @@ export async function getLinkAnalyticsWithGeolocation(linkId: string, days: numb
         latitude: data.latitude || null,
         longitude: data.longitude || null,
         ip: data.ip || null,
+        visitorId: data.visitorId || null,
+        userAgent: data.userAgent || null,
       };
     });
   } catch (error: any) {
@@ -324,6 +326,8 @@ export async function getAllLinksAnalyticsWithGeolocation(userId: string, days: 
             latitude: data.latitude || null,
             longitude: data.longitude || null,
             ip: data.ip || null,
+            visitorId: data.visitorId || null,
+            userAgent: data.userAgent || null,
           });
         });
       }
