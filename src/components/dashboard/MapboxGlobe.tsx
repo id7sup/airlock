@@ -455,7 +455,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         });
       }
 
-      // Ajouter les clusters - Avec couleurs des images
+      // Ajouter les clusters - Masquer les clusters Mapbox natifs (on utilisera des markers HTML)
       if (!map.current.getLayer("clusters")) {
         map.current.addLayer({
           id: "clusters",
@@ -463,37 +463,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           source: "analytics-points",
           filter: ["has", "point_count"],
           paint: {
-            "circle-color": [
-              "case",
-              ["%", ["get", "cluster_id"], 3],
-              0, "#C4B5A0", // beige/sable de background.jpg
-              1, "#8B7355", // terre/brun de backgroundtwo.jpg
-              2, "#9A9E8B", // gris/vert de backgroundthree.jpg
-              "#C4B5A0"
-            ],
-            "circle-radius": [
-              "step",
-              ["get", "point_count"],
-              14,
-              10,
-              18,
-              50,
-              22,
-              100,
-              26,
-            ],
-            "circle-opacity": 0.95,
-            "circle-stroke-width": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0.5, 2,
-              2, 2.5,
-              3, 3,
-              5, 3.5,
-            ],
-            "circle-stroke-color": "#ffffff",
-            "circle-stroke-opacity": 1,
+            "circle-opacity": 0, // Masquer les cercles natifs
           },
         });
 
@@ -503,23 +473,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           source: "analytics-points",
           filter: ["has", "point_count"],
           layout: {
-            "text-field": "{point_count_abbreviated}",
-            "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
-            "text-size": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0.5, 9,
-              2, 10,
-              3, 11,
-              5, 12,
-            ],
-          },
-          paint: {
-            "text-color": "#ffffff",
-            "text-halo-color": "#000000",
-            "text-halo-width": 1.5,
-            "text-halo-blur": 1,
+            "text-field": "", // Masquer le texte natif
           },
         });
       }
@@ -703,6 +657,134 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           createLayers();
         }
       });
+      
+      // Créer des markers HTML personnalisés pour les clusters avec images
+      const clusterMarkersRef: mapboxgl.Marker[] = [];
+      const createClusterMarkers = () => {
+        if (!map.current) return;
+        
+        // Nettoyer les anciens markers
+        clusterMarkersRef.forEach(marker => marker.remove());
+        clusterMarkersRef.length = 0;
+        
+        const source = map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource;
+        if (!source) return;
+        
+        // Obtenir les features rendues (clusters visibles)
+        const bounds = map.current.getBounds();
+        if (!bounds) return;
+        
+        const features = map.current.queryRenderedFeatures([
+          [bounds.getWest(), bounds.getSouth()],
+          [bounds.getEast(), bounds.getNorth()]
+        ], {
+          layers: ["clusters"]
+        });
+        
+        if (!features || features.length === 0) return;
+        
+        const clusterImages = [
+          "/assets/background.jpg",
+          "/assets/backgroundtwo.jpg",
+          "/assets/backgroundthree.jpg",
+        ];
+        
+        features.forEach((feature: any) => {
+          if (!feature.properties?.cluster_id) return;
+          
+          const clusterId = feature.properties.cluster_id;
+          const pointCount = feature.properties.point_count;
+          const coordinates = feature.geometry.coordinates;
+          const imageIndex = clusterId % 3;
+          
+          // Créer un élément HTML pour le marker avec l'image
+          const el = document.createElement("div");
+          el.className = "cluster-marker";
+          const size = pointCount < 10 ? 42 : pointCount < 50 ? 50 : pointCount < 100 ? 58 : 66;
+          el.style.width = `${size}px`;
+          el.style.height = `${size}px`;
+          el.style.borderRadius = "50%";
+          el.style.backgroundImage = `url(${clusterImages[imageIndex]})`;
+          el.style.backgroundSize = "cover";
+          el.style.backgroundPosition = "center";
+          el.style.border = "3px solid #ffffff";
+          el.style.boxShadow = "0 2px 10px rgba(0,0,0,0.3)";
+          el.style.display = "flex";
+          el.style.alignItems = "center";
+          el.style.justifyContent = "center";
+          el.style.cursor = "pointer";
+          el.style.transition = "transform 0.2s";
+          el.style.zIndex = "10";
+          
+          // Ajouter le texte du nombre
+          const text = document.createElement("span");
+          text.textContent = pointCount.toString();
+          text.style.color = "#ffffff";
+          text.style.fontSize = pointCount < 10 ? "14px" : pointCount < 50 ? "16px" : "18px";
+          text.style.fontWeight = "bold";
+          text.style.textShadow = "0 1px 3px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.6)";
+          el.appendChild(text);
+          
+          // Effet hover
+          el.addEventListener("mouseenter", () => {
+            el.style.transform = "scale(1.15)";
+          });
+          el.addEventListener("mouseleave", () => {
+            el.style.transform = "scale(1)";
+          });
+          
+          // Créer le marker
+          const marker = new mapboxgl.Marker({ element: el })
+            .setLngLat(coordinates)
+            .addTo(map.current!);
+          
+          // Gérer le clic
+          el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            source.getClusterExpansionZoom(clusterId, (err, zoom) => {
+              if (!err && map.current && zoom !== null && zoom !== undefined) {
+                map.current.easeTo({
+                  center: coordinates as [number, number],
+                  zoom: Math.min(zoom + 1, 10),
+                  duration: 600,
+                });
+              }
+            });
+            source.getClusterLeaves(clusterId, pointCount, 0, (err, leaves) => {
+              if (err || !map.current || !leaves) return;
+              const clusterPoints = leaves.map((leaf: any) => {
+                const props = leaf.properties;
+                const point = analytics.find(p => p.id === props.id);
+                return {
+                  id: props.id || leaf.id,
+                  type: props.type || "VIEW",
+                  eventType: props.eventType || props.type || "OPEN_SHARE",
+                  country: props.country || point?.country || "Inconnu",
+                  city: props.city || point?.city || "Inconnu",
+                  region: props.region || point?.region || "",
+                  timestamp: props.timestamp || point?.timestamp || new Date().toISOString(),
+                  visitorId: props.visitorId || point?.visitorId || "",
+                  userAgent: props.userAgent || point?.userAgent || "",
+                };
+              });
+              setSelectedDetail({
+                pointCount: pointCount,
+                center: [coordinates[0], coordinates[1]],
+                points: clusterPoints,
+              });
+            });
+          });
+          
+          clusterMarkersRef.push(marker);
+        });
+      };
+      
+      // Mettre à jour les markers quand la carte bouge
+      map.current.on("moveend", createClusterMarkers);
+      map.current.on("zoomend", createClusterMarkers);
+      
+      // Créer les markers après le chargement initial
+      setTimeout(createClusterMarkers, 1000);
 
       // Gérer les clics sur les clusters - Zoomer et afficher les détails
       map.current.on("click", "clusters", async (e) => {

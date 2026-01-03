@@ -115,115 +115,115 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
     : null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-full max-w-sm">
-      <div className="bg-[#0f0f0f] rounded-xl shadow-2xl border border-white/5 overflow-hidden">
+    <div className="fixed bottom-8 right-8 z-50 w-80">
+      <div className="bg-white rounded-2xl shadow-2xl border border-black/5 overflow-hidden">
         {/* Header compact */}
-        <div className="flex items-center justify-between p-4 border-b border-white/10">
+        <div className="flex items-center justify-between p-4 border-b border-black/5">
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
+              className="w-8 h-8 rounded-lg bg-black/5 hover:bg-black/10 flex items-center justify-center transition-colors"
             >
-              <ChevronLeft className="w-4 h-4 text-white/60" />
+              <ChevronLeft className="w-4 h-4 text-black/60" />
             </button>
             <div>
-              <h3 className="text-sm font-semibold text-white">
+              <h3 className="text-sm font-semibold text-black">
                 {isCluster ? `${detail.pointCount} Activités` : "Détail"}
               </h3>
-              <p className="text-xs text-white/40">
+              <p className="text-xs text-black/40">
                 {isCluster ? "Cluster" : "Événement"}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-lg bg-black/5 hover:bg-black/10 flex items-center justify-center transition-colors"
           >
-            <X className="w-4 h-4 text-white/60" />
+            <X className="w-4 h-4 text-black/60" />
           </button>
         </div>
 
         {/* Tabs compacts */}
-        <div className="flex border-b border-white/10">
+        <div className="flex border-b border-black/5">
           <button
             onClick={() => setActiveTab("overview")}
             className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-colors relative ${
               activeTab === "overview"
-                ? "text-white"
-                : "text-white/50 hover:text-white/70"
+                ? "text-black"
+                : "text-black/50 hover:text-black/70"
             }`}
           >
             Vue d'ensemble
             {activeTab === "overview" && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black" />
             )}
           </button>
           <button
             onClick={() => setActiveTab("events")}
             className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-colors relative ${
               activeTab === "events"
-                ? "text-white"
-                : "text-white/50 hover:text-white/70"
+                ? "text-black"
+                : "text-black/50 hover:text-black/70"
             }`}
           >
             Événements ({events.length})
             {activeTab === "events" && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black" />
             )}
           </button>
           <button
             onClick={() => setActiveTab("location")}
             className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-colors relative ${
               activeTab === "location"
-                ? "text-white"
-                : "text-white/50 hover:text-white/70"
+                ? "text-black"
+                : "text-black/50 hover:text-black/70"
             }`}
           >
             Localisations ({Object.keys(locations).length})
             {activeTab === "location" && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black" />
             )}
           </button>
         </div>
 
         {/* Content compact */}
-        <div className="p-4 max-h-[50vh] overflow-y-auto">
+        <div className="p-4 max-h-[60vh] overflow-y-auto">
           {activeTab === "overview" && (
             <div className="space-y-4">
               {/* Stats compactes */}
               <div className="grid grid-cols-4 gap-2">
-                <div className="bg-white/5 rounded-xl p-3 text-center">
-                  <Eye className="w-4 h-4 text-white/60 mx-auto mb-1.5" />
-                  <p className="text-lg font-semibold text-white tabular-nums">{stats.views}</p>
-                  <p className="text-[10px] text-white/40 font-medium">Vues</p>
+                <div className="bg-black/5 rounded-xl p-3 text-center">
+                  <Eye className="w-4 h-4 text-black/60 mx-auto mb-1.5" />
+                  <p className="text-lg font-semibold text-black tabular-nums">{stats.views}</p>
+                  <p className="text-[10px] text-black/40 font-medium">Vues</p>
                 </div>
-                <div className="bg-white/5 rounded-xl p-3 text-center">
-                  <Download className="w-4 h-4 text-white/60 mx-auto mb-1.5" />
-                  <p className="text-lg font-semibold text-white tabular-nums">{stats.downloads}</p>
-                  <p className="text-[10px] text-white/40 font-medium">Téléch.</p>
+                <div className="bg-black/5 rounded-xl p-3 text-center">
+                  <Download className="w-4 h-4 text-black/60 mx-auto mb-1.5" />
+                  <p className="text-lg font-semibold text-black tabular-nums">{stats.downloads}</p>
+                  <p className="text-[10px] text-black/40 font-medium">Téléch.</p>
                 </div>
-                <div className="bg-white/5 rounded-xl p-3 text-center">
-                  <Lock className="w-4 h-4 text-red-400 mx-auto mb-1.5" />
-                  <p className="text-lg font-semibold text-white tabular-nums">{stats.denied}</p>
-                  <p className="text-[10px] text-white/40 font-medium">Refusés</p>
+                <div className="bg-black/5 rounded-xl p-3 text-center">
+                  <Lock className="w-4 h-4 text-red-500 mx-auto mb-1.5" />
+                  <p className="text-lg font-semibold text-black tabular-nums">{stats.denied}</p>
+                  <p className="text-[10px] text-black/40 font-medium">Refusés</p>
                 </div>
-                <div className="bg-white/5 rounded-xl p-3 text-center">
-                  <Monitor className="w-4 h-4 text-white/60 mx-auto mb-1.5" />
-                  <p className="text-lg font-semibold text-white tabular-nums">{stats.folders}</p>
-                  <p className="text-[10px] text-white/40 font-medium">Dossiers</p>
+                <div className="bg-black/5 rounded-xl p-3 text-center">
+                  <Monitor className="w-4 h-4 text-black/60 mx-auto mb-1.5" />
+                  <p className="text-lg font-semibold text-black tabular-nums">{stats.folders}</p>
+                  <p className="text-[10px] text-black/40 font-medium">Dossiers</p>
                 </div>
               </div>
 
               {/* Dernière activité compacte */}
               {lastEvent && (
-                <div className="bg-white/5 rounded-xl p-3 space-y-2">
+                <div className="bg-black/5 rounded-xl p-3 space-y-2">
                   <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-3.5 h-3.5 text-white/40" />
-                    <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">Dernière activité</p>
+                    <Clock className="w-3.5 h-3.5 text-black/40" />
+                    <p className="text-xs font-semibold text-black/60 uppercase tracking-wider">Dernière activité</p>
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-white">{getTimeAgo(new Date(lastEvent.timestamp))}</p>
-                    <p className="text-xs text-white/40">
+                    <p className="text-sm font-medium text-black">{getTimeAgo(new Date(lastEvent.timestamp))}</p>
+                    <p className="text-xs text-black/40">
                       {new Date(lastEvent.timestamp).toLocaleString("fr-FR", {
                         day: "numeric",
                         month: "short",
@@ -233,14 +233,14 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
                       })}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-white/50">
+                  <div className="flex items-center gap-2 text-xs text-black/50">
                     <MapPin className="w-3 h-3" />
                     <span>{lastEvent.city || "Inconnu"}, {lastEvent.country || "Inconnu"}</span>
                   </div>
                   {(() => {
                     const userInfo = parseUserAgent(lastEvent.userAgent || "");
                     return (
-                      <div className="flex items-center gap-2 text-xs text-white/50">
+                      <div className="flex items-center gap-2 text-xs text-black/50">
                         <Monitor className="w-3 h-3" />
                         <span>{userInfo.device} • {userInfo.browser} • {userInfo.os}</span>
                       </div>
@@ -275,9 +275,9 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
                 }
 
                 return (
-                  <div key={event.id || idx} className="bg-white/5 rounded-xl p-3 hover:bg-white/10 transition-colors">
+                  <div key={event.id || idx} className="bg-black/5 rounded-xl p-3 hover:bg-black/10 transition-colors">
                     <div className="flex items-start gap-3">
-                      <div className={`w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0 ${eventColor}`}>
+                      <div className={`w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center flex-shrink-0 ${eventColor}`}>
                         {eventIcon === Eye && <Eye className="w-4 h-4" />}
                         {eventIcon === Download && <Download className="w-4 h-4" />}
                         {eventIcon === Lock && <Lock className="w-4 h-4" />}
@@ -285,19 +285,19 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1.5">
-                          <p className="text-sm font-semibold text-white">{eventLabel}</p>
-                          <p className="text-xs text-white/40">{getTimeAgo(timestamp)}</p>
+                          <p className="text-sm font-semibold text-black">{eventLabel}</p>
+                          <p className="text-xs text-black/40">{getTimeAgo(timestamp)}</p>
                         </div>
                         <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 text-xs text-white/50">
+                          <div className="flex items-center gap-1.5 text-xs text-black/50">
                             <MapPin className="w-3 h-3" />
                             <span>{event.city || "Inconnu"}, {event.country || "Inconnu"}</span>
                           </div>
-                          <div className="flex items-center gap-1.5 text-xs text-white/50">
+                          <div className="flex items-center gap-1.5 text-xs text-black/50">
                             <Monitor className="w-3 h-3" />
                             <span>{userInfo.device} • {userInfo.browser} • {userInfo.os}</span>
                           </div>
-                          <p className="text-xs text-white/40">
+                          <p className="text-xs text-black/40">
                             {timestamp.toLocaleString("fr-FR", {
                               day: "numeric",
                               month: "short",
@@ -318,22 +318,22 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
           {activeTab === "location" && (
             <div className="space-y-2">
               {Object.values(locations).map((location, idx) => (
-                <div key={idx} className="bg-white/5 rounded-xl p-3 hover:bg-white/10 transition-colors">
+                <div key={idx} className="bg-black/5 rounded-xl p-3 hover:bg-black/10 transition-colors">
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                      <MapPin className="w-4 h-4 text-white/60" />
+                    <div className="w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center flex-shrink-0">
+                      <MapPin className="w-4 h-4 text-black/60" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1.5">
-                        <p className="text-sm font-semibold text-white">
+                        <p className="text-sm font-semibold text-black">
                           {location.city}, {location.country}
                         </p>
-                        <p className="text-xs font-semibold text-white/40 bg-white/5 px-2 py-0.5 rounded-lg">
+                        <p className="text-xs font-semibold text-black/40 bg-black/5 px-2 py-0.5 rounded-lg">
                           {location.count}
                         </p>
                       </div>
                       {location.region && (
-                        <p className="text-xs text-white/50 mb-2">{location.region}</p>
+                        <p className="text-xs text-black/50 mb-2">{location.region}</p>
                       )}
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         {location.events.slice(0, 4).map((event, eventIdx) => {
@@ -347,12 +347,12 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
                               key={eventIdx}
                               className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
                                 isView
-                                  ? "bg-white/10 text-white"
+                                  ? "bg-brand-primary/10 text-brand-primary"
                                   : isDownload
-                                  ? "bg-blue-500/20 text-blue-300"
+                                  ? "bg-blue-500/10 text-blue-600"
                                   : isDenied
-                                  ? "bg-red-500/20 text-red-300"
-                                  : "bg-white/5 text-white/50"
+                                  ? "bg-red-500/10 text-red-600"
+                                  : "bg-black/5 text-black/50"
                               }`}
                             >
                               {isView ? "Vue" : isDownload ? "Téléch." : isDenied ? "Refusé" : "Autre"}
@@ -360,7 +360,7 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
                           );
                         })}
                         {location.events.length > 4 && (
-                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-white/5 text-white/50">
+                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-black/5 text-black/50">
                             +{location.events.length - 4}
                           </span>
                         )}
