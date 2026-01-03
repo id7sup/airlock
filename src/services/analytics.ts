@@ -2,13 +2,26 @@ import { db } from "@/lib/firebase";
 import * as admin from "firebase-admin";
 import { hashIP, generateVisitorId, categorizeReferer } from "@/lib/visitor";
 
-export type EventType = 
-  | "OPEN_SHARE" 
-  | "OPEN_FOLDER" 
-  | "VIEW_FILE" 
-  | "DOWNLOAD_FILE" 
-  | "ACCESS_DENIED";
+/**
+ * Service d'analytics pour le suivi des partages
+ * 
+ * Enregistre les événements (vues, téléchargements, etc.) avec géolocalisation
+ * et métadonnées pour l'analyse des performances.
+ */
 
+/**
+ * Types d'événements trackés
+ */
+export type EventType = 
+  | "OPEN_SHARE"      // Ouverture d'un partage
+  | "OPEN_FOLDER"     // Ouverture d'un sous-dossier
+  | "VIEW_FILE"       // Prévisualisation d'un fichier
+  | "DOWNLOAD_FILE"   // Téléchargement d'un fichier
+  | "ACCESS_DENIED";  // Accès refusé
+
+/**
+ * Données de géolocalisation
+ */
 interface GeolocationData {
   ip?: string;
   country?: string;
@@ -18,6 +31,9 @@ interface GeolocationData {
   region?: string;
 }
 
+/**
+ * Données complètes pour le tracking
+ */
 interface TrackingData {
   linkId: string;
   eventType: EventType;
@@ -29,6 +45,14 @@ interface TrackingData {
   folderId?: string;
 }
 
+/**
+ * Enregistre un événement d'analytics
+ * 
+ * Stocke l'événement dans Firestore avec toutes les métadonnées
+ * et met à jour les compteurs sur le lien de partage.
+ * 
+ * @param data - Données de l'événement à tracker
+ */
 export async function trackEvent(data: TrackingData) {
   const now = new Date();
   const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -93,7 +117,19 @@ export async function trackEvent(data: TrackingData) {
   await linkRef.update(updateData);
 }
 
-// Fonction de compatibilité pour l'ancien système
+/**
+ * Fonction de compatibilité pour tracker une activité de lien
+ * 
+ * @deprecated Utiliser trackEvent() à la place
+ * 
+ * @param linkId - ID du lien de partage
+ * @param type - Type d'activité (VIEW ou DOWNLOAD)
+ * @param geolocation - Données de géolocalisation (optionnel)
+ * @param visitorId - ID du visiteur (optionnel)
+ * @param referer - Referer HTTP (optionnel)
+ * @param userAgent - User agent (optionnel)
+ * @param fileId - ID du fichier (optionnel)
+ */
 export async function trackLinkActivity(
   linkId: string, 
   type: "VIEW" | "DOWNLOAD",

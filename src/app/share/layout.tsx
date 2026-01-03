@@ -1,6 +1,14 @@
 import { Inter } from "next/font/google";
 import "../globals.css";
 
+/**
+ * Layout spécifique pour les pages de partage publiques
+ * 
+ * IMPORTANT: Ce layout ne contient PAS ClerkProvider pour éviter
+ * les redirections d'authentification en production. Les pages de
+ * partage doivent être accessibles sans authentification.
+ */
+
 const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500"],
@@ -9,8 +17,6 @@ const inter = Inter({
   preload: true,
 });
 
-// Layout spécifique pour les pages de partage - SANS ClerkProvider
-// Cela évite les redirections d'authentification en production
 export default function ShareLayout({
   children,
 }: {
@@ -24,4 +30,3 @@ export default function ShareLayout({
     </html>
   );
 }
-

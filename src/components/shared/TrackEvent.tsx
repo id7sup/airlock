@@ -2,6 +2,18 @@
 
 import { useEffect } from "react";
 
+/**
+ * Composant Client pour tracker les événements d'analytics
+ * 
+ * Envoie automatiquement un événement à l'API analytics lors du montage.
+ * Utilisé dans les pages de partage pour tracker les vues et interactions.
+ * 
+ * @param linkId - ID du lien de partage
+ * @param eventType - Type d'événement à tracker
+ * @param fileId - ID du fichier (optionnel)
+ * @param folderId - ID du dossier (optionnel)
+ * @param fileName - Nom du fichier (optionnel)
+ */
 interface TrackEventProps {
   linkId: string;
   eventType: "OPEN_SHARE" | "OPEN_FOLDER" | "VIEW_FILE" | "DOWNLOAD_FILE" | "ACCESS_DENIED";
@@ -28,7 +40,7 @@ export function TrackEvent({ linkId, eventType, fileId, folderId, fileName }: Tr
           }),
         });
       } catch (error) {
-        console.error("Erreur lors du tracking:", error);
+        // Ignorer les erreurs de tracking (ne pas bloquer l'UI)
       }
     };
 
@@ -37,4 +49,3 @@ export function TrackEvent({ linkId, eventType, fileId, folderId, fileName }: Tr
 
   return null;
 }
-

@@ -3,6 +3,15 @@
 import { useEffect } from "react";
 import { Info } from "lucide-react";
 
+/**
+ * Composant d'erreur spécifique pour les pages de partage
+ * 
+ * Affiche les erreurs avec détails pour faciliter le debugging.
+ * Utilisé par Next.js Error Boundary pour les pages /share/*
+ * 
+ * @param error - L'erreur capturée
+ * @param reset - Fonction pour réessayer
+ */
 export default function ShareError({
   error,
   reset,
@@ -11,16 +20,11 @@ export default function ShareError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Log l'erreur complète pour le debugging
-    console.error("[SHARE_ERROR] Error:", error);
-    console.error("[SHARE_ERROR] Error message:", error?.message);
-    console.error("[SHARE_ERROR] Error stack:", error?.stack);
-    console.error("[SHARE_ERROR] Error digest:", error?.digest);
+    // Logger l'erreur pour le debugging
+    console.error("[SHARE_ERROR]", error?.message, error?.digest);
   }, [error]);
 
-  // Afficher l'erreur réelle même en production
   const errorMessage = error?.message || "Erreur inconnue";
-  const errorStack = error?.stack || "";
   const errorDigest = error?.digest || "";
 
   return (
@@ -34,7 +38,7 @@ export default function ShareError({
           Une erreur est survenue lors du chargement du partage.
         </p>
         
-        {/* Afficher l'erreur réelle même en production pour le debugging */}
+        {/* Afficher les détails de l'erreur pour le debugging */}
         <div className="mt-4 p-4 bg-red-50 rounded-xl text-left mb-4">
           <p className="text-xs font-mono text-red-700 break-all">
             <strong>Message:</strong> {errorMessage}<br/>
@@ -43,10 +47,10 @@ export default function ShareError({
                 <strong>Code:</strong> {errorDigest}<br/>
               </>
             )}
-            {process.env.NODE_ENV === "development" && errorStack && (
+            {process.env.NODE_ENV === "development" && error?.stack && (
               <>
                 <strong>Stack:</strong><br/>
-                <pre className="text-[10px] mt-1 whitespace-pre-wrap">{errorStack}</pre>
+                <pre className="text-[10px] mt-1 whitespace-pre-wrap">{error.stack}</pre>
               </>
             )}
           </p>
@@ -62,4 +66,3 @@ export default function ShareError({
     </div>
   );
 }
-

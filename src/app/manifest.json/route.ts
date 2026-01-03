@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 
+/**
+ * Route API pour le manifest.json (PWA)
+ * 
+ * Retourne le manifest de l'application pour l'installation PWA.
+ * Inclut les métadonnées, icônes et configuration de l'application.
+ */
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  console.log("[MANIFEST] Serving manifest.json");
   const manifest = {
     name: "Airlock - Partage de Fichiers Sécurisé",
     short_name: "Airlock",
@@ -40,4 +45,3 @@ export async function GET() {
     },
   });
 }
-

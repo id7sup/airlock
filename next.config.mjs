@@ -1,3 +1,9 @@
+/**
+ * Configuration Next.js
+ * 
+ * Configure Turbopack, webpack, optimisations SEO et headers de sécurité.
+ */
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Configuration Turbopack (Next.js 16+)

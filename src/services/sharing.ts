@@ -2,15 +2,21 @@ import { db } from "@/lib/firebase";
 import * as admin from "firebase-admin";
 import crypto from "crypto";
 
-// Fonction utilitaire pour convertir les timestamps Firestore en objets sérialisables
+/**
+ * Convertit les timestamps Firestore en objets sérialisables (ISO strings)
+ * Nécessaire pour passer les données aux Client Components dans Next.js
+ * 
+ * @param data - Données à convertir (peut contenir des Timestamps Firestore)
+ * @returns Données converties avec timestamps en ISO strings
+ */
 function convertFirestoreData(data: any): any {
   if (!data || typeof data !== 'object') return data;
   
   const converted: any = {};
   for (const [key, value] of Object.entries(data)) {
-    // Convertir les timestamps Firestore
     if (value && typeof value === 'object') {
       const val = value as any;
+      // Convertir les timestamps Firestore en ISO strings
       if (val instanceof admin.firestore.Timestamp) {
         converted[key] = val.toDate().toISOString();
       } else if (val._seconds !== undefined && val._nanoseconds !== undefined) {
@@ -32,18 +38,33 @@ function convertFirestoreData(data: any): any {
   return converted;
 }
 
+/**
+ * Crée un nouveau lien de partage pour un dossier
+ * 
+ * @param data - Données du lien de partage
+ * @param data.folderId - ID du dossier à partager
+ * @param data.userId - ID de l'utilisateur créateur
+ * @param data.expiresAt - Date d'expiration (optionnel)
+ * @param data.password - Mot de passe de protection (optionnel)
+ * @param data.isReadOnly - Mode lecture seule (défaut: true)
+ * @param data.maxViews - Nombre maximum de vues (optionnel)
+ * @param data.allowDownload - Autoriser le téléchargement (défaut: true)
+ * @returns Lien de partage créé avec token
+ */
 export async function createShareLink(data: {
   folderId: string;
-  userId: string; // Ajouté
+  userId: string;
   expiresAt?: Date | null;
   password?: string;
   isReadOnly?: boolean;
   maxViews?: number | null;
   allowDownload?: boolean;
 }) {
+  // Générer un token unique (64 caractères hex)
   const token = crypto.randomBytes(32).toString("hex");
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
+  // Hasher le mot de passe si fourni
   let passwordHash = null;
   if (data.password) {
     passwordHash = crypto.createHash("sha256").update(data.password).digest("hex");
@@ -51,15 +72,15 @@ export async function createShareLink(data: {
 
   const shareLinkData = {
     folderId: data.folderId,
-    creatorId: data.userId, // Stocker le créateur pour le suivi
-    token, // On stocke le token en clair pour que le propriétaire puisse le récupérer dans son dashboard
-    tokenHash,
+    creatorId: data.userId,
+    token, // Stocké en clair pour récupération dans le dashboard
+    tokenHash, // Hash pour validation sécurisée
     expiresAt: data.expiresAt || null,
-    passwordHash: data.password ? crypto.createHash("sha256").update(data.password).digest("hex") : null,
+    passwordHash,
     isReadOnly: data.isReadOnly ?? true,
     maxViews: data.maxViews || null,
     allowDownload: data.allowDownload ?? true,
-    downloadDefault: data.allowDownload ?? true, // Règle par défaut pour les fichiers
+    downloadDefault: data.allowDownload ?? true,
     viewCount: 0,
     downloadCount: 0,
     isRevoked: false,
@@ -72,110 +93,94 @@ export async function createShareLink(data: {
   return { id: docRef.id, ...shareLinkData, token };
 }
 
+/**
+ * Valide un lien de partage et retourne les données du dossier
+ * 
+ * Vérifie :
+ * - L'existence du lien
+ * - L'expiration
+ * - Le quota de vues
+ * - La révocation
+ * - L'existence du dossier
+ * 
+ * @param token - Token du lien de partage
+ * @returns Données du lien et du dossier, ou objet avec erreur
+ */
 export async function validateShareLink(token: string) {
-  console.error("[VALIDATE_SHARE] Starting validation for token:", token.substring(0, 10) + "...");
   try {
+    // Hasher le token pour la recherche
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-    console.error("[VALIDATE_SHARE] Token hash calculated");
 
-    console.error("[VALIDATE_SHARE] Querying shareLinks collection");
+    // Rechercher le lien dans Firestore
     const snapshot = await db.collection("shareLinks")
       .where("tokenHash", "==", tokenHash)
       .limit(1)
       .get();
 
-    console.error("[VALIDATE_SHARE] Query result:", snapshot.empty ? "EMPTY" : "FOUND");
-
     if (snapshot.empty) {
-      console.error("[VALIDATE_SHARE] No link found for token hash");
       return { error: "NOT_FOUND" };
     }
 
     const linkDoc = snapshot.docs[0];
     const linkData = linkDoc.data();
-    console.error("[VALIDATE_SHARE] Link data retrieved:", {
-      linkId: linkDoc.id,
-      folderId: linkData?.folderId,
-      isRevoked: linkData?.isRevoked,
-      hasExpiresAt: !!linkData?.expiresAt
-    });
 
     if (!linkData) {
-      console.error("[VALIDATE_SHARE] Link data is null/undefined");
       return { error: "NOT_FOUND" };
     }
 
     // Vérifier expiration
-    console.error("[VALIDATE_SHARE] Checking expiration");
     if (linkData.expiresAt) {
       const expiresAt = linkData.expiresAt?.toDate ? linkData.expiresAt.toDate() : new Date(linkData.expiresAt);
       if (expiresAt < new Date()) {
-        console.error("[VALIDATE_SHARE] Link expired");
         return { error: "EXPIRED", linkId: linkDoc.id, folderId: linkData.folderId };
       }
     }
 
-    // Vérifier limites de vues
-    console.error("[VALIDATE_SHARE] Checking view quota");
-    if (linkData.maxViews && (linkData.viewCount || 0) > linkData.maxViews) {
-      console.error("[VALIDATE_SHARE] View quota exceeded");
+    // Vérifier quota de vues
+    if (linkData.maxViews && (linkData.viewCount || 0) >= linkData.maxViews) {
       return { error: "QUOTA_EXCEEDED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
-    // Vérifier si révoqué manuellement
-    console.error("[VALIDATE_SHARE] Checking if revoked");
+    // Vérifier révocation
     if (linkData.isRevoked === true) {
-      console.error("[VALIDATE_SHARE] Link is revoked");
       return { error: "REVOKED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
-    // Récupérer le dossier, les fichiers et les sous-dossiers
-    console.error("[VALIDATE_SHARE] Fetching folder:", linkData.folderId);
+    // Récupérer le dossier
     const folderDoc = await db.collection("folders").doc(linkData.folderId).get();
-    console.error("[VALIDATE_SHARE] Folder exists:", folderDoc.exists);
     
     if (!folderDoc.exists) {
-      console.error("[VALIDATE_SHARE] Folder does not exist, revoking link");
-      // Si le dossier n'existe plus, révoquer automatiquement le lien
+      // Révoquer automatiquement si le dossier n'existe plus
       try {
         await db.collection("shareLinks").doc(linkDoc.id).update({
           isRevoked: true,
           revokedAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        console.error("[VALIDATE_SHARE] Link revoked successfully");
       } catch (e) {
-        console.error("[VALIDATE_SHARE] Error revoking link:", e);
+        // Ignorer les erreurs de révocation
       }
       return { error: "NOT_FOUND", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
     const folderData = folderDoc.data();
-    console.error("[VALIDATE_SHARE] Folder data:", {
-      name: folderData?.name,
-      isDeleted: folderData?.isDeleted,
-      workspaceId: folderData?.workspaceId
-    });
     
-    // Vérifier si le dossier est supprimé (isDeleted = true)
+    // Vérifier si le dossier est supprimé
     if (folderData?.isDeleted === true) {
-      console.error("[VALIDATE_SHARE] Folder is deleted, revoking link");
-      // Si le dossier est dans la corbeille, révoquer automatiquement le lien
+      // Révoquer automatiquement si le dossier est dans la corbeille
       try {
         await db.collection("shareLinks").doc(linkDoc.id).update({
           isRevoked: true,
           revokedAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        console.error("[VALIDATE_SHARE] Link revoked successfully");
       } catch (e) {
-        console.error("[VALIDATE_SHARE] Error revoking link:", e);
+        // Ignorer les erreurs de révocation
       }
       return { error: "REVOKED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
-    // Récupérer les fichiers et sous-dossiers avec gestion d'erreur
-    console.error("[VALIDATE_SHARE] Fetching files and children");
+    // Récupérer les fichiers et sous-dossiers
     let filesSnapshot: any = { docs: [] };
     let childrenSnapshot: any = { docs: [] };
     
@@ -184,27 +189,20 @@ export async function validateShareLink(token: string) {
         db.collection("files").where("folderId", "==", linkData.folderId).get(),
         db.collection("folders").where("parentId", "==", linkData.folderId).get(),
       ]);
-      console.error("[VALIDATE_SHARE] Files and children fetched:", {
-        filesCount: filesSnapshot.docs?.length || 0,
-        childrenCount: childrenSnapshot.docs?.length || 0
-      });
     } catch (error: any) {
-      console.error("[VALIDATE_SHARE] ERROR fetching files/children:", error);
-      console.error("[VALIDATE_SHARE] Error message:", error?.message);
-      console.error("[VALIDATE_SHARE] Error stack:", error?.stack);
-      // Continuer avec des tableaux vides plutôt que de crasher
+      // Continuer avec des tableaux vides en cas d'erreur
+      console.error("[SHARING] Error fetching files/children:", error?.message);
     }
 
-    // Vérifier que folderData existe avant de construire le résultat
     if (!folderData) {
-      console.error("[VALIDATE_SHARE] Folder data is null/undefined after fetch");
       return { error: "NOT_FOUND", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
-    // Convertir les données pour qu'elles soient sérialisables
+    // Convertir les données pour sérialisation (timestamps → ISO strings)
     const convertedLinkData = convertFirestoreData(linkData);
     const convertedFolderData = convertFirestoreData(folderData);
     
+    // Construire le résultat avec données converties
     const result = {
       id: linkDoc.id,
       ...convertedLinkData,
@@ -216,7 +214,6 @@ export async function validateShareLink(token: string) {
           return {
             id: doc.id,
             ...data,
-            // S'assurer que les champs critiques existent
             name: data?.name || "Fichier sans nom",
             size: data?.size || 0,
             mimeType: data?.mimeType || "application/octet-stream",
@@ -233,20 +230,10 @@ export async function validateShareLink(token: string) {
       },
     };
 
-    console.error("[VALIDATE_SHARE] Validation successful, returning result");
     return result;
   } catch (error: any) {
-    console.error("[VALIDATE_SHARE] CRITICAL ERROR in validateShareLink:", error);
-    console.error("[VALIDATE_SHARE] Error type:", typeof error);
-    console.error("[VALIDATE_SHARE] Error message:", error?.message);
-    console.error("[VALIDATE_SHARE] Error stack:", error?.stack);
-    console.error("[VALIDATE_SHARE] Error name:", error?.name);
-    console.error("[VALIDATE_SHARE] Error code:", error?.code);
-    try {
-      console.error("[VALIDATE_SHARE] Error JSON:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
-    } catch (e) {
-      console.error("[VALIDATE_SHARE] Could not stringify error:", e);
-    }
+    // Erreur critique - logger pour debugging
+    console.error("[SHARING] Critical error in validateShareLink:", error?.message);
     return { error: "NOT_FOUND" };
   }
 }

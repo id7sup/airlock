@@ -7,7 +7,26 @@ import { revalidatePath } from "next/cache";
 import * as admin from "firebase-admin";
 
 /**
+ * Server Actions pour la gestion des partages
+ * 
+ * Toutes les fonctions sont des Server Actions Next.js qui s'exécutent
+ * côté serveur avec authentification automatique.
+ */
+
+/**
  * Crée un lien de partage public (externe) avec contrôle granulaire
+ * 
+ * Seul le propriétaire (OWNER) du dossier peut créer un lien de partage.
+ * 
+ * @param data - Configuration du lien de partage
+ * @param data.folderId - ID du dossier à partager
+ * @param data.expiresAt - Date d'expiration (optionnel)
+ * @param data.password - Mot de passe de protection (optionnel)
+ * @param data.isReadOnly - Mode lecture seule (défaut: true)
+ * @param data.maxViews - Nombre maximum de vues (optionnel)
+ * @param data.allowDownload - Autoriser le téléchargement (défaut: true)
+ * @returns Lien de partage créé avec token
+ * @throws Error si l'utilisateur n'est pas propriétaire
  */
 export async function createShareLinkAction(data: {
   folderId: string;
@@ -42,11 +61,14 @@ export async function createShareLinkAction(data: {
 }
 
 /**
- * Récupère récursivement tous les fichiers et sous-dossiers d'un dossier
- */
-
-/**
  * Récupère récursivement tous les sous-dossiers d'un dossier parent
+ * 
+ * Utilise la récursion pour parcourir toute la hiérarchie des dossiers.
+ * Protégé contre les boucles infinies avec un Set de dossiers visités.
+ * 
+ * @param parentId - ID du dossier parent
+ * @param visited - Set des IDs déjà visités (pour éviter les boucles)
+ * @returns Tableau de tous les IDs de sous-dossiers (incluant le parent)
  */
 async function getAllSubfoldersRecursive(parentId: string, visited: Set<string> = new Set()): Promise<string[]> {
   // Protection contre les boucles infinies
@@ -81,7 +103,15 @@ async function getAllSubfoldersRecursive(parentId: string, visited: Set<string> 
 
 /**
  * Invite un utilisateur par son email (partage interne)
- * Crée des permissions récursives sur tous les sous-dossiers
+ * 
+ * Crée des permissions récursives sur tous les sous-dossiers.
+ * Seuls OWNER et EDITOR peuvent inviter d'autres utilisateurs.
+ * 
+ * @param folderId - ID du dossier à partager
+ * @param email - Email de l'utilisateur à inviter
+ * @param role - Rôle à attribuer (VIEWER ou EDITOR)
+ * @param canDownload - Autoriser le téléchargement (défaut: true)
+ * @throws Error si l'utilisateur n'a pas les permissions ou si l'email est invalide
  */
 export async function inviteUserAction(folderId: string, email: string, role: "VIEWER" | "EDITOR", canDownload: boolean = true) {
   const { userId } = await auth();
@@ -218,7 +248,7 @@ export async function inviteUserAction(folderId: string, email: string, role: "V
       await currentBatch.commit();
     }
   } catch (error: any) {
-    console.error("Erreur lors de la création des permissions:", error);
+    console.error("[SHARING] Error creating permissions:", error?.message);
     throw new Error("Erreur lors de la création des permissions: " + (error?.message || "Erreur inconnue"));
   }
 
@@ -228,7 +258,12 @@ export async function inviteUserAction(folderId: string, email: string, role: "V
 }
 
 /**
- * Révoque un lien de partage
+ * Révoque un lien de partage public
+ * 
+ * Seul le propriétaire (OWNER) du dossier peut révoquer un lien.
+ * 
+ * @param linkId - ID du lien de partage à révoquer
+ * @throws Error si l'utilisateur n'est pas propriétaire ou si le lien n'existe pas
  */
 export async function revokeShareLinkAction(linkId: string) {
   const { userId } = await auth();
@@ -253,7 +288,10 @@ export async function revokeShareLinkAction(linkId: string) {
 }
 
 /**
- * Vérifie si un dossier est partagé avec d'autres utilisateurs
+ * Vérifie si un dossier est partagé avec d'autres utilisateurs (partage interne)
+ * 
+ * @param folderId - ID du dossier à vérifier
+ * @returns true si le dossier a des permissions VIEWER ou EDITOR, false sinon
  */
 export async function isFolderSharedAction(folderId: string): Promise<boolean> {
   const { userId } = await auth();
@@ -273,7 +311,10 @@ export async function isFolderSharedAction(folderId: string): Promise<boolean> {
 }
 
 /**
- * Vérifie si un dossier a un lien public actif
+ * Vérifie si un dossier a un lien public actif (non expiré, non révoqué)
+ * 
+ * @param folderId - ID du dossier à vérifier
+ * @returns true si un lien public actif existe, false sinon
  */
 export async function hasActivePublicLinkAction(folderId: string): Promise<boolean> {
   const existingLinksSnapshot = await db.collection("shareLinks")

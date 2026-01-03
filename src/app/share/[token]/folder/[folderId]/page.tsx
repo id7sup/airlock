@@ -6,6 +6,15 @@ import { FileList } from "@/components/shared/FileList";
 import { TrackEvent } from "@/components/shared/TrackEvent";
 import Link from "next/link";
 
+/**
+ * Page publique pour afficher un sous-dossier partagé
+ * 
+ * Permet de naviguer dans les sous-dossiers d'un partage.
+ * Vérifie que le sous-dossier appartient bien au dossier partagé.
+ * 
+ * @param params - Paramètres de la route (token, folderId)
+ * @param searchParams - Paramètres de requête (pwd pour mot de passe)
+ */
 export default async function PublicShareFolderPage({ 
   params, 
   searchParams 
@@ -36,8 +45,8 @@ export default async function PublicShareFolderPage({
     let result;
     try {
       result = await validateShareLink(token);
-    } catch (error) {
-      console.error("Error validating share link:", error);
+    } catch (error: any) {
+      console.error("[SHARE_FOLDER] Error validating link:", error?.message);
       return (
         <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
           <div className="apple-card p-12 text-center max-w-md shadow-2xl">
@@ -95,8 +104,8 @@ export default async function PublicShareFolderPage({
     let folderDoc;
     try {
       folderDoc = await db.collection("folders").doc(folderId).get();
-    } catch (error) {
-      console.error("Error fetching folder:", error);
+    } catch (error: any) {
+      console.error("[SHARE_FOLDER] Error fetching folder:", error?.message);
       return (
         <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
           <div className="apple-card p-12 text-center max-w-md shadow-2xl">
@@ -149,8 +158,8 @@ export default async function PublicShareFolderPage({
     let isChildOfSharedFolder = false;
     try {
       isChildOfSharedFolder = await checkIfFolderIsChild(folderId, link.folderId);
-    } catch (error) {
-      console.error("Error checking folder hierarchy:", error);
+    } catch (error: any) {
+      console.error("[SHARE_FOLDER] Error checking hierarchy:", error?.message);
       return (
         <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
           <div className="apple-card p-12 text-center max-w-md shadow-2xl">
@@ -218,8 +227,8 @@ export default async function PublicShareFolderPage({
 
       files = filesSnapshot.docs.map(doc => ({ id: doc.id, ...convertFirestoreData(doc.data()) }));
       children = childrenSnapshot.docs.map(doc => ({ id: doc.id, ...convertFirestoreData(doc.data()) }));
-    } catch (error) {
-      console.error("Error fetching files and children:", error);
+    } catch (error: any) {
+      console.error("[SHARE_FOLDER] Error fetching files/children:", error?.message);
       // Continuer avec des tableaux vides plutôt que de crasher
     }
 
@@ -278,8 +287,8 @@ export default async function PublicShareFolderPage({
         </div>
       </div>
     );
-  } catch (error) {
-    console.error("Critical error in PublicShareFolderPage:", error);
+  } catch (error: any) {
+    console.error("[SHARE_FOLDER] Critical error:", error?.message);
     return (
       <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
         <div className="apple-card p-12 text-center max-w-md shadow-2xl">
@@ -298,13 +307,22 @@ export default async function PublicShareFolderPage({
 
 /**
  * Vérifie récursivement si un dossier est un enfant (direct ou indirect) d'un dossier parent
+ * 
+ * Utilise la récursion pour remonter la hiérarchie des dossiers jusqu'à trouver
+ * le parent ou atteindre la racine.
+ * 
+ * @param childId - ID du dossier enfant à vérifier
+ * @param parentId - ID du dossier parent cible
+ * @returns true si le dossier est un enfant du parent, false sinon
  */
 async function checkIfFolderIsChild(childId: string, parentId: string): Promise<boolean> {
   try {
+    // Si c'est le même dossier, c'est un enfant
     if (childId === parentId) {
       return true;
     }
 
+    // Récupérer le dossier enfant
     const childDoc = await db.collection("folders").doc(childId).get();
     if (!childDoc.exists) {
       return false;
@@ -315,14 +333,15 @@ async function checkIfFolderIsChild(childId: string, parentId: string): Promise<
       return false;
     }
 
+    // Si le parent direct est le parent cible, c'est un enfant
     if (childData.parentId === parentId) {
       return true;
     }
 
-    // Récursion pour vérifier les parents plus haut
+    // Récursion : vérifier si le parent du dossier est un enfant du parent cible
     return checkIfFolderIsChild(childData.parentId, parentId);
-  } catch (error) {
-    console.error("Error in checkIfFolderIsChild:", error);
+  } catch (error: any) {
+    console.error("[SHARE_FOLDER] Error in checkIfFolderIsChild:", error?.message);
     return false;
   }
 }
