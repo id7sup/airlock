@@ -52,16 +52,29 @@ export default async function PublicSharePage({
       console.error("[SHARE_PAGE] Error name:", error?.name);
       console.error("[SHARE_PAGE] Error code:", error?.code);
       console.error("[SHARE_PAGE] Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      
+      // Afficher l'erreur réelle pour identifier le problème
+      const errorMessage = error?.message || "Erreur inconnue lors de la validation du lien";
+      const errorName = error?.name || "Error";
+      const errorCode = error?.code || "UNKNOWN";
+      
       return (
         <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
           <div className="apple-card p-12 text-center max-w-md shadow-2xl">
             <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <Info className="w-8 h-8" />
             </div>
-            <h1 className="text-2xl font-bold mb-2 tracking-tight">Erreur</h1>
-            <p className="text-apple-secondary font-medium">
-              Une erreur est survenue lors du chargement du partage.
+            <h1 className="text-2xl font-bold mb-2 tracking-tight">Erreur de validation</h1>
+            <p className="text-apple-secondary font-medium mb-4">
+              Impossible de valider le lien de partage.
             </p>
+            <div className="mt-4 p-4 bg-red-50 rounded-xl text-left">
+              <p className="text-xs font-mono text-red-700 break-all">
+                <strong>Type:</strong> {errorName}<br/>
+                <strong>Code:</strong> {errorCode}<br/>
+                <strong>Message:</strong> {errorMessage}
+              </p>
+            </div>
           </div>
         </div>
       );
@@ -351,6 +364,12 @@ export default async function PublicSharePage({
     } catch (e) {
       console.error("[SHARE_PAGE] Could not stringify error:", e);
     }
+    
+    // Afficher l'erreur réelle pour le débogage (en production aussi pour identifier le problème)
+    const errorMessage = error?.message || "Erreur inconnue";
+    const errorName = error?.name || "Error";
+    const errorCode = error?.code || "UNKNOWN";
+    
     return (
       <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
         <div className="apple-card p-12 text-center max-w-md shadow-2xl">
@@ -358,8 +377,18 @@ export default async function PublicSharePage({
             <Info className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-bold mb-2 tracking-tight">Erreur</h1>
-          <p className="text-apple-secondary font-medium">
-            Une erreur inattendue est survenue. Veuillez réessayer plus tard.
+          <p className="text-apple-secondary font-medium mb-4">
+            Une erreur est survenue lors du chargement du partage.
+          </p>
+          <div className="mt-4 p-4 bg-red-50 rounded-xl text-left">
+            <p className="text-xs font-mono text-red-700 break-all">
+              <strong>Type:</strong> {errorName}<br/>
+              <strong>Code:</strong> {errorCode}<br/>
+              <strong>Message:</strong> {errorMessage}
+            </p>
+          </div>
+          <p className="text-xs text-apple-secondary/50 mt-4">
+            Si le problème persiste, contactez le support avec ces informations.
           </p>
         </div>
       </div>

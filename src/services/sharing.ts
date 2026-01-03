@@ -165,14 +165,37 @@ export async function validateShareLink(token: string) {
       // Continuer avec des tableaux vides plutôt que de crasher
     }
 
+    // Vérifier que folderData existe avant de construire le résultat
+    if (!folderData) {
+      console.error("[VALIDATE_SHARE] Folder data is null/undefined after fetch");
+      return { error: "NOT_FOUND", linkId: linkDoc.id, folderId: linkData.folderId };
+    }
+
     const result = {
       id: linkDoc.id,
       ...linkData,
       folder: {
         id: folderDoc.id,
-        name: folderData?.name || "Dossier inconnu",
-        files: filesSnapshot.docs?.map((doc: any) => ({ id: doc.id, ...doc.data() })) || [],
-        children: childrenSnapshot.docs?.map((doc: any) => ({ id: doc.id, ...doc.data() })) || [],
+        name: folderData.name || "Dossier inconnu",
+        files: (filesSnapshot.docs || []).map((doc: any) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            // S'assurer que les champs critiques existent
+            name: data?.name || "Fichier sans nom",
+            size: data?.size || 0,
+            mimeType: data?.mimeType || "application/octet-stream",
+          };
+        }),
+        children: (childrenSnapshot.docs || []).map((doc: any) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            name: data?.name || "Dossier sans nom",
+          };
+        }),
       },
     };
 
