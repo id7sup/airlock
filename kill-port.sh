@@ -12,12 +12,42 @@ sleep 3
 
 # 2. Tuer TOUS les processus Node/Next de manière AGRESSIVE
 echo "   → Tuer tous les processus Node/Next..."
+# Tuer par nom de processus
 pkill -9 node 2>/dev/null || true
 pkill -9 -f next 2>/dev/null || true
 pkill -9 -f "next-server" 2>/dev/null || true
 pkill -9 -f "npm.*start" 2>/dev/null || true
+pkill -9 -f "npm start" 2>/dev/null || true
 pkill -9 -f "node.*3000" 2>/dev/null || true
+# Tuer par commande complète
+pkill -9 -f "next start" 2>/dev/null || true
+pkill -9 -f "next start -p 3000" 2>/dev/null || true
 sleep 3
+
+# 2.5. Trouver et tuer les processus PARENTS (npm start) et leurs enfants
+echo "   → Recherche des processus parents (npm start)..."
+if command -v pgrep &> /dev/null; then
+    # Trouver tous les PIDs de npm start
+    NPM_PIDS=$(pgrep -f "npm.*start" 2>/dev/null || true)
+    if [ ! -z "$NPM_PIDS" ]; then
+        echo "      PIDs npm start trouvés: $NPM_PIDS"
+        for pid in $NPM_PIDS; do
+            # Tuer le processus et TOUS ses enfants
+            kill -9 -$pid 2>/dev/null || true  # Le - devant le PID tue tout le groupe
+            kill -9 $pid 2>/dev/null || true
+            # Trouver les enfants de ce processus
+            CHILD_PIDS=$(pgrep -P $pid 2>/dev/null || true)
+            if [ ! -z "$CHILD_PIDS" ]; then
+                echo "      Enfants trouvés: $CHILD_PIDS"
+                for child in $CHILD_PIDS; do
+                    kill -9 -$child 2>/dev/null || true
+                    kill -9 $child 2>/dev/null || true
+                done
+            fi
+        done
+        sleep 3
+    fi
+fi
 
 # 3. Trouver TOUS les PIDs qui utilisent le port 3000 et les tuer
 echo "   → Recherche des processus sur le port 3000..."
@@ -81,11 +111,29 @@ if command -v fuser &> /dev/null; then
     sleep 2
 fi
 
-# 4. Tuer à nouveau TOUS les processus Node (au cas où)
-echo "   → Nettoyage final..."
+# 4. Tuer à nouveau TOUS les processus Node (au cas où) - INCLUANT LES GROUPES
+echo "   → Nettoyage final agressif..."
+# Tuer tous les processus npm/node/next
 pkill -9 node 2>/dev/null || true
 pkill -9 -f next 2>/dev/null || true
 pkill -9 -f "next-server" 2>/dev/null || true
+pkill -9 -f "npm" 2>/dev/null || true
+pkill -9 -f "npm.*start" 2>/dev/null || true
+pkill -9 -f "next start" 2>/dev/null || true
+
+# Tuer par groupe de processus si possible
+if command -v pgrep &> /dev/null; then
+    # Trouver tous les PIDs et tuer leurs groupes
+    ALL_NODE_PIDS=$(pgrep -f "node|next|npm" 2>/dev/null || true)
+    if [ ! -z "$ALL_NODE_PIDS" ]; then
+        for pid in $ALL_NODE_PIDS; do
+            # Tuer le groupe de processus
+            kill -9 -$pid 2>/dev/null || true
+            kill -9 $pid 2>/dev/null || true
+        done
+    fi
+fi
+
 sleep 3
 
 # 5. Redémarrer PM2 daemon proprement
