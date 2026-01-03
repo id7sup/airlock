@@ -1,42 +1,40 @@
 # 🚀 Guide de déploiement
 
-## Déploiement depuis votre Mac (recommandé)
+## Déploiement sur le serveur
 
-### 1. Configuration initiale (une seule fois)
-
-```bash
-./deploy-config.sh
-source .deploy-config
-```
-
-### 2. Déployer automatiquement
-
-```bash
-./deploy-auto.sh "Description des modifications"
-```
-
-Le script fait automatiquement :
-- ✅ Commit vos modifications
-- ✅ Push vers GitHub
-- ✅ Déploiement sur le serveur
-- ✅ Redémarrage de l'application
-
-## Déploiement sur le serveur (manuel)
-
-Si vous êtes directement sur le serveur :
+### Déploiement simple (recommandé)
 
 ```bash
 cd /var/www/airlock
-./deploy-simple.sh
+chmod +x deploy.sh
+./deploy.sh
 ```
+
+Le script fait automatiquement :
+- ✅ Récupération depuis GitHub
+- ✅ Installation des dépendances
+- ✅ Build de l'application
+- ✅ Arrêt propre de l'ancienne version
+- ✅ Libération du port 3000
+- ✅ Démarrage avec PM2
+- ✅ Vérification du démarrage
 
 ## Scripts disponibles
 
-- **`deploy-auto.sh`** - Déploiement automatique depuis Mac (commit + push + deploy)
-- **`deploy-simple.sh`** - Déploiement simple sur le serveur (une commande)
-- **`fix-all-issues.sh`** - Correction complète des problèmes sur le serveur
-- **`kill-port-3000.sh`** - Libérer le port 3000 si bloqué
-- **`update-server.sh`** - Mise à jour simple du serveur
+- **`deploy.sh`** - Script de déploiement principal (unique et propre)
+- **`kill-port.sh`** - Libérer le port 3000 si bloqué
+
+## Dépannage
+
+### Le port 3000 est bloqué
+```bash
+./kill-port.sh
+```
+
+### L'application ne démarre pas
+```bash
+pm2 logs airlock --lines 50
+```
 
 ## Configuration nginx
 
