@@ -38,7 +38,7 @@ AWS_REGION=us-east-1
 
 ### Mapbox (Globe de suivi)
 ```bash
-NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.eyJ1Ijoi...
+NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1Ijoi...
 ```
 
 **Où trouver :** Mapbox Account > Access Tokens

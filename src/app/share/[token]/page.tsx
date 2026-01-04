@@ -182,24 +182,24 @@ export default async function PublicSharePage({
 
     // Notifier en arrière-plan (sans bloquer le rendu)
     // Le tracking est géré par le composant TrackEvent
-    (async () => {
-      try {
-        const ownerPerm = await db.collection("permissions")
-          .where("folderId", "==", link.folderId)
-          .where("role", "==", "OWNER")
-          .limit(1)
-          .get();
-        
-        const ownerId = !ownerPerm.empty ? ownerPerm.docs[0].data()?.userId || null : null;
-        if (ownerId && link.folder?.name) {
-          await createNotification(ownerId, "VIEW", {
-            folderName: link.folder.name,
-            folderId: link.folderId,
-          }).catch(() => {});
+      (async () => {
+        try {
+          const ownerPerm = await db.collection("permissions")
+            .where("folderId", "==", link.folderId)
+            .where("role", "==", "OWNER")
+            .limit(1)
+            .get();
+          
+          const ownerId = !ownerPerm.empty ? ownerPerm.docs[0].data()?.userId || null : null;
+          if (ownerId && link.folder?.name) {
+            await createNotification(ownerId, "VIEW", {
+              folderName: link.folder.name,
+              folderId: link.folderId,
+            }).catch(() => {});
+          }
+        } catch (e) {
+          // Ignorer silencieusement
         }
-      } catch (e) {
-        // Ignorer silencieusement
-      }
     })().catch(() => {});
 
     // Vérifier le mot de passe si requis

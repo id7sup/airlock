@@ -184,7 +184,7 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
                 <div className="flex items-center gap-6 flex-1 min-w-0">
                   <span className="text-[10px] font-bold text-black/15 tabular-nums w-4 text-right shrink-0">{idx + 1}</span>
                   <span className="text-lg font-light text-black truncate">{item.country}</span>
-                </div>
+                  </div>
                 <div className="flex items-center gap-8 shrink-0">
                   <div className="w-40 h-0.5 bg-black/[0.03] rounded-full overflow-hidden">
                     <div 
@@ -236,11 +236,11 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
           <p className="text-sm text-red-700/80 font-light">{stats.security.totalDenials} refus • {stats.security.denials24h} (24h)</p>
           {stats.security.unusualCountries.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-3">
-              {stats.security.unusualCountries.map((country, idx) => (
+                {stats.security.unusualCountries.map((country, idx) => (
                 <span key={idx} className="px-3 py-1.5 bg-red-50/50 text-red-700 rounded-lg text-xs font-light border border-red-200/50">
-                  {country}
-                </span>
-              ))}
+                    {country}
+                  </span>
+                ))}
             </div>
           )}
         </div>
@@ -255,7 +255,7 @@ function ActivityWaveform({ data }: { data: Array<{ hour: number; count: number 
   const currentHour = new Date().getHours();
   const total = data.reduce((acc, h) => acc + h.count, 0);
   const average = Math.round(total / 24);
-
+  
   return (
     <div className="relative">
       {/* Ligne de base centrale */}
@@ -263,7 +263,7 @@ function ActivityWaveform({ data }: { data: Array<{ hour: number; count: number 
       
       {/* Waveform */}
       <div className="relative flex items-center justify-between px-1 py-16">
-        {data.map((item, idx) => {
+      {data.map((item, idx) => {
           const isCurrentHour = currentHour === item.hour;
           const isPast = item.hour < currentHour;
           const isFuture = item.hour > currentHour;
@@ -271,10 +271,10 @@ function ActivityWaveform({ data }: { data: Array<{ hour: number; count: number 
           const amplitude = normalizedCount * 80; // Amplitude max 80px
           const direction = idx % 2 === 0 ? 1 : -1; // Alternance haut/bas
           
-          return (
+        return (
             <div key={idx} className="relative flex flex-col items-center group flex-1">
               {/* Point de connexion */}
-              <div
+            <div 
                 className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full transition-all duration-700 cursor-pointer ${
                   isCurrentHour 
                     ? 'bg-brand-primary shadow-lg shadow-brand-primary/40' 
@@ -294,7 +294,7 @@ function ActivityWaveform({ data }: { data: Array<{ hour: number; count: number 
                 )}
                 
                 {/* Tooltip */}
-                {item.count > 0 && (
+            {item.count > 0 && (
                   <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
                     <div className="bg-black text-white text-[10px] font-medium px-2 py-1 rounded whitespace-nowrap">
                       {item.count} • {item.hour}h
@@ -325,11 +325,11 @@ function ActivityWaveform({ data }: { data: Array<{ hour: number; count: number 
                     : 'text-black/15'
                 }`}>
                   {item.hour.toString().padStart(2, '0')}
-                </span>
+              </span>
               </div>
-            </div>
-          );
-        })}
+          </div>
+        );
+      })}
       </div>
 
       {/* Métriques en bas - Ultra minimaliste */}
@@ -357,10 +357,10 @@ function FunnelRow({ label, value }: { label: string; value: number }) {
       <span className="text-lg font-light text-black flex-1">{label}</span>
       <div className="flex items-center gap-8 shrink-0">
         <div className="w-48 h-0.5 bg-black/[0.03] rounded-full overflow-hidden">
-          <div 
+        <div 
             className="h-full bg-gradient-to-r from-brand-primary to-brand-secondary rounded-full transition-all duration-700 ease-out"
-            style={{ width: `${Math.min(value, 100)}%` }}
-          />
+          style={{ width: `${Math.min(value, 100)}%` }}
+        />
         </div>
         <span className="text-lg font-light text-black tabular-nums w-16 text-right">{value.toFixed(1)}%</span>
       </div>

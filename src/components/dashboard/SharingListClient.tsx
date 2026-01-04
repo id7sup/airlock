@@ -48,6 +48,8 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
   const [selectedLinkId, setSelectedLinkId] = useState<string | "all">("all");
   const [geolocationAnalytics, setGeolocationAnalytics] = useState<any[]>([]);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  
+  
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<{ id: string, type: 'views' | 'expiry' } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{
@@ -475,16 +477,6 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
                 <div className="text-center">
                   <Loader2 className="w-8 h-8 text-brand-primary animate-spin mx-auto mb-2" />
                   <p className="text-sm text-gray-500">Chargement des données...</p>
-                </div>
-              </div>
-            ) : geolocationAnalytics.length === 0 ? (
-              <div className="h-full flex items-center justify-center bg-transparent">
-                <div className="text-center">
-                  <Globe className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-lg font-medium text-gray-400 mb-1">Aucune donnée géographique</p>
-                  <p className="text-sm text-gray-400">
-                    Les données de géolocalisation apparaîtront ici après les premières vues
-                  </p>
                 </div>
               </div>
             ) : (

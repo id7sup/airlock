@@ -1,135 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Globe, MapPin, Clock, Monitor, Smartphone, Tablet, Globe as GlobeIcon } from "lucide-react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
+import Supercluster from "supercluster";
 import { AnalyticsDetailCard } from "./AnalyticsDetailCard";
-
-// Fonction pour parser le userAgent et extraire les infos du navigateur/device
-function parseUserAgent(userAgent: string): { browser: string; device: string; os: string; icon: string } {
-  if (!userAgent) return { browser: "Inconnu", device: "Inconnu", os: "Inconnu", icon: "monitor" };
-  
-  let browser = "Inconnu";
-  let device = "Desktop";
-  let os = "Inconnu";
-  let icon = "monitor";
-  
-  // Détecter le navigateur
-  if (userAgent.includes("Chrome") && !userAgent.includes("Edg")) {
-    browser = "Chrome";
-  } else if (userAgent.includes("Firefox")) {
-    browser = "Firefox";
-  } else if (userAgent.includes("Safari") && !userAgent.includes("Chrome")) {
-    browser = "Safari";
-  } else if (userAgent.includes("Edg")) {
-    browser = "Edge";
-  } else if (userAgent.includes("Opera") || userAgent.includes("OPR")) {
-    browser = "Opera";
-  }
-  
-  // Détecter l'OS
-  if (userAgent.includes("Windows")) {
-    os = "Windows";
-  } else if (userAgent.includes("Mac OS X") || userAgent.includes("macOS")) {
-    os = "macOS";
-  } else if (userAgent.includes("Linux")) {
-    os = "Linux";
-  } else if (userAgent.includes("Android")) {
-    os = "Android";
-    device = "Mobile";
-    icon = "smartphone";
-  } else if (userAgent.includes("iOS") || userAgent.includes("iPhone") || userAgent.includes("iPad")) {
-    os = "iOS";
-    if (userAgent.includes("iPad")) {
-      device = "Tablette";
-      icon = "tablet";
-    } else {
-      device = "Mobile";
-      icon = "smartphone";
-    }
-  }
-  
-  // Détecter les tablettes
-  if (userAgent.includes("iPad") || (userAgent.includes("Android") && !userAgent.includes("Mobile"))) {
-    device = "Tablette";
-    icon = "tablet";
-  }
-  
-  return { browser, device, os, icon };
-}
-
-// Styles CSS personnalisés pour une carte minimaliste et fluide
-const mapboxStyles = `
-  .mapboxgl-map {
-    background: transparent !important;
-    pointer-events: auto !important;
-    transition: opacity 0.3s ease-in-out;
-  }
-  .mapboxgl-canvas-container {
-    pointer-events: auto !important;
-    overflow: visible !important;
-    will-change: transform;
-  }
-  .mapboxgl-canvas {
-    pointer-events: auto !important;
-    transition: transform 0.1s ease-out;
-  }
-  .mapboxgl-ctrl {
-    display: none !important;
-  }
-  .mapboxgl-ctrl-attrib {
-    display: none !important;
-  }
-  .mapboxgl-ctrl-logo {
-    display: none !important;
-  }
-  .mapboxgl-ctrl-group {
-    display: none !important;
-  }
-  .mapboxgl-popup {
-    max-width: 300px;
-    animation: popupFadeIn 0.2s ease-out;
-  }
-  @keyframes popupFadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(-10px) scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-  .mapboxgl-popup-content {
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    transition: box-shadow 0.2s ease;
-  }
-  .mapboxgl-popup-content:hover {
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
-  }
-  .mapboxgl-popup-close-button {
-    font-size: 18px;
-    color: #666;
-    padding: 4px 8px;
-    transition: all 0.2s ease;
-  }
-  .mapboxgl-popup-close-button:hover {
-    color: #000;
-    background-color: rgba(0, 0, 0, 0.05);
-    border-radius: 4px;
-    transform: scale(1.1);
-  }
-  /* Améliorer la fluidité des interactions */
-  .mapboxgl-canvas-container {
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-    -webkit-perspective: 1000;
-    perspective: 1000;
-  }
-`;
 
 interface AnalyticsPoint {
   visitorId?: string;
@@ -151,155 +26,521 @@ interface MapboxGlobeProps {
   analytics: AnalyticsPoint[];
 }
 
-// Palette de couleurs variées et subtiles pour les points (inspirée de l'image)
-const pointColors = [
-  "#8B4A6B", // Rouge foncé/marron
-  "#6B8E5A", // Vert olive
-  "#5B9BD5", // Bleu clair
-  "#6B6B8B", // Gris foncé/violet
-  "#A67C52", // Marron/terre
-  "#7A9A7A", // Vert gris
-  "#8B6B5A", // Beige/brun
-  "#6B7A9A", // Bleu gris
-  "#9A6B7A", // Rose/mauve
-  "#7A8B6B", // Vert olive clair
-  "#8B7A6B", // Beige foncé
-  "#6B9A8B", // Turquoise
+// Couleurs discrètes pour les points
+const POINT_COLORS = [
+  "#B8D4E8", "#C8E6D4", "#E0D4F0", "#F0D8C8", "#E8D4D8",
+  "#D8E8D4", "#D4E0F0", "#F0E0D4", "#E8D8E0", "#D0E8E0",
+  "#E0E8D4", "#D8D4E8",
 ];
 
-// Fonction pour obtenir une couleur unique basée sur un ID
 function getColorFromId(id: string | number): string {
   const numId = typeof id === 'string' 
     ? id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) 
     : id;
-  return pointColors[Math.abs(numId) % pointColors.length];
+  return POINT_COLORS[Math.abs(numId) % POINT_COLORS.length];
 }
 
 export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<any>(null);
+  const isAnimatingRef = useRef<boolean>(false);
 
+  // 1. Préparer les points GeoJSON
+  const points = useMemo(() => {
+    return analytics
+      .filter(p => p.latitude != null && p.longitude != null)
+      .map(ev => ({
+        type: "Feature" as const,
+        properties: {
+          cluster: false,
+          eventId: ev.id,
+          type: ev.eventType || ev.type || "VIEW",
+          timestamp: ev.timestamp,
+          linkId: ev.linkId,
+          country: ev.country || "Inconnu",
+          city: ev.city || "Inconnu",
+          region: ev.region || "",
+          visitorId: ev.visitorId || "",
+          userAgent: ev.userAgent || "",
+          pointColor: getColorFromId(ev.id),
+        },
+        geometry: {
+          type: "Point" as const,
+          coordinates: [ev.longitude!, ev.latitude!] as [number, number],
+        },
+      }));
+  }, [analytics]);
+
+  // 2. Indexer avec Supercluster
+  // IMPORTANT : radius réduit pour ne clusteriser que les points vraiment proches
+  // radius = 15 pixels signifie que seuls les points à moins de 15px l'un de l'autre seront clusterisés
+  // Cela évite de créer des clusters pour 2 points éloignés
+  const index = useMemo(() => {
+    if (points.length === 0) return null;
+    const sc = new Supercluster({
+      radius: 15, // Réduit pour ne clusteriser que les points vraiment proches (évite les clusters inutiles)
+      maxZoom: 12,
+      minZoom: 0,
+    });
+    sc.load(points);
+    return sc;
+  }, [points]);
+
+  // 3. Obtenir les nodes (clusters ou points) selon le zoom
+  const getNodes = (zoom: number, bbox: [number, number, number, number]) => {
+    if (!index) return [];
+    const superclusterZoom = Math.min(Math.floor(zoom / 1.8), 12);
+    
+    // Obtenir les clusters/points depuis Supercluster
+    const raw = index.getClusters(bbox, superclusterZoom);
+    
+    // Filtrer : ne garder que les clusters avec au moins 3 points, sinon afficher les points individuellement
+    // Cela évite d'avoir des clusters pour seulement 2 points éloignés
+    const filtered = raw.map(node => {
+      if (node.properties.cluster && node.properties.point_count < 3) {
+        // Cluster avec moins de 3 points : le décomposer en points individuels
+        const clusterId = node.properties.cluster_id;
+        return index.getLeaves(clusterId, Infinity);
+      }
+      return node;
+    }).flat();
+    
+    // IMPORTANT : À un zoom élevé (>= 10), forcer l'affichage des points individuels
+    // Si on a encore des clusters, les décomposer en points individuels
+    if (superclusterZoom >= 10) {
+      const leafs: any[] = [];
+      
+      for (const node of filtered) {
+        if (node.properties?.cluster) {
+          // C'est un cluster - obtenir ses points individuels
+          const clusterId = node.properties.cluster_id;
+          const leaves = index.getLeaves(clusterId, Infinity); // Récupérer tous les points du cluster
+          leafs.push(...leaves);
+        } else {
+          // C'est déjà un point individuel
+          leafs.push(node);
+        }
+      }
+      
+      // Si on a des leafs, les retourner, sinon garder les clusters (au cas où)
+      return leafs.length > 0 ? leafs : filtered;
+    }
+    
+    return filtered;
+  };
+
+  // 4. Mettre à jour la carte avec les nodes
+  const updateMap = () => {
+    if (!map.current || !index || !map.current.loaded()) return;
+
+    const zoom = map.current.getZoom();
+    const bounds = map.current.getBounds();
+    const bbox: [number, number, number, number] = [
+      bounds.getWest(),
+      bounds.getSouth(),
+      bounds.getEast(),
+      bounds.getNorth(),
+    ];
+
+    const nodes = getNodes(zoom, bbox);
+
+    // Créer le GeoJSON
+    const geojsonData = {
+      type: "FeatureCollection" as const,
+      features: nodes.map(node => {
+        // Pour les leafs, récupérer les propriétés originales
+        if (!node.properties.cluster) {
+          const [lng, lat] = node.geometry.coordinates;
+          const originalPoint = points.find(p => {
+            const [pLng, pLat] = p.geometry.coordinates;
+            return Math.abs(pLng - lng) < 0.0001 && Math.abs(pLat - lat) < 0.0001;
+          });
+          if (originalPoint) {
+            return {
+              ...node,
+              properties: {
+                ...originalPoint.properties,
+                cluster: false,
+              },
+            };
+          }
+        }
+        return node;
+      }),
+    };
+
+    // Mettre à jour la source
+    const source = map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource;
+    if (source) {
+      source.setData(geojsonData);
+    } else {
+      map.current.addSource("analytics-points", {
+        type: "geojson",
+        data: geojsonData,
+        cluster: false, // On gère le clustering avec Supercluster
+      });
+    }
+
+    // Créer les layers s'ils n'existent pas
+    if (!map.current.getLayer("clusters")) {
+      // Layer pour les clusters
+      map.current.addLayer({
+        id: "clusters",
+        type: "circle",
+        source: "analytics-points",
+        filter: ["==", ["get", "cluster"], true],
+        paint: {
+          "circle-color": [
+            "interpolate",
+            ["linear"],
+            ["%", ["get", "cluster_id"], 12],
+            0, POINT_COLORS[0],
+            1, POINT_COLORS[1],
+            2, POINT_COLORS[2],
+            3, POINT_COLORS[3],
+            4, POINT_COLORS[4],
+            5, POINT_COLORS[5],
+            6, POINT_COLORS[6],
+            7, POINT_COLORS[7],
+            8, POINT_COLORS[8],
+            9, POINT_COLORS[9],
+            10, POINT_COLORS[10],
+            11, POINT_COLORS[11],
+            12, POINT_COLORS[0],
+          ],
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["sqrt", ["get", "point_count"]],
+            0, 16,
+            3, 20,
+            5, 24,
+            7, 28,
+            10, 32,
+            15, 36,
+          ],
+          "circle-opacity": 0.8,
+          "circle-stroke-width": 2.5,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-opacity": 0.95,
+        },
+      });
+    }
+
+    if (!map.current.getLayer("points")) {
+      // Layer pour les points individuels (visuels)
+      map.current.addLayer({
+        id: "points",
+        type: "circle",
+        source: "analytics-points",
+        filter: ["!", ["has", "point_count"]],
+        paint: {
+          "circle-color": [
+            "case",
+            ["has", "pointColor"],
+            ["get", "pointColor"],
+            POINT_COLORS[0],
+          ],
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            0, 6,
+            3, 7,
+            6, 8,
+            10, 9,
+            12, 9,
+          ],
+          "circle-opacity": 0.9,
+          "circle-stroke-width": 2.5,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-opacity": 1,
+        },
+      });
+
+      // COUCHE HIT INVISIBLE MAIS CLIQUABLE (solution au problème de clic)
+      map.current.addLayer({
+        id: "points-hit",
+        type: "circle",
+        source: "analytics-points",
+        filter: ["!", ["has", "point_count"]],
+        paint: {
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            0, 12,  // Plus grand que le point visible pour faciliter les clics
+            3, 14,
+            6, 16,
+            10, 18,
+            12, 18,
+          ],
+          "circle-color": "#000000",
+          "circle-opacity": 0.01, // Quasi invisible mais cliquable
+          "circle-stroke-width": 0,
+        },
+      });
+    }
+
+    // Gérer les clics
+    map.current.off("click", "clusters");
+    map.current.off("click", "points");
+    map.current.off("click", "points-hit");
+    map.current.off("click"); // Retirer tous les handlers généraux
+
+    // Handler pour ouvrir le détail d'un point
+    const handlePointClick = (feature: any) => {
+      if (isAnimatingRef.current) {
+        return;
+      }
+
+      // Vérifier que c'est bien un point (pas un cluster)
+      if (feature.properties?.cluster || feature.properties?.point_count) {
+        return;
+      }
+
+      const eventId = feature.properties?.eventId;
+      if (!eventId) {
+        // Dernière tentative : récupérer depuis les coordonnées
+        const [lng, lat] = (feature.geometry as any).coordinates;
+        const originalPoint = points.find(p => {
+          const [pLng, pLat] = p.geometry.coordinates;
+          return Math.abs(pLng - lng) < 0.0001 && Math.abs(pLat - lat) < 0.0001;
+        });
+        
+        if (originalPoint?.properties?.eventId) {
+          const recoveredEventId = originalPoint.properties.eventId;
+          const finalProps = originalPoint.properties;
+          setSelectedDetail({
+            id: recoveredEventId,
+            type: finalProps.type || "VIEW",
+            eventType: finalProps.type || "OPEN_SHARE",
+            country: finalProps.country || "Inconnu",
+            city: finalProps.city || "Inconnu",
+            region: finalProps.region || "",
+            timestamp: finalProps.timestamp || new Date().toISOString(),
+            visitorId: finalProps.visitorId || "",
+            userAgent: finalProps.userAgent || "",
+          });
+          return;
+        }
+        
+        return;
+      }
+
+      // Récupérer les propriétés complètes
+      const [lng, lat] = (feature.geometry as any).coordinates;
+      const originalPoint = points.find(p => {
+        const [pLng, pLat] = p.geometry.coordinates;
+        return Math.abs(pLng - lng) < 0.0001 && Math.abs(pLat - lat) < 0.0001;
+      });
+
+      const finalProps = originalPoint ? originalPoint.properties : feature.properties;
+
+      setSelectedDetail({
+        id: eventId,
+        type: finalProps.type || "VIEW",
+        eventType: finalProps.type || "OPEN_SHARE",
+        country: finalProps.country || "Inconnu",
+        city: finalProps.city || "Inconnu",
+        region: finalProps.region || "",
+        timestamp: finalProps.timestamp || new Date().toISOString(),
+        visitorId: finalProps.visitorId || "",
+        userAgent: finalProps.userAgent || "",
+      });
+    };
+
+    // Clic sur cluster = zoom
+    map.current.on("click", "clusters", (e) => {
+      const feature = e.features?.[0];
+      if (!feature || !index || isAnimatingRef.current) return;
+
+      const clusterId = feature.properties.cluster_id;
+      const expansionZoom = index.getClusterExpansionZoom(clusterId);
+      const targetZoom = Math.min(expansionZoom * 1.8, 12);
+      const [lng, lat] = (feature.geometry as any).coordinates;
+
+      setSelectedDetail(null); // Fermer le détail
+      isAnimatingRef.current = true;
+
+      map.current!.flyTo({
+        center: [lng, lat],
+        zoom: targetZoom,
+        duration: 800,
+      });
+
+      setTimeout(() => {
+        updateMap();
+        isAnimatingRef.current = false;
+      }, 850);
+    });
+
+    // Clic sur point via la couche hit (PRIORITAIRE)
+    map.current.on("click", "points-hit", (e) => {
+      const feature = e.features?.[0];
+      if (!feature) return;
+      handlePointClick(feature);
+    });
+
+    // Clic sur point via la couche visuelle (fallback)
+    map.current.on("click", "points", (e) => {
+      const feature = e.features?.[0];
+      if (!feature) return;
+      handlePointClick(feature);
+    });
+
+    // SOLUTION ALTERNATIVE : queryRenderedFeatures sur clic général (si les layers ne fonctionnent pas)
+    map.current.on("click", (e) => {
+      // Ne traiter que si on n'a pas cliqué sur un cluster
+      const clusterFeatures = map.current!.queryRenderedFeatures(e.point, {
+        layers: ["clusters"],
+      });
+      
+      if (clusterFeatures.length > 0) {
+        // C'est un cluster, déjà géré par le handler "clusters"
+        return;
+      }
+
+      // Chercher les points à cette position
+      const pointFeatures = map.current!.queryRenderedFeatures(e.point, {
+        layers: ["points-hit", "points"],
+      });
+
+      if (pointFeatures.length > 0) {
+        const feature = pointFeatures[0];
+        handlePointClick(feature);
+      }
+    });
+
+    // Curseur pointer au survol
+    map.current.off("mouseenter", "clusters");
+    map.current.off("mouseleave", "clusters");
+    map.current.off("mouseenter", "points");
+    map.current.off("mouseleave", "points");
+    map.current.off("mouseenter", "points-hit");
+    map.current.off("mouseleave", "points-hit");
+
+    map.current.on("mouseenter", "clusters", () => {
+      if (map.current) map.current.getCanvas().style.cursor = "pointer";
+    });
+    map.current.on("mouseleave", "clusters", () => {
+      if (map.current) map.current.getCanvas().style.cursor = "";
+    });
+    map.current.on("mouseenter", "points", () => {
+      if (map.current) map.current.getCanvas().style.cursor = "pointer";
+    });
+    map.current.on("mouseleave", "points", () => {
+      if (map.current) map.current.getCanvas().style.cursor = "";
+    });
+    map.current.on("mouseenter", "points-hit", () => {
+      if (map.current) map.current.getCanvas().style.cursor = "pointer";
+    });
+    map.current.on("mouseleave", "points-hit", () => {
+      if (map.current) map.current.getCanvas().style.cursor = "";
+    });
+  };
+
+  // Initialisation de la carte
   useEffect(() => {
-    if (!mapContainer.current) return;
+    if (!mapContainer.current || map.current) return;
 
-    // Injecter les styles CSS personnalisés
-    const styleSheet = document.createElement("style");
-    styleSheet.textContent = mapboxStyles;
-    document.head.appendChild(styleSheet);
-
-    // Vérifier si le token Mapbox est configuré
-    const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+    const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
     if (!mapboxToken) {
-      setError("Token Mapbox non configuré. Veuillez définir NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN");
-      setIsLoading(false);
+      console.error("Mapbox token manquant");
       return;
     }
 
     mapboxgl.accessToken = mapboxToken;
 
-    // Initialiser la carte avec le style Light (minimaliste)
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: "mapbox://styles/mapbox/light-v11",
       projection: "globe",
-      zoom: 1.2, // Zoom pour voir le globe en entier
-      center: [0, 0], // Centrer le globe
-      pitch: 0, // Pas d'inclinaison pour voir le globe en entier
+      zoom: 1.5,
+      center: [0, 0],
+      pitch: 0,
       bearing: 0,
-      attributionControl: false, // Désactiver l'attribution
-      scrollZoom: false, // Désactiver le zoom au scroll par défaut
-      // Améliorer les performances pour une meilleure fluidité
+      attributionControl: false,
+      scrollZoom: false,
       antialias: true,
-      preserveDrawingBuffer: false,
-      fadeDuration: 0,
     });
 
-    // Configurer les interactions pour une UX fluide
     map.current.doubleClickZoom.disable();
     map.current.touchZoomRotate.disable();
     map.current.boxZoom.disable();
-    
-    // Activer la rotation par drag pour une interaction fluide
     map.current.dragRotate.enable();
-    
-    // Configurer les paramètres de performance pour une meilleure fluidité
+    map.current.dragPan.enable();
     map.current.setRenderWorldCopies(false);
     
-    // Activer le pan avec des mouvements naturels
-    map.current.dragPan.enable();
-    
-    // Activer le zoom avec Cmd + molette et améliorer l'UX globale
+    // Zoom avec Cmd + molette
     map.current.on("load", () => {
       if (!map.current) return;
-      
-      // Configurer les interactions pour des mouvements fluides
-      map.current.dragRotate.enable();
-      map.current.dragPan.enable();
-      
-      // Améliorer la sensibilité de la rotation
+
       const handleWheel = (e: WheelEvent) => {
-        // Vérifier si Cmd (Meta) ou Ctrl est pressé pour le zoom
         if (e.metaKey || e.ctrlKey) {
           e.preventDefault();
           e.stopPropagation();
-          
           if (!map.current) return;
-          
-          // Obtenir le zoom actuel
+
           const currentZoom = map.current.getZoom();
-          
-          // Calculer le delta de zoom (inversé car scroll up = zoom in)
           const delta = -e.deltaY;
-          
-          // Facteur de zoom sensible (ajusté pour une meilleure réactivité)
-          // deltaY est généralement entre -100 et 100
-          const zoomSpeed = 0.15; // Facteur de sensibilité augmenté
+          const zoomSpeed = 0.15;
           const normalizedDelta = delta / 100;
           const zoomChange = normalizedDelta * zoomSpeed;
-          
-          // Calculer le nouveau zoom avec échelle logarithmique
-          // Utiliser une base plus élevée pour un zoom plus sensible
           const zoomMultiplier = Math.pow(2, zoomChange);
           const newZoom = currentZoom * zoomMultiplier;
-          
-          // Limiter le zoom entre 0.5 et 10
           const clampedZoom = Math.max(0.5, Math.min(10, newZoom));
-          
-          // Appliquer le zoom directement sans animation pour une réactivité immédiate
+
           map.current.setZoom(clampedZoom);
+          setTimeout(() => updateMap(), 100);
         }
       };
-      
-      // Ajouter l'écouteur sur le container de la carte
+
       const container = map.current.getContainer();
-      container.addEventListener('wheel', handleWheel, { 
-        passive: false,
-        capture: false
+      container.addEventListener('wheel', handleWheel, { passive: false });
+
+      // Style minimaliste
+      map.current.on("style.load", () => {
+        if (!map.current) return;
+      const layers = map.current.getStyle().layers;
+      if (layers) {
+        layers.forEach((layer: any) => {
+            if (layer.type === "symbol" || layer.id?.includes("label") || layer.id?.includes("text")) {
+            try {
+              map.current!.setLayoutProperty(layer.id, "visibility", "none");
+              } catch (e) {}
+            }
+          if (layer.type === "fill") {
+            try {
+                if (layer.id?.includes("water") || layer.id?.includes("ocean")) {
+                map.current!.setPaintProperty(layer.id, "fill-color", "#e5e5e5");
+                } else if (layer.id?.includes("land")) {
+                map.current!.setPaintProperty(layer.id, "fill-color", "#ffffff");
+              }
+              } catch (e) {}
+          }
+        });
+      }
+      try {
+        map.current.setFog({
+          color: "rgba(255, 255, 255, 0.1)",
+          "high-color": "rgba(255, 255, 255, 0.1)",
+          "space-color": "rgba(255, 255, 255, 0.1)",
+            "star-intensity": 0,
+          });
+        } catch (e) {}
       });
-      
-      // Améliorer le curseur pour indiquer les interactions possibles
-      map.current.on('mouseenter', () => {
-        if (map.current) {
-          map.current.getCanvas().style.cursor = 'grab';
-        }
+
+      // Mettre à jour lors des mouvements
+      map.current.on("moveend", updateMap);
+      map.current.on("zoomend", updateMap);
+
+      // Mise à jour initiale
+      map.current.once("load", () => {
+        setTimeout(updateMap, 500);
       });
-      
-      map.current.on('mousedown', () => {
-        if (map.current) {
-          map.current.getCanvas().style.cursor = 'grabbing';
-        }
-      });
-      
-      map.current.on('mouseup', () => {
-        if (map.current) {
-          map.current.getCanvas().style.cursor = 'grab';
-        }
-      });
-      
-      // Nettoyer les événements au démontage
+
       return () => {
         if (map.current) {
           const container = map.current.getContainer();
@@ -308,763 +549,34 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       };
     });
 
-    map.current.on("style.load", () => {
-      if (!map.current) return;
-
-      // Masquer tous les labels et textes
-      const layers = map.current.getStyle().layers;
-      if (layers) {
-        layers.forEach((layer: any) => {
-          // Masquer tous les labels, textes et symboles
-          if (layer.type === "symbol" || 
-              layer.id?.includes("label") || 
-              layer.id?.includes("text") ||
-              layer.id?.includes("place") ||
-              layer.id?.includes("poi")) {
-            try {
-              map.current!.setLayoutProperty(layer.id, "visibility", "none");
-            } catch (e) {
-              // Ignorer les erreurs si la propriété n'existe pas
-            }
-          }
-          
-          // Modifier les couleurs des routes et frontières pour du gris clair
-          if (layer.type === "line") {
-            try {
-              if (map.current!.getPaintProperty(layer.id, "line-color")) {
-                map.current!.setPaintProperty(layer.id, "line-color", "#d1d1d1");
-              }
-            } catch (e) {
-              // Ignorer les erreurs
-            }
-          }
-          
-          // Modifier les couleurs de remplissage
-          if (layer.type === "fill") {
-            try {
-              // Océans et eaux en gris clair
-              if (layer.id?.includes("water") || 
-                  layer.id?.includes("ocean") || 
-                  layer.id?.includes("sea")) {
-                map.current!.setPaintProperty(layer.id, "fill-color", "#e5e5e5");
-              } 
-              // Terres en blanc
-              else if (layer.id?.includes("land") || 
-                       layer.id?.includes("landcover") ||
-                       layer.id?.includes("landuse")) {
-                map.current!.setPaintProperty(layer.id, "fill-color", "#ffffff");
-              }
-            } catch (e) {
-              // Ignorer les erreurs
-            }
-          }
-        });
-      }
-
-      // Configurer le fog pour un aspect minimaliste blanc
-      try {
-        map.current.setFog({
-          color: "rgba(255, 255, 255, 0.1)",
-          "high-color": "rgba(255, 255, 255, 0.1)",
-          "space-color": "rgba(255, 255, 255, 0.1)",
-          "star-intensity": 0
-        });
-      } catch (e) {
-        // Ignorer si fog n'est pas supporté
-      }
-    });
-
-    // Fonction pour créer les layers (réutilisable) - définie avant le on("load")
-    const createLayers = () => {
-      if (!map.current) return;
-
-      // Attendre que la source soit disponible
-      if (!map.current.getSource("analytics-points")) {
-        setTimeout(createLayers, 100);
-        return;
-      }
-
-      // Ajouter les halos en premier (en dessous) - Style minimaliste et moderne
-      if (!map.current.getLayer("views-halo")) {
-        map.current.addLayer({
-          id: "views-halo",
-          type: "circle",
-          source: "analytics-points",
-          filter: ["all", ["==", ["get", "type"], "VIEW"], ["!", ["has", "point_count"]]],
-          paint: {
-            "circle-radius": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0, 12,
-              0.5, 14,
-              1, 16,
-              2, 18,
-              3, 20,
-              5, 24,
-            ],
-            "circle-color": ["get", "pointColor"], // Utiliser la couleur unique du point
-            "circle-opacity": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0, 0.1,
-              0.5, 0.12,
-              2, 0.15,
-              3, 0.18,
-              5, 0.2,
-            ],
-            "circle-blur": 4, // Blur plus léger pour un effet d'ombre discret
-          },
-        });
-      }
-
-      if (!map.current.getLayer("downloads-halo")) {
-        map.current.addLayer({
-          id: "downloads-halo",
-          type: "circle",
-          source: "analytics-points",
-          filter: ["all", ["==", ["get", "type"], "DOWNLOAD"], ["!", ["has", "point_count"]]],
-          paint: {
-            "circle-radius": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0, 12,
-              0.5, 14,
-              1, 16,
-              2, 18,
-              3, 20,
-              5, 24,
-            ],
-            "circle-color": ["get", "pointColor"], // Utiliser la couleur unique du point
-            "circle-opacity": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0, 0.1,
-              0.5, 0.12,
-              2, 0.15,
-              3, 0.18,
-              5, 0.2,
-            ],
-            "circle-blur": 4, // Blur plus léger pour un effet d'ombre discret
-          },
-        });
-      }
-
-      // Ajouter les clusters - Masquer les clusters Mapbox natifs (on utilisera des markers HTML)
-      if (!map.current.getLayer("clusters")) {
-        map.current.addLayer({
-          id: "clusters",
-          type: "circle",
-          source: "analytics-points",
-          filter: ["has", "point_count"],
-          paint: {
-            "circle-opacity": 0.01, // Presque invisible mais visible pour queryRenderedFeatures
-            "circle-radius": [
-              "step",
-              ["get", "point_count"],
-              20,
-              10,
-              24,
-              50,
-              28,
-              100,
-              32,
-            ],
-          },
-        });
-
-        map.current.addLayer({
-          id: "cluster-count",
-          type: "symbol",
-          source: "analytics-points",
-          filter: ["has", "point_count"],
-          layout: {
-            "text-field": "", // Masquer le texte natif
-          },
-        });
-      }
-
-      // Ajouter les points de vue - Design discret avec couleurs variées
-      if (!map.current.getLayer("views-layer")) {
-        map.current.addLayer({
-          id: "views-layer",
-          type: "circle",
-          source: "analytics-points",
-          filter: ["all", ["==", ["get", "type"], "VIEW"], ["!", ["has", "point_count"]]],
-          paint: {
-            "circle-radius": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0, 6,
-              0.5, 7,
-              1, 8,
-              2, 9,
-              3, 10,
-              5, 12,
-            ],
-            "circle-color": ["get", "pointColor"], // Utiliser la couleur unique stockée dans les propriétés
-            "circle-opacity": 0.85,
-            "circle-stroke-width": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0.5, 1.5,
-              2, 2,
-              3, 2.5,
-              5, 3,
-            ],
-            "circle-stroke-color": "#ffffff",
-            "circle-stroke-opacity": 0.9,
-            // Effet d'ombre léger via blur
-            "circle-blur": 0.5,
-          },
-        });
-      }
-
-      // Ajouter les points de téléchargement - Design discret avec couleurs variées
-      if (!map.current.getLayer("downloads-layer")) {
-        map.current.addLayer({
-          id: "downloads-layer",
-          type: "circle",
-          source: "analytics-points",
-          filter: ["all", ["==", ["get", "type"], "DOWNLOAD"], ["!", ["has", "point_count"]]],
-          paint: {
-            "circle-radius": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0, 6,
-              0.5, 7,
-              1, 8,
-              2, 9,
-              3, 10,
-              5, 12,
-            ],
-            "circle-color": ["get", "pointColor"], // Utiliser la couleur unique stockée dans les propriétés
-            "circle-opacity": 0.85,
-            "circle-stroke-width": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0.5, 1.5,
-              2, 2,
-              3, 2.5,
-              5, 3,
-            ],
-            "circle-stroke-color": "#ffffff",
-            "circle-stroke-opacity": 0.9,
-            // Effet d'ombre léger via blur
-            "circle-blur": 0.5,
-          },
-        });
-      }
-    };
-
-    map.current.on("load", () => {
-      if (!map.current) return;
-      
-      // Fonction pour mettre à jour les données sur la carte
-      const updateMapData = () => {
-        if (!map.current) return;
-
-        // Filtrer les analytics avec des coordonnées valides
-        const pointsWithCoords = analytics.filter(
-          (point) => point.latitude != null && point.longitude != null && 
-                     !isNaN(point.latitude) && !isNaN(point.longitude) &&
-                     point.latitude >= -90 && point.latitude <= 90 &&
-                     point.longitude >= -180 && point.longitude <= 180
-        );
-
-        console.log(`[MapboxGlobe] Analytics: ${analytics.length}, With coords: ${pointsWithCoords.length}`);
-
-        if (pointsWithCoords.length === 0) {
-          setIsLoading(false);
-          return;
-        }
-
-        // Créer les features GeoJSON avec mapping des types
-        const features = pointsWithCoords.map((point) => {
-          // Mapper les types d'événements
-          const eventType = point.eventType || point.type;
-          let displayType = "VIEW";
-          if (eventType === "OPEN_SHARE" || eventType === "VIEW") {
-            displayType = "VIEW";
-          } else if (eventType === "DOWNLOAD_FILE" || eventType === "DOWNLOAD") {
-            displayType = "DOWNLOAD";
-          } else if (eventType === "OPEN_FOLDER") {
-            displayType = "FOLDER";
-          } else if (eventType === "VIEW_FILE") {
-            displayType = "FILE";
-          } else if (eventType === "ACCESS_DENIED") {
-            displayType = "DENIED";
-          }
-          
-          return {
-            type: "Feature" as const,
-            geometry: {
-              type: "Point" as const,
-              coordinates: [point.longitude!, point.latitude!],
-            },
-            properties: {
-              id: point.id,
-              type: displayType,
-              eventType: eventType,
-              country: point.country || "Inconnu",
-              city: point.city || "Inconnu",
-              region: point.region || "",
-              timestamp: point.timestamp,
-              visitorId: point.visitorId || "",
-              userAgent: point.userAgent || "",
-              // Couleur unique pour chaque point
-              pointColor: getColorFromId(point.id || Math.random().toString()),
-            },
-          };
-        });
-
-        // Ajouter ou mettre à jour la source de données avec clustering
-        if (map.current.getSource("analytics-points")) {
-          (map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource).setData({
-            type: "FeatureCollection",
-            features,
-          });
-        } else {
-          map.current.addSource("analytics-points", {
-            type: "geojson",
-            data: {
-              type: "FeatureCollection",
-              features,
-            },
-            cluster: true,
-            clusterMaxZoom: 5,
-            clusterRadius: 50,
-          });
-          // Créer les layers après avoir ajouté la source
-          setTimeout(() => {
-            createLayers();
-          }, 150);
-        }
-      };
-      
-      // Mettre à jour les données initiales
-      updateMapData();
-      
-      // S'assurer que les layers sont créés même si les données arrivent plus tard
-      map.current.once("idle", () => {
-        if (map.current && map.current.getSource("analytics-points") && !map.current.getLayer("views-layer")) {
-          createLayers();
-        }
-      });
-      
-      // Créer des markers HTML personnalisés pour les clusters avec images
-      const clusterMarkersRef: mapboxgl.Marker[] = [];
-      const createClusterMarkers = () => {
-        if (!map.current) return;
-        
-        // Nettoyer les anciens markers
-        clusterMarkersRef.forEach(marker => marker.remove());
-        clusterMarkersRef.length = 0;
-        
-        const source = map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource;
-        if (!source) return;
-        
-        // Obtenir les features rendues (clusters visibles)
-        const bounds = map.current.getBounds();
-        if (!bounds) return;
-        
-        const features = map.current.queryRenderedFeatures([
-          [bounds.getWest(), bounds.getSouth()],
-          [bounds.getEast(), bounds.getNorth()]
-        ], {
-          layers: ["clusters"]
-        });
-        
-        if (!features || features.length === 0) return;
-        
-        const clusterImages = [
-          "/assets/background.jpg",
-          "/assets/backgroundtwo.jpg",
-          "/assets/backgroundthree.jpg",
-        ];
-        
-        features.forEach((feature: any) => {
-          if (!feature.properties?.cluster_id) return;
-          
-          const clusterId = feature.properties.cluster_id;
-          const pointCount = feature.properties.point_count;
-          const coordinates = feature.geometry.coordinates;
-          const imageIndex = clusterId % 3;
-          
-          // Créer un élément HTML pour le marker avec l'image
-          const el = document.createElement("div");
-          el.className = "cluster-marker";
-          const size = pointCount < 10 ? 48 : pointCount < 50 ? 56 : pointCount < 100 ? 64 : 72;
-          el.style.width = `${size}px`;
-          el.style.height = `${size}px`;
-          el.style.borderRadius = "50%";
-          el.style.backgroundImage = `url(${clusterImages[imageIndex]})`;
-          el.style.backgroundSize = "cover";
-          el.style.backgroundPosition = "center";
-          el.style.border = "4px solid #ffffff";
-          el.style.boxShadow = "0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.1)";
-          el.style.display = "flex";
-          el.style.alignItems = "center";
-          el.style.justifyContent = "center";
-          el.style.cursor = "pointer";
-          el.style.transition = "transform 0.2s, box-shadow 0.2s";
-          el.style.zIndex = "1000";
-          el.style.pointerEvents = "auto";
-          
-          // Ajouter le texte du nombre
-          const text = document.createElement("span");
-          text.textContent = pointCount.toString();
-          text.style.color = "#ffffff";
-          text.style.fontSize = pointCount < 10 ? "14px" : pointCount < 50 ? "16px" : "18px";
-          text.style.fontWeight = "bold";
-          text.style.textShadow = "0 1px 3px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.6)";
-          el.appendChild(text);
-          
-          // Effet hover
-          el.addEventListener("mouseenter", () => {
-            el.style.transform = "scale(1.15)";
-          });
-          el.addEventListener("mouseleave", () => {
-            el.style.transform = "scale(1)";
-          });
-          
-          // Créer le marker
-          const marker = new mapboxgl.Marker({ element: el })
-            .setLngLat(coordinates)
-            .addTo(map.current!);
-          
-          // Gérer le clic
-          el.addEventListener("click", (e) => {
-            e.stopPropagation();
-            source.getClusterExpansionZoom(clusterId, (err, zoom) => {
-              if (!err && map.current && zoom !== null && zoom !== undefined) {
-                map.current.easeTo({
-                  center: coordinates as [number, number],
-                  zoom: Math.min(zoom + 1, 10),
-                  duration: 600,
-                });
-              }
-            });
-            source.getClusterLeaves(clusterId, pointCount, 0, (err, leaves) => {
-              if (err || !map.current || !leaves) return;
-              const clusterPoints = leaves.map((leaf: any) => {
-                const props = leaf.properties;
-                const point = analytics.find(p => p.id === props.id);
-                return {
-                  id: props.id || leaf.id,
-                  type: props.type || "VIEW",
-                  eventType: props.eventType || props.type || "OPEN_SHARE",
-                  country: props.country || point?.country || "Inconnu",
-                  city: props.city || point?.city || "Inconnu",
-                  region: props.region || point?.region || "",
-                  timestamp: props.timestamp || point?.timestamp || new Date().toISOString(),
-                  visitorId: props.visitorId || point?.visitorId || "",
-                  userAgent: props.userAgent || point?.userAgent || "",
-                };
-              });
-              setSelectedDetail({
-                pointCount: pointCount,
-                center: [coordinates[0], coordinates[1]],
-                points: clusterPoints,
-              });
-            });
-          });
-          
-          clusterMarkersRef.push(marker);
-        });
-      };
-      
-      // Mettre à jour les markers quand la carte bouge ou que les données changent
-      map.current.on("moveend", createClusterMarkers);
-      map.current.on("zoomend", createClusterMarkers);
-      map.current.on("data", (e: any) => {
-        // Vérifier si c'est un événement de source et si c'est notre source analytics-points
-        if (e.sourceId && e.sourceId === "analytics-points" && e.isSourceLoaded) {
-          setTimeout(createClusterMarkers, 200);
-        }
-      });
-      
-      // Créer les markers après le chargement initial
-      setTimeout(createClusterMarkers, 1500);
-
-      // Gérer les clics sur les clusters - Zoomer et afficher les détails
-      map.current.on("click", "clusters", async (e) => {
-        if (!map.current || !e.features?.[0]) return;
-        
-        const features = e.features;
-        const clusterId = features[0].properties?.cluster_id;
-        const pointCount = features[0].properties?.point_count;
-        const source = map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource;
-        
-        // Récupérer tous les points du cluster
-        source.getClusterLeaves(clusterId, pointCount, 0, (err, leaves) => {
-          if (err || !map.current || !leaves) return;
-          
-          // Convertir les leaves en format AnalyticsDetail
-          const clusterPoints = leaves.map((leaf: any) => {
-            const props = leaf.properties;
-            const point = analytics.find(p => p.id === props.id);
-            return {
-              id: props.id || leaf.id,
-              type: props.type || "VIEW",
-              eventType: props.eventType || props.type || "OPEN_SHARE",
-              country: props.country || point?.country || "Inconnu",
-              city: props.city || point?.city || "Inconnu",
-              region: props.region || point?.region || "",
-              timestamp: props.timestamp || point?.timestamp || new Date().toISOString(),
-              visitorId: props.visitorId || point?.visitorId || "",
-              userAgent: props.userAgent || point?.userAgent || "",
-            };
-          });
-          
-          // Afficher la card de détail
-          setSelectedDetail({
-            pointCount: pointCount,
-            center: [e.lngLat.lng, e.lngLat.lat],
-            points: clusterPoints,
-          });
-        });
-        
-        // Zoomer sur le cluster
-        source.getClusterExpansionZoom(clusterId, (err, zoom) => {
-          if (err || !map.current || zoom === null || zoom === undefined) return;
-          
-          // Zoomer un peu plus pour mieux voir les points séparés
-          const targetZoom = Math.min(zoom + 1, 10);
-          
-          map.current.easeTo({
-            center: (e.lngLat as any),
-            zoom: targetZoom,
-            duration: 600,
-            easing: (t) => t * (2 - t),
-          });
-        });
-      });
-
-      // Gérer les clics sur les points individuels - Zoomer et afficher la card de détail
-      const showPointDetail = (e: any, type: string) => {
-        if (!map.current || !e.features?.[0]) return;
-
-        const props = e.features[0].properties;
-        const isCluster = props.cluster;
-        
-        if (isCluster) return; // Les clusters sont gérés séparément
-
-        // Coordonnées du point
-        const coordinates = e.lngLat;
-        const currentZoom = map.current.getZoom();
-        
-        // Zoomer automatiquement sur le point
-        map.current.easeTo({
-          center: [coordinates.lng, coordinates.lat],
-          zoom: Math.min(currentZoom + 2, 10), // Zoomer de 2 niveaux ou jusqu'à 10 max
-          duration: 600,
-          easing: (t) => t * (2 - t), // Easing smooth
-        });
-
-        // Trouver le point dans analytics
-        const point = analytics.find(p => p.id === props.id);
-        
-        // Créer l'objet de détail
-        const detail = {
-          id: props.id || point?.id || "",
-          type: type || props.type || "VIEW",
-          eventType: props.eventType || point?.eventType || "OPEN_SHARE",
-          country: props.country || point?.country || "Inconnu",
-          city: props.city || point?.city || "Inconnu",
-          region: props.region || point?.region || "",
-          timestamp: props.timestamp || point?.timestamp || new Date().toISOString(),
-          visitorId: props.visitorId || point?.visitorId || "",
-          userAgent: props.userAgent || point?.userAgent || "",
-        };
-        
-        // Afficher la card de détail
-        setSelectedDetail(detail);
-      };
-
-      map.current.on("click", "views-layer", (e) => showPointDetail(e, "VIEW"));
-      map.current.on("click", "downloads-layer", (e) => showPointDetail(e, "DOWNLOAD"));
-      map.current.on("click", "views-halo", (e) => showPointDetail(e, "VIEW"));
-      map.current.on("click", "downloads-halo", (e) => showPointDetail(e, "DOWNLOAD"));
-
-      // Changer le curseur au survol pour toutes les couches
-      const layers = ["views-layer", "downloads-layer", "views-halo", "downloads-halo", "clusters"];
-      layers.forEach(layerId => {
-        map.current!.on("mouseenter", layerId, () => {
-          if (map.current) map.current.getCanvas().style.cursor = "pointer";
-        });
-        map.current!.on("mouseleave", layerId, () => {
-          if (map.current) map.current.getCanvas().style.cursor = "";
-        });
-      });
-
-      setIsLoading(false);
-    });
-
-    // Ne pas ajouter de contrôles - carte minimaliste uniquement
-
-    // Mettre à jour les données quand analytics change (après le chargement initial)
-    if (map.current && map.current.loaded()) {
-      const pointsWithCoords = analytics.filter(
-        (point) => point.latitude != null && point.longitude != null && 
-                   !isNaN(point.latitude) && !isNaN(point.longitude) &&
-                   point.latitude >= -90 && point.latitude <= 90 &&
-                   point.longitude >= -180 && point.longitude <= 180
-      );
-
-      console.log(`[MapboxGlobe] Update - Analytics: ${analytics.length}, With coords: ${pointsWithCoords.length}`);
-
-      if (pointsWithCoords.length > 0) {
-        const features = pointsWithCoords.map((point) => {
-          const eventType = point.eventType || point.type;
-          let displayType = "VIEW";
-          if (eventType === "OPEN_SHARE" || eventType === "VIEW") {
-            displayType = "VIEW";
-          } else if (eventType === "DOWNLOAD_FILE" || eventType === "DOWNLOAD") {
-            displayType = "DOWNLOAD";
-          } else if (eventType === "OPEN_FOLDER") {
-            displayType = "FOLDER";
-          } else if (eventType === "VIEW_FILE") {
-            displayType = "FILE";
-          } else if (eventType === "ACCESS_DENIED") {
-            displayType = "DENIED";
-          }
-          
-          return {
-            type: "Feature" as const,
-            geometry: {
-              type: "Point" as const,
-              coordinates: [point.longitude!, point.latitude!],
-            },
-            properties: {
-              id: point.id,
-              type: displayType,
-              eventType: eventType,
-              country: point.country || "Inconnu",
-              city: point.city || "Inconnu",
-              region: point.region || "",
-              timestamp: point.timestamp,
-              visitorId: point.visitorId || "",
-              userAgent: point.userAgent || "",
-              // Couleur unique pour chaque point
-              pointColor: getColorFromId(point.id || Math.random().toString()),
-            },
-          };
-        });
-
-        if (map.current.getSource("analytics-points")) {
-          (map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource).setData({
-            type: "FeatureCollection",
-            features,
-          });
-          // S'assurer que les layers existent
-          if (!map.current.getLayer("views-layer")) {
-            setTimeout(() => {
-              createLayers();
-            }, 50);
-          }
-        } else {
-          map.current.addSource("analytics-points", {
-            type: "geojson",
-            data: {
-              type: "FeatureCollection",
-              features,
-            },
-            cluster: true,
-            clusterMaxZoom: 5,
-            clusterRadius: 50,
-          });
-          // Créer les layers après avoir ajouté la source
-          setTimeout(() => {
-            createLayers();
-          }, 100);
-        }
-      }
-    }
-
     return () => {
       if (map.current) {
+        if (map.current.getLayer("clusters")) map.current.removeLayer("clusters");
+        if (map.current.getLayer("points")) map.current.removeLayer("points");
+        if (map.current.getLayer("points-hit")) map.current.removeLayer("points-hit");
+        if (map.current.getSource("analytics-points")) map.current.removeSource("analytics-points");
         map.current.remove();
         map.current = null;
       }
-      // Nettoyer les styles injectés
-      const styles = document.querySelectorAll('style');
-      styles.forEach(style => {
-        if (style.textContent === mapboxStyles) {
-          style.remove();
-        }
-      });
     };
-  }, [analytics]);
+  }, []);
 
-  if (error) {
-    return (
-      <div className="h-full w-full flex items-center justify-center bg-gray-50 rounded-2xl">
-        <div className="text-center p-8">
-          <p className="text-sm text-gray-500 mb-2">{error}</p>
-          <p className="text-xs text-gray-400">
-            Configurez NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN dans vos variables d'environnement
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Mettre à jour quand les analytics changent
+  useEffect(() => {
+    if (map.current && map.current.loaded() && index) {
+      setTimeout(updateMap, 100);
+    }
+  }, [analytics, index]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-transparent">
-      {isLoading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-transparent backdrop-blur-sm">
-          <div className="text-center">
-            <div className="w-8 h-8 border-4 border-gray-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-            <p className="text-xs text-gray-500">Chargement du globe...</p>
-          </div>
-        </div>
-      )}
-      <div ref={mapContainer} className="h-full w-full bg-transparent" />
-      
-      {/* Indicateur de données avec compteur */}
-          {analytics.length > 0 && (
-        <div className="absolute top-6 left-6 z-10 bg-white/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-black/5">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="w-3 h-3 rounded-full bg-brand-primary shadow-lg border-2 border-white/80 animate-pulse" />
-              <div className="absolute inset-0 w-3 h-3 rounded-full bg-brand-primary/30 animate-ping" />
-                </div>
-                <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-black/70">Activité</span>
-              <span className="text-xs font-bold text-black/40 tabular-nums">({analytics.length})</span>
-                </div>
-            <div className="ml-2 px-2 py-0.5 bg-black/5 rounded-full">
-              <span className="text-[9px] text-black/40 font-medium">⌘</span>
-                </div>
-              </div>
-            </div>
+    <div className="relative w-full h-full">
+      <div ref={mapContainer} className="w-full h-full" />
+      {selectedDetail && (
+        <AnalyticsDetailCard
+          detail={selectedDetail}
+          onClose={() => setSelectedDetail(null)}
+        />
           )}
-      
-      {/* Message si pas de données avec coordonnées */}
-      {analytics.length > 0 && analytics.filter(p => p.latitude && p.longitude).length === 0 && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-          <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-black/5 text-center">
-            <Globe className="w-8 h-8 text-black/20 mx-auto mb-3" />
-            <p className="text-sm font-medium text-black/50">En attente de données géolocalisées</p>
-            <p className="text-xs text-black/30 mt-1">Les points apparaîtront après les premières vues</p>
-          </div>
-        </div>
-      )}
-      
-      {/* Card de détail centrée en bas */}
-      <AnalyticsDetailCard 
-        detail={selectedDetail} 
-        onClose={() => setSelectedDetail(null)} 
-      />
     </div>
   );
 }
-
