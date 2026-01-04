@@ -151,20 +151,28 @@ interface MapboxGlobeProps {
   analytics: AnalyticsPoint[];
 }
 
-// Couleurs extraites des images pour les points et clusters
-// background.jpg -> couleur dominante beige/sable
-// backgroundtwo.jpg -> couleur dominante terre/brun
-// backgroundthree.jpg -> couleur dominante gris/vert
-const imageColors = [
-  "#C4B5A0", // beige/sable de background.jpg
-  "#8B7355", // terre/brun de backgroundtwo.jpg
-  "#9A9E8B", // gris/vert de backgroundthree.jpg
+// Palette de couleurs variées et subtiles pour les points (inspirée de l'image)
+const pointColors = [
+  "#8B4A6B", // Rouge foncé/marron
+  "#6B8E5A", // Vert olive
+  "#5B9BD5", // Bleu clair
+  "#6B6B8B", // Gris foncé/violet
+  "#A67C52", // Marron/terre
+  "#7A9A7A", // Vert gris
+  "#8B6B5A", // Beige/brun
+  "#6B7A9A", // Bleu gris
+  "#9A6B7A", // Rose/mauve
+  "#7A8B6B", // Vert olive clair
+  "#8B7A6B", // Beige foncé
+  "#6B9A8B", // Turquoise
 ];
 
-// Fonction pour obtenir une couleur basée sur un ID
+// Fonction pour obtenir une couleur unique basée sur un ID
 function getColorFromId(id: string | number): string {
-  const numId = typeof id === 'string' ? id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : id;
-  return imageColors[numId % imageColors.length];
+  const numId = typeof id === 'string' 
+    ? id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) 
+    : id;
+  return pointColors[Math.abs(numId) % pointColors.length];
 }
 
 export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
@@ -369,7 +377,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
     // Fonction pour créer les layers (réutilisable) - définie avant le on("load")
     const createLayers = () => {
       if (!map.current) return;
-      
+
       // Attendre que la source soit disponible
       if (!map.current.getSource("analytics-points")) {
         setTimeout(createLayers, 100);
@@ -388,30 +396,23 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 20,
-              2, 28,
-              3, 36,
-              5, 48,
+              0.5, 8,
+              1, 10,
+              2, 12,
+              3, 14,
+              5, 16,
             ],
-            "circle-color": "#96A982",
+            "circle-color": ["get", "pointColor"], // Utiliser la couleur unique du point
             "circle-opacity": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 0.15,
-              2, 0.2,
-              3, 0.25,
-              5, 0.3,
+              0.5, 0.08,
+              2, 0.12,
+              3, 0.15,
+              5, 0.18,
             ],
-            "circle-blur": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0.5, 3,
-              2, 4,
-              3, 5,
-              5, 6,
-            ],
+            "circle-blur": 4, // Blur plus léger pour un effet d'ombre discret
           },
         });
       }
@@ -427,30 +428,23 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 20,
-              2, 28,
-              3, 36,
-              5, 48,
+              0.5, 8,
+              1, 10,
+              2, 12,
+              3, 14,
+              5, 16,
             ],
-            "circle-color": "#96A982",
+            "circle-color": ["get", "pointColor"], // Utiliser la couleur unique du point
             "circle-opacity": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 0.15,
-              2, 0.2,
-              3, 0.25,
-              5, 0.3,
+              0.5, 0.08,
+              2, 0.12,
+              3, 0.15,
+              5, 0.18,
             ],
-            "circle-blur": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0.5, 3,
-              2, 4,
-              3, 5,
-              5, 6,
-            ],
+            "circle-blur": 4, // Blur plus léger pour un effet d'ombre discret
           },
         });
       }
@@ -489,7 +483,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         });
       }
 
-      // Ajouter les points de vue - Couleurs des images, visibles même dézoomés
+      // Ajouter les points de vue - Design discret avec couleurs variées
       if (!map.current.getLayer("views-layer")) {
         map.current.addLayer({
           id: "views-layer",
@@ -501,37 +495,32 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 12,
-              1, 13,
-              2, 14,
-              3, 15,
-              5, 16,
+              0.5, 4,
+              1, 4.5,
+              2, 5,
+              3, 5.5,
+              5, 6,
             ],
-            "circle-color": [
-              "case",
-              ["%", ["to-number", ["get", "colorIndex"]], 3],
-              0, "#C4B5A0", // beige/sable de background.jpg
-              1, "#8B7355", // terre/brun de backgroundtwo.jpg
-              2, "#9A9E8B", // gris/vert de backgroundthree.jpg
-              "#C4B5A0"
-            ],
-            "circle-opacity": 1,
+            "circle-color": ["get", "pointColor"], // Utiliser la couleur unique stockée dans les propriétés
+            "circle-opacity": 0.85,
             "circle-stroke-width": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 3.5,
-              2, 4,
-              3, 4.5,
-              5, 5,
+              0.5, 1.5,
+              2, 2,
+              3, 2.5,
+              5, 3,
             ],
             "circle-stroke-color": "#ffffff",
-            "circle-stroke-opacity": 1,
+            "circle-stroke-opacity": 0.9,
+            // Effet d'ombre léger via blur
+            "circle-blur": 0.5,
           },
         });
       }
 
-      // Ajouter les points de téléchargement - Couleurs des images, visibles même dézoomés
+      // Ajouter les points de téléchargement - Design discret avec couleurs variées
       if (!map.current.getLayer("downloads-layer")) {
         map.current.addLayer({
           id: "downloads-layer",
@@ -543,32 +532,27 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 12,
-              1, 13,
-              2, 14,
-              3, 15,
-              5, 16,
+              0.5, 4,
+              1, 4.5,
+              2, 5,
+              3, 5.5,
+              5, 6,
             ],
-            "circle-color": [
-              "case",
-              ["%", ["to-number", ["get", "colorIndex"]], 3],
-              0, "#C4B5A0", // beige/sable de background.jpg
-              1, "#8B7355", // terre/brun de backgroundtwo.jpg
-              2, "#9A9E8B", // gris/vert de backgroundthree.jpg
-              "#C4B5A0"
-            ],
-            "circle-opacity": 1,
+            "circle-color": ["get", "pointColor"], // Utiliser la couleur unique stockée dans les propriétés
+            "circle-opacity": 0.85,
             "circle-stroke-width": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              0.5, 3.5,
-              2, 4,
-              3, 4.5,
-              5, 5,
+              0.5, 1.5,
+              2, 2,
+              3, 2.5,
+              5, 3,
             ],
             "circle-stroke-color": "#ffffff",
-            "circle-stroke-opacity": 1,
+            "circle-stroke-opacity": 0.9,
+            // Effet d'ombre léger via blur
+            "circle-blur": 0.5,
           },
         });
       }
@@ -629,8 +613,8 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               timestamp: point.timestamp,
               visitorId: point.visitorId || "",
               userAgent: point.userAgent || "",
-              // Index de couleur basé sur l'ID pour utiliser les couleurs des images
-              colorIndex: (point.id || "").split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) % 3,
+              // Couleur unique pour chaque point
+              pointColor: getColorFromId(point.id || Math.random().toString()),
             },
           };
         });
@@ -858,7 +842,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         });
       });
 
-      // Gérer les clics sur les points individuels - Afficher la card de détail
+      // Gérer les clics sur les points individuels - Zoomer et afficher la card de détail
       const showPointDetail = (e: any, type: string) => {
         if (!map.current || !e.features?.[0]) return;
 
@@ -866,6 +850,18 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         const isCluster = props.cluster;
         
         if (isCluster) return; // Les clusters sont gérés séparément
+
+        // Coordonnées du point
+        const coordinates = e.lngLat;
+        const currentZoom = map.current.getZoom();
+        
+        // Zoomer automatiquement sur le point
+        map.current.easeTo({
+          center: [coordinates.lng, coordinates.lat],
+          zoom: Math.min(currentZoom + 2, 10), // Zoomer de 2 niveaux ou jusqu'à 10 max
+          duration: 600,
+          easing: (t) => t * (2 - t), // Easing smooth
+        });
 
         // Trouver le point dans analytics
         const point = analytics.find(p => p.id === props.id);
@@ -951,8 +947,8 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
               timestamp: point.timestamp,
               visitorId: point.visitorId || "",
               userAgent: point.userAgent || "",
-              // Index de couleur basé sur l'ID pour utiliser les couleurs des images
-              colorIndex: (point.id || "").split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) % 3,
+              // Couleur unique pour chaque point
+              pointColor: getColorFromId(point.id || Math.random().toString()),
             },
           };
         });
@@ -1028,23 +1024,23 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       <div ref={mapContainer} className="h-full w-full bg-transparent" />
       
       {/* Indicateur de données avec compteur */}
-      {analytics.length > 0 && (
+          {analytics.length > 0 && (
         <div className="absolute top-6 left-6 z-10 bg-white/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-black/5">
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="w-3 h-3 rounded-full bg-brand-primary shadow-lg border-2 border-white/80 animate-pulse" />
               <div className="absolute inset-0 w-3 h-3 rounded-full bg-brand-primary/30 animate-ping" />
-            </div>
-            <div className="flex items-center gap-2">
+                </div>
+                <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-black/70">Activité</span>
               <span className="text-xs font-bold text-black/40 tabular-nums">({analytics.length})</span>
-            </div>
+                </div>
             <div className="ml-2 px-2 py-0.5 bg-black/5 rounded-full">
               <span className="text-[9px] text-black/40 font-medium">⌘</span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
       
       {/* Message si pas de données avec coordonnées */}
       {analytics.length > 0 && analytics.filter(p => p.latitude && p.longitude).length === 0 && (
