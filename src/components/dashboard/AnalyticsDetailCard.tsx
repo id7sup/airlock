@@ -115,31 +115,31 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
     : null;
 
   return (
-    <div className="fixed top-0 right-0 h-full w-96 z-50">
-      <div className="bg-white h-full shadow-2xl border-l border-black/5 overflow-hidden flex flex-col">
+    <div className="fixed top-4 right-4 bottom-4 z-50 w-80">
+      <div className="bg-white h-full rounded-3xl shadow-2xl border border-black/5 overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-black/5">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between p-5 border-b border-black/5">
+          <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="w-10 h-10 rounded-xl bg-black/5 hover:bg-black/10 flex items-center justify-center transition-colors"
+              className="w-9 h-9 rounded-xl bg-black/5 hover:bg-black/10 flex items-center justify-center transition-colors"
             >
-              <ChevronLeft className="w-5 h-5 text-black/60" />
+              <ChevronLeft className="w-4 h-4 text-black/60" />
             </button>
             <div>
-              <h3 className="text-base font-semibold text-black">
+              <h3 className="text-sm font-semibold text-black">
                 Détail
               </h3>
-              <p className="text-sm text-black/40">
+              <p className="text-xs text-black/40">
                 Événement
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-10 h-10 rounded-xl bg-black/5 hover:bg-black/10 flex items-center justify-center transition-colors"
+            className="w-9 h-9 rounded-xl bg-black/5 hover:bg-black/10 flex items-center justify-center transition-colors"
           >
-            <X className="w-5 h-5 text-black/60" />
+            <X className="w-4 h-4 text-black/60" />
           </button>
         </div>
 
@@ -147,7 +147,7 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
         <div className="flex border-b border-black/5">
           <button
             onClick={() => setActiveTab("overview")}
-            className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors relative ${
+            className={`flex-1 px-4 py-3 text-xs font-semibold transition-colors relative ${
               activeTab === "overview"
                 ? "text-black"
                 : "text-black/50 hover:text-black/70"
@@ -160,7 +160,7 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
           </button>
           <button
             onClick={() => setActiveTab("events")}
-            className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors relative ${
+            className={`flex-1 px-4 py-3 text-xs font-semibold transition-colors relative ${
               activeTab === "events"
                 ? "text-black"
                 : "text-black/50 hover:text-black/70"
@@ -173,7 +173,7 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
           </button>
           <button
             onClick={() => setActiveTab("location")}
-            className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors relative ${
+            className={`flex-1 px-4 py-3 text-xs font-semibold transition-colors relative ${
               activeTab === "location"
                 ? "text-black"
                 : "text-black/50 hover:text-black/70"
@@ -187,42 +187,42 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
         </div>
 
         {/* Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4">
           {activeTab === "overview" && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Stats en grille 2x2 */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-black/5 rounded-2xl p-5 text-center aspect-square flex flex-col items-center justify-center">
-                  <Eye className="w-6 h-6 text-black/60 mb-3" />
-                  <p className="text-2xl font-semibold text-black tabular-nums mb-1">{stats.views}</p>
-                  <p className="text-xs text-black/40 font-medium">Vues</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-black/5 rounded-3xl p-4 text-center aspect-square flex flex-col items-center justify-center">
+                  <Eye className="w-5 h-5 text-black/60 mb-2" />
+                  <p className="text-xl font-semibold text-black tabular-nums mb-1">{stats.views}</p>
+                  <p className="text-[10px] text-black/40 font-medium">Vues</p>
                 </div>
-                <div className="bg-black/5 rounded-2xl p-5 text-center aspect-square flex flex-col items-center justify-center">
-                  <Download className="w-6 h-6 text-black/60 mb-3" />
-                  <p className="text-2xl font-semibold text-black tabular-nums mb-1">{stats.downloads}</p>
-                  <p className="text-xs text-black/40 font-medium">Téléchargements</p>
+                <div className="bg-black/5 rounded-3xl p-4 text-center aspect-square flex flex-col items-center justify-center">
+                  <Download className="w-5 h-5 text-black/60 mb-2" />
+                  <p className="text-xl font-semibold text-black tabular-nums mb-1">{stats.downloads}</p>
+                  <p className="text-[10px] text-black/40 font-medium">Téléchargements</p>
                 </div>
-                <div className="bg-black/5 rounded-2xl p-5 text-center aspect-square flex flex-col items-center justify-center">
-                  <Lock className="w-6 h-6 text-red-500 mb-3" />
-                  <p className="text-2xl font-semibold text-black tabular-nums mb-1">{stats.denied}</p>
-                  <p className="text-xs text-black/40 font-medium">Refusés</p>
+                <div className="bg-black/5 rounded-3xl p-4 text-center aspect-square flex flex-col items-center justify-center">
+                  <Lock className="w-5 h-5 text-red-500 mb-2" />
+                  <p className="text-xl font-semibold text-black tabular-nums mb-1">{stats.denied}</p>
+                  <p className="text-[10px] text-black/40 font-medium">Refusés</p>
                 </div>
-                <div className="bg-black/5 rounded-2xl p-5 text-center aspect-square flex flex-col items-center justify-center">
-                  <Monitor className="w-6 h-6 text-black/60 mb-3" />
-                  <p className="text-2xl font-semibold text-black tabular-nums mb-1">{stats.folders}</p>
-                  <p className="text-xs text-black/40 font-medium">Dossiers</p>
+                <div className="bg-black/5 rounded-3xl p-4 text-center aspect-square flex flex-col items-center justify-center">
+                  <Monitor className="w-5 h-5 text-black/60 mb-2" />
+                  <p className="text-xl font-semibold text-black tabular-nums mb-1">{stats.folders}</p>
+                  <p className="text-[10px] text-black/40 font-medium">Dossiers</p>
                 </div>
               </div>
 
               {/* Dernière activité - Rectangle en dessous */}
               {lastEvent && (
-                <div className="bg-black/5 rounded-2xl p-5 space-y-3">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Clock className="w-4 h-4 text-black/40" />
-                    <p className="text-sm font-semibold text-black/60 uppercase tracking-wider">Dernière activité</p>
+                <div className="bg-black/5 rounded-3xl p-4 space-y-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-3.5 h-3.5 text-black/40" />
+                    <p className="text-xs font-semibold text-black/60 uppercase tracking-wider">Dernière activité</p>
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-base font-medium text-black">{getTimeAgo(new Date(lastEvent.timestamp))}</p>
+                    <p className="text-sm font-medium text-black">{getTimeAgo(new Date(lastEvent.timestamp))}</p>
                     <p className="text-xs text-black/40">
                       {new Date(lastEvent.timestamp).toLocaleString("fr-FR", {
                         day: "numeric",
@@ -233,15 +233,15 @@ export function AnalyticsDetailCard({ detail, onClose }: AnalyticsDetailCardProp
                       })}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-black/50">
-                    <MapPin className="w-4 h-4" />
+                  <div className="flex items-center gap-2 text-xs text-black/50">
+                    <MapPin className="w-3 h-3" />
                     <span>{lastEvent.city || "Inconnu"}, {lastEvent.country || "Inconnu"}</span>
                   </div>
                   {(() => {
                     const userInfo = parseUserAgent(lastEvent.userAgent || "");
                     return (
-                      <div className="flex items-center gap-2 text-sm text-black/50">
-                        <Monitor className="w-4 h-4" />
+                      <div className="flex items-center gap-2 text-xs text-black/50">
+                        <Monitor className="w-3 h-3" />
                         <span>{userInfo.device} • {userInfo.browser} • {userInfo.os}</span>
                       </div>
                     );
