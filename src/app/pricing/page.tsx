@@ -92,8 +92,117 @@ export default function PricingPage() {
         </nav>
       </div>
 
-      <main className="pt-40 md:pt-60 pb-32 px-6">
-        <div className="max-w-7xl mx-auto space-y-24">
+      <main className="relative pt-40 md:pt-60 pb-32 px-6 overflow-hidden">
+        {/* Dégradé de ciel bleu clair */}
+        <div className="hidden md:block absolute top-0 left-0 right-0 h-72 pointer-events-none overflow-hidden bg-gradient-to-b from-sky-100 via-blue-100/70 to-transparent" />
+        
+        {/* Mini nuages blancs */}
+        <div className="hidden md:block absolute inset-0 pointer-events-none overflow-hidden">
+          {/* Nuage 1 - Haut gauche */}
+          <div className="absolute top-[8%] left-[8%] w-24 h-14 bg-white/85 rounded-full blur-sm" />
+          <div className="absolute top-[10%] left-[10%] w-20 h-12 bg-white/85 rounded-full blur-sm" />
+          <div className="absolute top-[6%] left-[12%] w-22 h-13 bg-white/85 rounded-full blur-sm" />
+          
+          {/* Nuage 2 - Haut droit */}
+          <div className="absolute top-[10%] right-[10%] w-22 h-13 bg-white/85 rounded-full blur-sm" />
+          <div className="absolute top-[12%] right-[12%] w-20 h-11 bg-white/85 rounded-full blur-sm" />
+          <div className="absolute top-[8%] right-[14%] w-18 h-12 bg-white/85 rounded-full blur-sm" />
+          
+          {/* Nuage 3 - Centre haut */}
+          <div className="absolute top-[5%] left-[48%] w-20 h-12 bg-white/85 rounded-full blur-sm" />
+          <div className="absolute top-[7%] left-[50%] w-18 h-10 bg-white/85 rounded-full blur-sm" />
+          <div className="absolute top-[3%] left-[52%] w-16 h-11 bg-white/85 rounded-full blur-sm" />
+        </div>
+
+        {/* Montgolfières décoratives */}
+        <div className="hidden md:block absolute inset-0 pointer-events-none">
+          {/* Montgolfière 1 - Gauche-haut, rouge (grande) */}
+          <div
+            className="absolute left-[2%] md:left-[3%] top-[20%] md:top-[18%] w-12 h-12 md:w-18 md:h-18"
+            style={{ transform: 'rotate(-2deg)' }}
+          >
+            <svg viewBox="0 0 512 512" className="w-full h-full" style={{ filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.08))' }}>
+              <rect x="205.322" y="364.084" style={{fill:"#D4A574"}} width="31.347" height="59.099"/>
+              <rect x="275.331" y="364.084" style={{fill:"#C89A6A"}} width="31.347" height="59.099"/>
+              <rect x="190.412" y="407.51" style={{fill:"#D4B89A"}} width="131.176" height="104.49"/>
+              <path style={{fill:"#EF4444"}} d="M385.275,234.736l-0.146,0.293l-72.15,144.729H199.022l-72.296-145.021
+                c-2.079-4.389-50.385-108.387-6.531-177.643c22.674-35.809,64.742-54.93,125.127-56.916C248.822,0.063,252.374,0,256,0
+                c4.159,0,8.234,0.073,12.236,0.23c59.549,2.257,101.083,21.358,123.57,56.863C435.66,126.349,387.354,230.348,385.275,234.736z"/>
+              <rect x="256" y="407.51" style={{fill:"#C89A6A"}} width="65.588" height="104.49"/>
+              <path style={{fill:"#DC2626"}} d="M385.275,234.736l-0.146,0.293l-72.15,144.729H256V0c4.159,0,8.234,0.073,12.236,0.23
+                c59.549,2.257,101.083,21.358,123.57,56.863C435.66,126.349,387.354,230.348,385.275,234.736z"/>
+              <path style={{fill:"#FFFFFF"}} d="M262.499,379.758h-12.988c-103.758-235.53-8.882-374-4.942-379.58C248.069,0.063,251.622,0,255.248,0
+                H256c3.897,0.01,7.722,0.084,11.483,0.23C271.924,6.562,365.955,144.906,262.499,379.758z"/>
+              <path style={{fill:"#C8C6CD"}} d="M262.499,379.758H256V0c3.897,0.01,7.722,0.084,11.483,0.23
+                C271.924,6.562,365.955,144.906,262.499,379.758z"/>
+            </svg>
+          </div>
+
+          {/* Montgolfière 3 - Droite-haut, verte (grande) */}
+          <div
+            className="absolute right-[2%] md:right-[3%] top-[22%] md:top-[20%] w-14 h-14 md:w-28 md:h-28"
+          >
+            <svg viewBox="0 0 512 512" className="w-full h-full" style={{ filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.08))' }}>
+              <rect x="205.322" y="364.084" style={{fill:"#F4C2A5"}} width="31.347" height="59.099"/>
+              <rect x="275.331" y="364.084" style={{fill:"#E8B896"}} width="31.347" height="59.099"/>
+              <rect x="190.412" y="407.51" style={{fill:"#F9D5C0"}} width="131.176" height="104.49"/>
+              <path style={{fill:"#FCD34D"}} d="M385.275,234.736l-0.146,0.293l-72.15,144.729H199.022l-72.296-145.021
+                c-2.079-4.389-50.385-108.387-6.531-177.643c22.674-35.809,64.742-54.93,125.127-56.916C248.822,0.063,252.374,0,256,0
+                c4.159,0,8.234,0.073,12.236,0.23c59.549,2.257,101.083,21.358,123.57,56.863C435.66,126.349,387.354,230.348,385.275,234.736z"/>
+              <rect x="256" y="407.51" style={{fill:"#E8B896"}} width="65.588" height="104.49"/>
+              <path style={{fill:"#FBBF24"}} d="M385.275,234.736l-0.146,0.293l-72.15,144.729H256V0c4.159,0,8.234,0.073,12.236,0.23
+                c59.549,2.257,101.083,21.358,123.57,56.863C435.66,126.349,387.354,230.348,385.275,234.736z"/>
+              <path style={{fill:"#FFFFFF"}} d="M262.499,379.758h-12.988c-103.758-235.53-8.882-374-4.942-379.58C248.069,0.063,251.622,0,255.248,0
+                H256c3.897,0.01,7.722,0.084,11.483,0.23C271.924,6.562,365.955,144.906,262.499,379.758z"/>
+              <path style={{fill:"#C8C6CD"}} d="M262.499,379.758H256V0c3.897,0.01,7.722,0.084,11.483,0.23
+                C271.924,6.562,365.955,144.906,262.499,379.758z"/>
+            </svg>
+          </div>
+
+          {/* Montgolfière 5 - Haut-centre, rose (petite) */}
+          <div
+            className="absolute left-[50%] -translate-x-1/2 top-[12%] md:top-[10%] w-10 h-10 md:w-16 md:h-16"
+          >
+            <svg viewBox="0 0 512 512" className="w-full h-full" style={{ filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.08))' }}>
+              <rect x="205.322" y="364.084" style={{fill:"#A5D4C4"}} width="31.347" height="59.099"/>
+              <rect x="275.331" y="364.084" style={{fill:"#8BC8B8"}} width="31.347" height="59.099"/>
+              <rect x="190.412" y="407.51" style={{fill:"#B8E8D4"}} width="131.176" height="104.49"/>
+              <path style={{fill:"#5EEAD4"}} d="M385.275,234.736l-0.146,0.293l-72.15,144.729H199.022l-72.296-145.021
+                c-2.079-4.389-50.385-108.387-6.531-177.643c22.674-35.809,64.742-54.93,125.127-56.916C248.822,0.063,252.374,0,256,0
+                c4.159,0,8.234,0.073,12.236,0.23c59.549,2.257,101.083,21.358,123.57,56.863C435.66,126.349,387.354,230.348,385.275,234.736z"/>
+              <rect x="256" y="407.51" style={{fill:"#8BC8B8"}} width="65.588" height="104.49"/>
+              <path style={{fill:"#2DD4BF"}} d="M385.275,234.736l-0.146,0.293l-72.15,144.729H256V0c4.159,0,8.234,0.073,12.236,0.23
+                c59.549,2.257,101.083,21.358,123.57,56.863C435.66,126.349,387.354,230.348,385.275,234.736z"/>
+              <path style={{fill:"#FFFFFF"}} d="M262.499,379.758h-12.988c-103.758-235.53-8.882-374-4.942-379.58C248.069,0.063,251.622,0,255.248,0
+                H256c3.897,0.01,7.722,0.084,11.483,0.23C271.924,6.562,365.955,144.906,262.499,379.758z"/>
+              <path style={{fill:"#C8C6CD"}} d="M262.499,379.758H256V0c3.897,0.01,7.722,0.084,11.483,0.23
+                C271.924,6.562,365.955,144.906,262.499,379.758z"/>
+            </svg>
+          </div>
+
+          {/* Montgolfière 6 - Haut-gauche, violette */}
+          <div
+            className="absolute left-[20%] md:left-[25%] top-[14%] md:top-[12%] w-14 h-14 md:w-28 md:h-28"
+          >
+            <svg viewBox="0 0 512 512" className="w-full h-full" style={{ filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.08))' }}>
+              <rect x="205.322" y="364.084" style={{fill:"#B8A5D4"}} width="31.347" height="59.099"/>
+              <rect x="275.331" y="364.084" style={{fill:"#A89AC8"}} width="31.347" height="59.099"/>
+              <rect x="190.412" y="407.51" style={{fill:"#C5B8E8"}} width="131.176" height="104.49"/>
+              <path style={{fill:"#A78BFA"}} d="M385.275,234.736l-0.146,0.293l-72.15,144.729H199.022l-72.296-145.021
+                c-2.079-4.389-50.385-108.387-6.531-177.643c22.674-35.809,64.742-54.93,125.127-56.916C248.822,0.063,252.374,0,256,0
+                c4.159,0,8.234,0.073,12.236,0.23c59.549,2.257,101.083,21.358,123.57,56.863C435.66,126.349,387.354,230.348,385.275,234.736z"/>
+              <rect x="256" y="407.51" style={{fill:"#A89AC8"}} width="65.588" height="104.49"/>
+              <path style={{fill:"#8B5CF6"}} d="M385.275,234.736l-0.146,0.293l-72.15,144.729H256V0c4.159,0,8.234,0.073,12.236,0.23
+                c59.549,2.257,101.083,21.358,123.57,56.863C435.66,126.349,387.354,230.348,385.275,234.736z"/>
+              <path style={{fill:"#FFFFFF"}} d="M262.499,379.758h-12.988c-103.758-235.53-8.882-374-4.942-379.58C248.069,0.063,251.622,0,255.248,0
+                H256c3.897,0.01,7.722,0.084,11.483,0.23C271.924,6.562,365.955,144.906,262.499,379.758z"/>
+              <path style={{fill:"#C8C6CD"}} d="M262.499,379.758H256V0c3.897,0.01,7.722,0.084,11.483,0.23
+                C271.924,6.562,365.955,144.906,262.499,379.758z"/>
+            </svg>
+          </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto space-y-24 relative z-10">
           <div className="text-center space-y-8">
             <div className="inline-block px-4 py-1.5 bg-[#f5f5f7] rounded-full">
               <span className="text-[11px] font-semibold text-black/40 uppercase tracking-[0.2em]">Facturation</span>
