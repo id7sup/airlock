@@ -136,6 +136,12 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
 
     const zoom = map.current.getZoom();
     const bounds = map.current.getBounds();
+    
+    // Gérer le cas où bounds est null
+    if (!bounds) {
+      return;
+    }
+    
     const bbox: [number, number, number, number] = [
       bounds.getWest(),
       bounds.getSouth(),
@@ -283,11 +289,14 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       });
     }
 
-    // Gérer les clics
-    map.current.off("click", "clusters");
-    map.current.off("click", "points");
-    map.current.off("click", "points-hit");
-    map.current.off("click"); // Retirer tous les handlers généraux
+    // Gérer les clics - retirer les handlers précédents
+    try {
+      map.current.off("click", "clusters" as any);
+      map.current.off("click", "points" as any);
+      map.current.off("click", "points-hit" as any);
+    } catch (e) {
+      // Ignorer si les layers n'existent pas encore
+    }
 
     // Handler pour ouvrir le détail d'un point
     const handlePointClick = (feature: any) => {
@@ -354,7 +363,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
     // Clic sur cluster = zoom
     map.current.on("click", "clusters", (e) => {
       const feature = e.features?.[0];
-      if (!feature || !index || isAnimatingRef.current) return;
+      if (!feature || !feature.properties || !index || isAnimatingRef.current) return;
 
       const clusterId = feature.properties.cluster_id;
       const expansionZoom = index.getClusterExpansionZoom(clusterId);
@@ -413,13 +422,17 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       }
     });
 
-    // Curseur pointer au survol
-    map.current.off("mouseenter", "clusters");
-    map.current.off("mouseleave", "clusters");
-    map.current.off("mouseenter", "points");
-    map.current.off("mouseleave", "points");
-    map.current.off("mouseenter", "points-hit");
-    map.current.off("mouseleave", "points-hit");
+    // Curseur pointer au survol - retirer les handlers précédents
+    try {
+      map.current.off("mouseenter", "clusters" as any);
+      map.current.off("mouseleave", "clusters" as any);
+      map.current.off("mouseenter", "points" as any);
+      map.current.off("mouseleave", "points" as any);
+      map.current.off("mouseenter", "points-hit" as any);
+      map.current.off("mouseleave", "points-hit" as any);
+    } catch (e) {
+      // Ignorer si les layers n'existent pas encore
+    }
 
     map.current.on("mouseenter", "clusters", () => {
       if (map.current) map.current.getCanvas().style.cursor = "pointer";
