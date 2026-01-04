@@ -13,6 +13,19 @@ import {
   Sparkles
 } from "lucide-react";
 import { Loader2 } from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar
+} from "recharts";
 
 interface AnalyticsStats {
   totals: {
@@ -149,8 +162,8 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
         </div>
       </div>
 
-      {/* Activité en temps réel - Design complètement repensé */}
-      <div className="space-y-8">
+      {/* Activité en temps réel - Design complètement repensé avec graphiques explicites */}
+      <div className="space-y-12">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h2 className="text-3xl font-light tracking-tight text-black">Activité en temps réel</h2>
@@ -165,8 +178,158 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
           </div>
         </div>
         
-        {/* Nouvelle visualisation - Waveform style */}
-        <div className="relative pt-8">
+        {/* Graphique principal - Courbe d'activité par heure */}
+        <div className="bg-white rounded-3xl border border-black/[0.05] p-8 shadow-sm">
+          <div className="mb-6">
+            <h3 className="text-lg font-medium text-black mb-2">Distribution horaire (24h)</h3>
+            <p className="text-sm text-black/40">Activité répartie sur les 24 heures de la journée</p>
+          </div>
+          <div className="h-[400px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={stats.hotMoments.activityByHour} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#96A982" stopOpacity={0.3}/>
+                    <stop offset="50%" stopColor="#96A982" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#96A982" stopOpacity={0.02}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
+                <XAxis 
+                  dataKey="hour" 
+                  tick={{ fontSize: 11, fill: 'rgba(0,0,0,0.4)', fontWeight: 500 }}
+                  tickFormatter={(value) => `${value.toString().padStart(2, '0')}h`}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis 
+                  tick={{ fontSize: 11, fill: 'rgba(0,0,0,0.4)', fontWeight: 500 }}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip 
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length && label !== undefined) {
+                      return (
+                        <div className="bg-white/95 backdrop-blur-xl border border-black/[0.08] p-4 rounded-2xl shadow-xl">
+                          <p className="text-xs font-bold text-black/30 uppercase tracking-wider mb-2">
+                            {String(label).padStart(2, '0')}h
+                          </p>
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full bg-brand-primary" />
+                            <p className="text-base font-semibold text-black">
+                              {payload[0].value} événements
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                  cursor={{ stroke: '#96A982', strokeWidth: 2, strokeDasharray: '5 5', opacity: 0.3 }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="count" 
+                  stroke="#96A982" 
+                  strokeWidth={3}
+                  fillOpacity={1} 
+                  fill="url(#colorActivity)"
+                  activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff', fill: '#96A982' }}
+                  dot={{ r: 4, fill: '#96A982', strokeWidth: 2, stroke: '#fff' }}
+                  isAnimationActive={true}
+                  animationDuration={1500}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Graphique en barres pour une vue alternative */}
+        <div className="bg-white rounded-3xl border border-black/[0.05] p-8 shadow-sm">
+          <div className="mb-6">
+            <h3 className="text-lg font-medium text-black mb-2">Activité par heure (vue détaillée)</h3>
+            <p className="text-sm text-black/40">Nombre d'événements pour chaque heure</p>
+          </div>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stats.hotMoments.activityByHour} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
+                <XAxis 
+                  dataKey="hour" 
+                  tick={{ fontSize: 10, fill: 'rgba(0,0,0,0.4)', fontWeight: 500 }}
+                  tickFormatter={(value) => `${value.toString().padStart(2, '0')}h`}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis 
+                  tick={{ fontSize: 10, fill: 'rgba(0,0,0,0.4)', fontWeight: 500 }}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip 
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length && label !== undefined) {
+                      return (
+                        <div className="bg-white/95 backdrop-blur-xl border border-black/[0.08] p-3 rounded-xl shadow-xl">
+                          <p className="text-xs font-bold text-black/30 uppercase tracking-wider mb-1">
+                            {String(label).padStart(2, '0')}h
+                          </p>
+                          <p className="text-sm font-semibold text-black">
+                            {payload[0].value} événements
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                  cursor={{ fill: 'rgba(150, 169, 130, 0.1)' }}
+                />
+                <Bar 
+                  dataKey="count" 
+                  fill="#96A982"
+                  radius={[8, 8, 0, 0]}
+                  isAnimationActive={true}
+                  animationDuration={1500}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Métriques résumées */}
+        <div className="grid grid-cols-3 gap-6">
+          <div className="bg-gradient-to-br from-white to-[#f9faf9] rounded-2xl border border-black/[0.05] p-6">
+            <p className="text-[10px] font-bold text-black/30 uppercase tracking-wider mb-3">Total 24h</p>
+            <p className="text-4xl font-light text-black tabular-nums">
+              {stats.hotMoments.activityByHour.reduce((acc, h) => acc + h.count, 0)}
+            </p>
+            <p className="text-xs text-black/40 mt-2">événements</p>
+          </div>
+          <div className="bg-gradient-to-br from-white to-[#f9faf9] rounded-2xl border border-black/[0.05] p-6">
+            <p className="text-[10px] font-bold text-black/30 uppercase tracking-wider mb-3">Moyenne</p>
+            <p className="text-4xl font-light text-black tabular-nums">
+              {Math.round(stats.hotMoments.activityByHour.reduce((acc, h) => acc + h.count, 0) / 24)}
+            </p>
+            <p className="text-xs text-black/40 mt-2">par heure</p>
+          </div>
+          <div className="bg-gradient-to-br from-white to-[#f9faf9] rounded-2xl border border-black/[0.05] p-6">
+            <p className="text-[10px] font-bold text-black/30 uppercase tracking-wider mb-3">Heure actuelle</p>
+            <p className="text-4xl font-light text-black tabular-nums">
+              {stats.hotMoments.activityByHour[new Date().getHours()]?.count || 0}
+            </p>
+            <p className="text-xs text-black/40 mt-2">événements</p>
+          </div>
+        </div>
+
+        {/* Visualisation waveform originale (conservée pour référence) */}
+        <div className="relative pt-4">
+          <div className="mb-4">
+            <h3 className="text-sm font-medium text-black/50 mb-1">Vue waveform</h3>
+            <p className="text-xs text-black/30">Visualisation alternative de l'activité</p>
+          </div>
           <ActivityWaveform data={stats.hotMoments.activityByHour} />
         </div>
       </div>
