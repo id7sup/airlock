@@ -5,6 +5,7 @@ import { db } from "@/lib/firebase";
 import * as admin from "firebase-admin";
 import { createNotification } from "@/services/notifications";
 import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
+import { checkIfFolderIsChild } from "@/services/folders";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -22,9 +23,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Lien invalide, expiré ou quota atteint" }, { status: 403 });
   }
 
-  // 2. Vérifier que le fichier appartient au dossier
+  // 2. Vérifier que le fichier appartient au dossier (récursif pour les sous-dossiers)
   const fileDoc = await db.collection("files").doc(fileId).get();
-  if (!fileDoc.exists || fileDoc.data()?.folderId !== link.folderId) {
+  if (!fileDoc.exists) {
+    return NextResponse.json({ error: "Fichier non trouvé" }, { status: 404 });
+  }
+
+  const fileFolderId = fileDoc.data()?.folderId;
+  if (!fileFolderId) {
+    return NextResponse.json({ error: "Fichier non trouvé" }, { status: 404 });
+  }
+
+  // Vérifier si le dossier du fichier est le dossier partagé ou un de ses sous-dossiers
+  const isInSharedFolder = fileFolderId === link.folderId || await checkIfFolderIsChild(fileFolderId, link.folderId);
+  if (!isInSharedFolder) {
     return NextResponse.json({ error: "Fichier non trouvé" }, { status: 404 });
   }
 

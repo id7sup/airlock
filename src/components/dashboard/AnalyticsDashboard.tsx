@@ -184,7 +184,7 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
             <h3 className="text-lg font-medium text-black mb-2">Distribution horaire (24h)</h3>
             <p className="text-sm text-black/40">Activité répartie sur les 24 heures de la journée</p>
           </div>
-          <div className="h-[400px] w-full">
+          <div className="h-[400px] w-full" style={{ minHeight: '400px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={stats.hotMoments.activityByHour} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <defs>
@@ -252,7 +252,7 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
             <h3 className="text-lg font-medium text-black mb-2">Activité par heure (vue détaillée)</h3>
             <p className="text-sm text-black/40">Nombre d'événements pour chaque heure</p>
           </div>
-          <div className="h-[300px] w-full">
+          <div className="h-[300px] w-full" style={{ minHeight: '300px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stats.hotMoments.activityByHour} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />

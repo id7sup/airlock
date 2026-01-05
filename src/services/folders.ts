@@ -58,3 +58,44 @@ export async function getFolderContent(folderId: string) {
     files: filesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
   };
 }
+
+/**
+ * Vérifie récursivement si un dossier est un enfant (direct ou indirect) d'un dossier parent
+ * 
+ * Utilise la récursion pour remonter la hiérarchie des dossiers jusqu'à trouver
+ * le parent ou atteindre la racine.
+ * 
+ * @param childId - ID du dossier enfant à vérifier
+ * @param parentId - ID du dossier parent cible
+ * @returns true si le dossier est un enfant du parent, false sinon
+ */
+export async function checkIfFolderIsChild(childId: string, parentId: string): Promise<boolean> {
+  try {
+    // Si c'est le même dossier, c'est un enfant
+    if (childId === parentId) {
+      return true;
+    }
+
+    // Récupérer le dossier enfant
+    const childDoc = await db.collection("folders").doc(childId).get();
+    if (!childDoc.exists) {
+      return false;
+    }
+
+    const childData = childDoc.data();
+    if (!childData || !childData.parentId) {
+      return false;
+    }
+
+    // Si le parent direct est le parent cible, c'est un enfant
+    if (childData.parentId === parentId) {
+      return true;
+    }
+
+    // Récursion : vérifier si le parent du dossier est un enfant du parent cible
+    return checkIfFolderIsChild(childData.parentId, parentId);
+  } catch (error: any) {
+    console.error("[FOLDERS] Error in checkIfFolderIsChild:", error?.message);
+    return false;
+  }
+}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { validateShareLink } from "@/services/sharing";
 import { getDownloadUrl } from "@/services/storage";
 import { db } from "@/lib/firebase";
+import { checkIfFolderIsChild } from "@/services/folders";
 
 /**
  * Endpoint pour télécharger le fichier original
@@ -36,14 +37,21 @@ export async function POST(
 
     const link = linkResult;
 
-    // 2. Vérifier que le fichier appartient au dossier partagé
+    // 2. Vérifier que le fichier appartient au dossier partagé (récursif pour les sous-dossiers)
     const fileDoc = await db.collection("files").doc(fileId).get();
     if (!fileDoc.exists) {
       return NextResponse.json({ error: "Fichier non trouvé" }, { status: 404 });
     }
 
     const file = fileDoc.data()!;
-    if (file.folderId !== link.folderId) {
+    const fileFolderId = file.folderId;
+    if (!fileFolderId) {
+      return NextResponse.json({ error: "Fichier non trouvé" }, { status: 404 });
+    }
+
+    // Vérifier si le dossier du fichier est le dossier partagé ou un de ses sous-dossiers
+    const isInSharedFolder = fileFolderId === link.folderId || await checkIfFolderIsChild(fileFolderId, link.folderId);
+    if (!isInSharedFolder) {
       return NextResponse.json({ error: "Fichier non autorisé" }, { status: 403 });
     }
 

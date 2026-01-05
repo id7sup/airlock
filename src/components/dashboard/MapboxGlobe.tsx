@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import Supercluster from "supercluster";
+import { Globe } from "lucide-react";
 import { AnalyticsDetailCard } from "./AnalyticsDetailCard";
 
 interface AnalyticsPoint {
@@ -73,61 +74,94 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
   }, [analytics]);
 
   // 2. Indexer avec Supercluster
-  // IMPORTANT : radius réduit pour ne clusteriser que les points vraiment proches
-  // radius = 15 pixels signifie que seuls les points à moins de 15px l'un de l'autre seront clusterisés
-  // Cela évite de créer des clusters pour 2 points éloignés
+  // IMPORTANT : radius très réduit pour ne clusteriser que les points vraiment proches géographiquement
+  // radius = 50 pixels signifie que seuls les points très proches (même zone) seront clusterisés
+  // Cela évite de créer des clusters pour des points éloignés géographiquement
   const index = useMemo(() => {
     if (points.length === 0) return null;
     const sc = new Supercluster({
-      radius: 15, // Réduit pour ne clusteriser que les points vraiment proches (évite les clusters inutiles)
-      maxZoom: 12,
+      radius: 50, // Augmenté pour ne clusteriser que les points dans la même zone géographique
+      maxZoom: 14, // Zoom maximum pour le clustering
       minZoom: 0,
+      extent: 512, // Taille de tuile standard
     });
     sc.load(points);
     return sc;
   }, [points]);
 
   // 3. Obtenir les nodes (clusters ou points) selon le zoom
+  // Logique améliorée : 
+  // - Zoom très faible (< 2) : clusters uniquement si plusieurs points dans la même zone
+  // - Zoom faible (2-4) : décomposer les clusters avec 1-2 points
+  // - Zoom moyen (4-6) : décomposer tous les clusters sauf ceux avec beaucoup de points
+  // - Zoom élevé (> 6) : toujours afficher les points individuels
   const getNodes = (zoom: number, bbox: [number, number, number, number]) => {
     if (!index) return [];
-    const superclusterZoom = Math.min(Math.floor(zoom / 1.8), 12);
+    
+    // Convertir le zoom Mapbox en zoom Supercluster
+    // Plus le zoom est élevé, plus on se rapproche du zoom max (14) = décomposition complète
+    let superclusterZoom: number;
+    
+    if (zoom < 1.5) {
+      // Zoom très faible : permettre les clusters
+      superclusterZoom = Math.floor(zoom * 3);
+    } else if (zoom < 3) {
+      // Zoom faible : commencer à décomposer
+      superclusterZoom = Math.floor(zoom * 2.5);
+    } else if (zoom < 5) {
+      // Zoom moyen : décomposer davantage
+      superclusterZoom = Math.floor(zoom * 2);
+    } else {
+      // Zoom élevé : décomposition complète (zoom max = 14)
+      superclusterZoom = 14;
+    }
+    
+    // Limiter le zoom Supercluster entre 0 et 14
+    superclusterZoom = Math.min(Math.max(superclusterZoom, 0), 14);
     
     // Obtenir les clusters/points depuis Supercluster
     const raw = index.getClusters(bbox, superclusterZoom);
     
-    // Filtrer : ne garder que les clusters avec au moins 3 points, sinon afficher les points individuellement
-    // Cela évite d'avoir des clusters pour seulement 2 points éloignés
-    const filtered = raw.map(node => {
-      if (node.properties.cluster && node.properties.point_count < 3) {
-        // Cluster avec moins de 3 points : le décomposer en points individuels
-        const clusterId = node.properties.cluster_id;
-        return index.getLeaves(clusterId, Infinity);
-      }
-      return node;
-    }).flat();
+    // Traiter les résultats selon le zoom actuel
+    const result: any[] = [];
     
-    // IMPORTANT : À un zoom élevé (>= 10), forcer l'affichage des points individuels
-    // Si on a encore des clusters, les décomposer en points individuels
-    if (superclusterZoom >= 10) {
-      const leafs: any[] = [];
-      
-      for (const node of filtered) {
-        if (node.properties?.cluster) {
-          // C'est un cluster - obtenir ses points individuels
+    for (const node of raw) {
+      if (node.properties?.cluster) {
+        // C'est un cluster
+        const pointCount = node.properties.point_count || 0;
+        
+        // RÈGLE 1 : Un seul point ne doit JAMAIS être un cluster
+        if (pointCount <= 1) {
           const clusterId = node.properties.cluster_id;
-          const leaves = index.getLeaves(clusterId, Infinity); // Récupérer tous les points du cluster
-          leafs.push(...leaves);
-        } else {
-          // C'est déjà un point individuel
-          leafs.push(node);
+          const leaves = index.getLeaves(clusterId, Infinity);
+          result.push(...leaves);
+          continue;
         }
+        
+        // RÈGLE 2 : À zoom élevé (>= 5), toujours décomposer tous les clusters
+        if (zoom >= 5) {
+          const clusterId = node.properties.cluster_id;
+          const leaves = index.getLeaves(clusterId, Infinity);
+          result.push(...leaves);
+        } 
+        // RÈGLE 3 : À zoom moyen (3-5), décomposer les petits clusters (2-3 points)
+        else if (zoom >= 3 && pointCount <= 3) {
+          const clusterId = node.properties.cluster_id;
+          const leaves = index.getLeaves(clusterId, Infinity);
+          result.push(...leaves);
+        }
+        // RÈGLE 4 : À zoom faible (< 3), garder les clusters avec au moins 2 points
+        // (mais on a déjà vérifié qu'il y a au moins 2 points avec la règle 1)
+        else {
+          result.push(node);
+        }
+      } else {
+        // C'est déjà un point individuel - toujours l'afficher tel quel
+        result.push(node);
       }
-      
-      // Si on a des leafs, les retourner, sinon garder les clusters (au cas où)
-      return leafs.length > 0 ? leafs : filtered;
     }
     
-    return filtered;
+    return result;
   };
 
   // 4. Mettre à jour la carte avec les nodes
@@ -460,7 +494,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
 
     const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
     if (!mapboxToken) {
-      console.error("Mapbox token manquant");
+      console.error("Mapbox token manquant - Veuillez définir NEXT_PUBLIC_MAPBOX_TOKEN dans vos variables d'environnement");
       return;
     }
 
@@ -580,6 +614,25 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       setTimeout(updateMap, 100);
     }
   }, [analytics, index]);
+
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+  if (!mapboxToken) {
+    return (
+      <div className="relative w-full h-full flex items-center justify-center bg-[#f5f5f7] rounded-2xl border border-black/[0.05]">
+        <div className="text-center p-8">
+          <Globe className="w-16 h-16 text-black/20 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-black mb-2">Token Mapbox manquant</h3>
+          <p className="text-sm text-black/50 mb-4">
+            Le globe nécessite un token Mapbox pour fonctionner.
+          </p>
+          <p className="text-xs text-black/40 font-mono bg-white/50 px-3 py-2 rounded border border-black/10">
+            NEXT_PUBLIC_MAPBOX_TOKEN
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full h-full">

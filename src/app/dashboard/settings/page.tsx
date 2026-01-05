@@ -16,13 +16,32 @@ import {
   ArrowUpRight
 } from "lucide-react";
 import { useState } from "react";
+import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { deleteAccountAction } from "@/lib/actions/account";
+import { useRouter } from "next/navigation";
 
 export default function SettingsPage() {
   const { user } = useUser();
   const { openUserProfile } = useClerk();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'profile' | 'account' | 'billing'>('profile');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (!user) return null;
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteAccountAction();
+      // Rediriger vers la page d'accueil après suppression
+      router.push("/");
+    } catch (error: any) {
+      console.error("Erreur lors de la suppression du compte:", error);
+      alert(`Erreur lors de la suppression du compte: ${error.message}`);
+      setIsDeleting(false);
+    }
+  };
 
   const tabs = [
     { id: 'profile', label: 'Profil', icon: User },
@@ -167,7 +186,11 @@ export default function SettingsPage() {
                 <p className="text-base text-red-600/60 font-medium mb-8 leading-relaxed max-w-lg">
                   La suppression de votre compte est irréversible. Toutes vos données et vos partages actifs seront instantanément détruits.
                 </p>
-                <button className="px-8 py-4 bg-red-500 text-white rounded-2xl text-[13px] font-bold uppercase tracking-[0.2em] shadow-lg shadow-red-200 hover:opacity-90 active:scale-95 transition-all">
+                <button 
+                  onClick={() => setShowDeleteModal(true)}
+                  disabled={isDeleting}
+                  className="px-8 py-4 bg-red-500 text-white rounded-2xl text-[13px] font-bold uppercase tracking-[0.2em] shadow-lg shadow-red-200 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   Supprimer mon compte Airlock
                 </button>
               </section>
@@ -234,6 +257,18 @@ export default function SettingsPage() {
               </section>
             </div>
           )}
+
+          <ConfirmModal
+            isOpen={showDeleteModal}
+            onClose={() => !isDeleting && setShowDeleteModal(false)}
+            onConfirm={handleDeleteAccount}
+            title="Supprimer définitivement votre compte"
+            message="Cette action est irréversible. Toutes vos données, fichiers, dossiers et partages seront définitivement supprimés. Êtes-vous absolument certain de vouloir continuer ?"
+            confirmText="Oui, supprimer mon compte"
+            cancelText="Annuler"
+            isDestructive={true}
+            isLoading={isDeleting}
+          />
         </main>
       </div>
     </div>
