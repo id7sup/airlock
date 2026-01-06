@@ -21,9 +21,15 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 ```bash
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_...
 CLERK_SECRET_KEY=sk_live_...
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/register
+NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/dashboard
+NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/dashboard
 ```
 
 **Où trouver :** Clerk Dashboard > API Keys
+
+**Note :** Les URLs de redirection sont configurées pour utiliser les pages d'authentification personnalisées (`/login` et `/register`).
 
 ### S3/Storage (Stockage de fichiers)
 ```bash

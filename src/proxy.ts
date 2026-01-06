@@ -18,6 +18,8 @@ const isPublicRoute = createRouteMatcher([
   "/confidentialite",    // Page confidentialité
   "/sign-in(.*)",        // Connexion
   "/sign-up(.*)",        // Inscription
+  "/login",              // Page de connexion personnalisée
+  "/register",           // Page d'inscription personnalisée
   "/api/public(.*)",     // API publiques (partage)
   "/share(.*)",          // Pages de partage publiques
   "/manifest.json",      // Manifest PWA

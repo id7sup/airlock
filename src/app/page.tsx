@@ -1,6 +1,6 @@
 "use client";
 
-import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { ChevronDown, Compass, Search, MousePointer2, Layers, Database, Zap, LayoutDashboard, Activity, Timer, BarChart3, History, Power, ArrowRight, Lock, Eye, Download, ShieldCheck, RefreshCw, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/shared/Logo";
@@ -241,16 +241,12 @@ export default function Home() {
 
             <div className="hidden md:flex items-center gap-3 shrink-0">
               <SignedOut>
-                <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
-                  <button className="text-white/70 hover:text-white text-[13px] font-medium px-3 py-1.5 transition-colors">
-                    Connexion
-                  </button>
-                </SignInButton>
-                <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
-                  <button className="bg-white text-black text-[13px] font-medium px-4 py-1.5 rounded-full hover:bg-white/90 transition-all">
-                    Inscription
-                  </button>
-                </SignUpButton>
+                <Link href="/login" className="text-white/70 hover:text-white text-[13px] font-medium px-3 py-1.5 transition-colors">
+                  Connexion
+                </Link>
+                <Link href="/register" className="bg-white text-black text-[13px] font-medium px-4 py-1.5 rounded-full hover:bg-white/90 transition-all">
+                  Inscription
+                </Link>
               </SignedOut>
               <SignedIn>
                 <Link href="/dashboard" className="text-white/70 hover:text-white text-[13px] font-medium px-3 py-1.5 transition-colors">
@@ -309,22 +305,20 @@ export default function Home() {
                   </Link>
                   <div className="pt-2 mt-2 border-t border-white/5 flex flex-col gap-2">
                     <SignedOut>
-                      <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
-                        <button 
-                          onClick={() => setIsMobileMenuOpen(false)}
-                          className="text-white/70 hover:text-white text-[13px] font-medium py-2 px-2 text-left transition-colors w-full"
-                        >
-                          Connexion
-                        </button>
-                      </SignInButton>
-                      <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
-                        <button 
-                          onClick={() => setIsMobileMenuOpen(false)}
-                          className="bg-white text-black text-[13px] font-medium px-4 py-2 rounded-full hover:bg-white/90 transition-all w-full text-center"
-                        >
-                          Inscription
-                        </button>
-                      </SignUpButton>
+                      <Link 
+                        href="/login"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="text-white/70 hover:text-white text-[13px] font-medium py-2 px-2 text-left transition-colors w-full"
+                      >
+                        Connexion
+                      </Link>
+                      <Link 
+                        href="/register"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="bg-white text-black text-[13px] font-medium px-4 py-2 rounded-full hover:bg-white/90 transition-all w-full text-center"
+                      >
+                        Inscription
+                      </Link>
                     </SignedOut>
                     <SignedIn>
                       <Link 
