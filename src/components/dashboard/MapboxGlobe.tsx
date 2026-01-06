@@ -130,27 +130,41 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         // C'est un cluster
         const pointCount = node.properties.point_count || 0;
         
-        // RÈGLE 1 : Un seul point ne doit JAMAIS être un cluster
+        // RÈGLE ABSOLUE : Un seul point ne doit JAMAIS être un cluster
+        // Décomposer immédiatement, peu importe le zoom
         if (pointCount <= 1) {
           const clusterId = node.properties.cluster_id;
           const leaves = index.getLeaves(clusterId, Infinity);
-          result.push(...leaves);
+          // S'assurer qu'on récupère bien les points individuels
+          if (leaves.length > 0) {
+            result.push(...leaves);
+          } else {
+            // Fallback : si getLeaves ne retourne rien, essayer de récupérer depuis les points originaux
+            const [lng, lat] = (node.geometry as any).coordinates;
+            const matchingPoint = points.find(p => {
+              const [pLng, pLat] = p.geometry.coordinates;
+              return Math.abs(pLng - lng) < 0.001 && Math.abs(pLat - lat) < 0.001;
+            });
+            if (matchingPoint) {
+              result.push(matchingPoint);
+            }
+          }
           continue;
         }
         
-        // RÈGLE 2 : À zoom élevé (>= 5), toujours décomposer tous les clusters
-        if (zoom >= 5) {
+        // RÈGLE 2 : À zoom élevé (>= 4), toujours décomposer tous les clusters
+        if (zoom >= 4) {
           const clusterId = node.properties.cluster_id;
           const leaves = index.getLeaves(clusterId, Infinity);
           result.push(...leaves);
         } 
-        // RÈGLE 3 : À zoom moyen (3-5), décomposer les petits clusters (2-3 points)
-        else if (zoom >= 3 && pointCount <= 3) {
+        // RÈGLE 3 : À zoom moyen (2.5-4), décomposer les petits clusters (2-4 points)
+        else if (zoom >= 2.5 && pointCount <= 4) {
           const clusterId = node.properties.cluster_id;
           const leaves = index.getLeaves(clusterId, Infinity);
           result.push(...leaves);
         }
-        // RÈGLE 4 : À zoom faible (< 3), garder les clusters avec au moins 2 points
+        // RÈGLE 4 : À zoom faible (< 2.5), garder les clusters avec au moins 2 points
         // (mais on a déjà vérifié qu'il y a au moins 2 points avec la règle 1)
         else {
           result.push(node);
@@ -161,7 +175,26 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       }
     }
     
-    return result;
+    // SÉCURITÉ FINALE : Vérifier qu'on n'a pas de clusters avec 1 seul point
+    // (ne devrait jamais arriver, mais on s'assure)
+    const finalResult: any[] = [];
+    for (const node of result) {
+      if (node.properties?.cluster && (node.properties.point_count || 0) <= 1) {
+        // Forcer la décomposition
+        const clusterId = node.properties.cluster_id;
+        const leaves = index.getLeaves(clusterId, Infinity);
+        if (leaves.length > 0) {
+          finalResult.push(...leaves);
+        } else {
+          // Si on ne peut pas décomposer, ignorer ce cluster invalide
+          continue;
+        }
+      } else {
+        finalResult.push(node);
+      }
+    }
+    
+    return finalResult;
   };
 
   // 4. Mettre à jour la carte avec les nodes
@@ -508,10 +541,20 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       center: [0, 0],
       pitch: 0,
       bearing: 0,
-      attributionControl: false,
+      attributionControl: false, // Désactiver l'attribution
       scrollZoom: false,
       antialias: true,
     });
+    
+    // S'assurer que l'attribution est bien désactivée et cachée
+    if (map.current.getContainer) {
+      const container = map.current.getContainer();
+      // Cacher tous les éléments d'attribution Mapbox
+      const attributionElements = container.querySelectorAll('.mapboxgl-ctrl-attrib');
+      attributionElements.forEach((el: any) => {
+        el.style.display = 'none';
+      });
+    }
 
     map.current.doubleClickZoom.disable();
     map.current.touchZoomRotate.disable();
@@ -520,9 +563,27 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
     map.current.dragPan.enable();
     map.current.setRenderWorldCopies(false);
     
+    // Fonction pour cacher l'attribution Mapbox
+    const hideAttribution = () => {
+      if (!map.current) return;
+      const container = map.current.getContainer();
+      const attributionElements = container.querySelectorAll('.mapboxgl-ctrl-attrib, .mapboxgl-ctrl-logo');
+      attributionElements.forEach((el: any) => {
+        el.style.display = 'none';
+        el.style.visibility = 'hidden';
+        el.style.opacity = '0';
+      });
+    };
+    
+    // Cacher l'attribution immédiatement et après le chargement
+    hideAttribution();
+    
     // Zoom avec Cmd + molette
     map.current.on("load", () => {
       if (!map.current) return;
+      
+      // Cacher l'attribution après le chargement
+      hideAttribution();
 
       const handleWheel = (e: WheelEvent) => {
         if (e.metaKey || e.ctrlKey) {
@@ -633,6 +694,25 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       </div>
     );
   }
+
+  // Cacher l'attribution Mapbox avec un useEffect
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .mapboxgl-ctrl-attrib,
+      .mapboxgl-ctrl-logo {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   return (
     <div className="relative w-full h-full">

@@ -13,11 +13,20 @@ const isPublicRoute = createRouteMatcher([
   "/",                    // Page d'accueil
   "/pricing",            // Page tarifs
   "/security",           // Page sécurité
+  "/faq",                // Page FAQ
+  "/mentions",           // Page mentions légales
+  "/confidentialite",    // Page confidentialité
   "/sign-in(.*)",        // Connexion
   "/sign-up(.*)",        // Inscription
   "/api/public(.*)",     // API publiques (partage)
   "/share(.*)",          // Pages de partage publiques
   "/manifest.json",      // Manifest PWA
+  "/sitemap.xml",        // Sitemap XML (SEO)
+  "/robots.txt",         // Robots.txt (SEO)
+  "/favicon.ico",        // Favicon ICO
+  "/favicon-32x32.png",  // Favicon 32x32
+  "/favicon-192x192.png", // Favicon 192x192
+  "/apple-touch-icon.png", // Apple Touch Icon
 ]);
 
 /**
@@ -34,9 +43,9 @@ export default clerkMiddleware(async (auth, request) => {
 export const config = {
   matcher: [
     // Exclure les fichiers statiques et Next.js internals
-    // Exclure explicitement manifest.json
-    '/((?!_next|manifest\\.json|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|json)).*)',
-    // Toujours exécuter pour les routes API (sauf manifest.json)
-    '/(api|trpc)((?!.*manifest\\.json).*)',
+    // Exclure explicitement manifest.json, sitemap.xml, robots.txt
+    '/((?!_next|manifest\\.json|sitemap\\.xml|robots\\.txt|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|json)).*)',
+    // Toujours exécuter pour les routes API (sauf manifest.json, sitemap.xml, robots.txt)
+    '/(api|trpc)((?!.*manifest\\.json|.*sitemap\\.xml|.*robots\\.txt).*)',
   ],
 };

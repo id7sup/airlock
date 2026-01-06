@@ -16,16 +16,13 @@ export const metadata: Metadata = {
   ...defaultMetadata,
   icons: {
     icon: [
-      { url: "/assets/logo.png", sizes: "32x32", type: "image/png" },
-      { url: "/assets/logo.png", sizes: "16x16", type: "image/png" },
-      { url: "/assets/logo.png", sizes: "192x192", type: "image/png" },
-      { url: "/assets/logo.png", sizes: "512x512", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-192x192.png", sizes: "192x192", type: "image/png" },
     ],
-    shortcut: "/assets/logo.png",
+    shortcut: "/favicon.ico",
     apple: [
-      { url: "/assets/logo.png", sizes: "180x180", type: "image/png" },
-      { url: "/assets/logo.png", sizes: "152x152", type: "image/png" },
-      { url: "/assets/logo.png", sizes: "120x120", type: "image/png" },
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
   },
   manifest: "/manifest.json",
