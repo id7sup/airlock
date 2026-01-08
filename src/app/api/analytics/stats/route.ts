@@ -14,11 +14,13 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const days = parseInt(searchParams.get("days") || "30");
     const linkId = searchParams.get("linkId");
+    const period = (searchParams.get("period") || "1J") as '1J' | '1S' | 'Max';
 
     const stats = await getLinkAnalyticsStats(
       linkId || null,
       userId,
-      days
+      days,
+      period
     );
 
     return NextResponse.json({ stats });

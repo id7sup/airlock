@@ -7,7 +7,7 @@ import { useSidebar } from "./SidebarProvider";
 import { useState, useEffect } from "react";
 
 export function TopBar() {
-  const { toggle } = useSidebar();
+  const { toggle, isOpen, open } = useSidebar();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -16,12 +16,14 @@ export function TopBar() {
 
   return (
     <header className="h-16 lg:h-20 border-b border-black/[0.05] bg-white/80 backdrop-blur-md flex items-center justify-between px-4 lg:px-8 sticky top-0 z-30">
-      <button
-        onClick={toggle}
-        className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl hover:bg-black/5 transition-colors mr-2"
-      >
-        <Menu className="w-5 h-5 text-black/40" />
-      </button>
+      {!isOpen && (
+        <button
+          onClick={open}
+          className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-black/5 transition-colors mr-2"
+        >
+          <Menu className="w-5 h-5 text-black/40" />
+        </button>
+      )}
 
       <div className="flex-1 max-w-xl">
         {/* Espace pour une recherche globale ou fil d'ariane si besoin */}

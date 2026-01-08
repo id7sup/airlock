@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FolderOpen, History, Bookmark, Trash2, Settings2, LayoutList, Users, X } from "lucide-react";
+import { FolderOpen, History, Bookmark, Trash2, Settings2, LayoutList, Users } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Logo } from "@/components/shared/Logo";
 import { useSidebar } from "./SidebarProvider";
@@ -29,10 +29,6 @@ export function Sidebar({ storageUsed = 0 }: { storageUsed?: number }) {
     { icon: Settings2, label: "Paramètres", href: "/dashboard/settings", active: pathname === "/dashboard/settings" },
   ];
 
-  const handleLinkClick = () => {
-    close();
-  };
-
   return (
     <>
       {/* Overlay pour mobile */}
@@ -44,22 +40,37 @@ export function Sidebar({ storageUsed = 0 }: { storageUsed?: number }) {
       />
       
       <aside className={`
-        fixed lg:static inset-y-0 left-0 z-50
+        fixed inset-y-0 left-0 z-50
         w-64 border-r border-black/[0.05] flex flex-col h-full bg-white
         transform transition-transform duration-300 ease-in-out
-        ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+        ${isOpen ? "translate-x-0" : "-translate-x-full"}
       `}>
         <div className="p-4 lg:p-6">
           <div className="flex items-center justify-between mb-6 lg:mb-10">
-            <Link href="/" className="flex items-center gap-3 px-3 hover:opacity-80 transition-opacity" onClick={handleLinkClick}>
+            <Link href="/" className="flex items-center gap-3 px-3 hover:opacity-80 transition-opacity">
               <Logo className="w-8 h-8" />
               <span className="text-xl font-semibold tracking-tight">Airlock</span>
             </Link>
             <button 
               onClick={close}
-              className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl hover:bg-black/5 transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/5 transition-colors group"
+              aria-label="Fermer la barre latérale"
             >
-              <X className="w-5 h-5 text-black/40" />
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="16" 
+                height="16" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className="text-black/40 group-hover:text-black/60 transition-colors"
+              >
+                <rect width="18" height="18" x="3" y="3" rx="2"/>
+                <path d="M15 3v18"/>
+              </svg>
             </button>
           </div>
 
@@ -68,7 +79,6 @@ export function Sidebar({ storageUsed = 0 }: { storageUsed?: number }) {
               <Link
                 key={item.label}
                 href={item.href}
-                onClick={handleLinkClick}
                 className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-300 group ${
                   item.active 
                     ? "bg-black text-white shadow-md shadow-black/10" 
@@ -94,7 +104,6 @@ export function Sidebar({ storageUsed = 0 }: { storageUsed?: number }) {
               <Link
                 key={item.label}
                 href={item.href}
-                onClick={handleLinkClick}
                 className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-300 group ${
                   item.active 
                     ? "bg-black text-white shadow-md shadow-black/10" 
