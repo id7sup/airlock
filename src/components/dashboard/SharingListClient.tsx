@@ -261,194 +261,62 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
 
       {/* Contenu des onglets */}
       {activeTab === "list" ? (
-        /* Liste Compacte */
-        <div className="grid grid-cols-1 gap-10">
-        {links.length === 0 ? (
-          <div className="col-span-full py-32 text-center bg-[#f5f5f7] rounded-2xl border border-black/5">
-            <FolderOpen className="w-16 h-16 text-black/10 mx-auto mb-4" />
-            <p className="text-lg font-medium text-black/30">Aucun partage actif</p>
-          </div>
-        ) : (
-          links.map((link) => (
-            <div key={link.id} className="relative group">
-              <div className="bg-white rounded-2xl border border-black/[0.05] overflow-hidden transition-all duration-700 hover:shadow-2xl hover:shadow-black/5">
-                  {updatingId === link.id && (
-                    <div className="absolute inset-0 z-50 bg-white/60 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
-                      <Loader2 className="w-10 h-10 text-brand-primary animate-spin" />
+        /* Liste Simple - Cliquable vers page dédiée */
+        <div className="space-y-4">
+          {links.length === 0 ? (
+            <div className="py-32 text-center bg-[#f5f5f7] rounded-2xl border border-black/5">
+              <FolderOpen className="w-16 h-16 text-black/10 mx-auto mb-4" />
+              <p className="text-lg font-medium text-black/30">Aucun partage actif</p>
+            </div>
+          ) : (
+            links.map((link) => (
+              <Link
+                key={link.id}
+                href={`/dashboard/sharing/${link.id}`}
+                className="block bg-white rounded-2xl border border-black/[0.05] p-6 hover:shadow-lg hover:shadow-black/5 transition-all duration-300 group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+                      <FolderOpen className="w-6 h-6 text-white fill-current" />
                     </div>
-                  )}
-
-                  <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-black/[0.03]">
-                    {/* Left Side: Identity & Controls */}
-                    <div className="md:w-[420px] p-10 flex flex-col justify-between bg-gradient-to-br from-white to-[#fbfbfd]">
-                      <div className="space-y-8">
-                        <div className="flex items-center gap-5">
-                          <div className="w-14 h-14 bg-black rounded-[22px] flex items-center justify-center shadow-lg shadow-black/20 group-hover:scale-105 transition-transform duration-500">
-                            <FolderOpen className="w-7 h-7 text-white fill-current" />
-                          </div>
-                          <div className="min-w-0">
-                            <h3 className="text-xl font-medium tracking-tight truncate text-black">{link.folderName}</h3>
-                            <p className="text-[11px] font-bold text-black/20 uppercase tracking-widest mt-1" suppressHydrationWarning>
-                              Généré le {new Date(link.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="space-y-3">
-                          {/* Control: Download */}
-                          <div className="flex items-center justify-between p-4 bg-[#f5f5f7] rounded-3xl group/item transition-colors hover:bg-white border border-transparent hover:border-black/5">
-                            <div className="flex items-center gap-4">
-                              <Download className={`w-5 h-5 ${link.allowDownload ? "text-brand-primary" : "text-black/20"}`} />
-                              <span className="text-[12px] font-bold text-black/40 uppercase tracking-widest">Téléchargement</span>
-                            </div>
-                            <button 
-                              onClick={() => handleToggleDownload(link)}
-                              className={`text-[11px] font-bold px-4 py-1.5 rounded-full transition-all ${link.allowDownload ? "bg-black text-white shadow-md shadow-black/20" : "bg-white text-black/40 border border-black/5"}`}
-                            >
-                              {link.allowDownload ? "ACTIF" : "BLOQUÉ"}
-                            </button>
-                          </div>
-
-                          {/* Control: Max Views */}
-                          <div className="flex items-center justify-between p-4 bg-[#f5f5f7] rounded-3xl group/item transition-colors hover:bg-white border border-transparent hover:border-black/5">
-                            <div className="flex items-center gap-4">
-                              <Eye className="w-5 h-5 text-black/40" />
-                              <span className="text-[12px] font-bold text-black/40 uppercase tracking-widest">Quota de Vues</span>
-                            </div>
-                            {editingField?.id === link.id && editingField?.type === 'views' ? (
-                              <div className="flex items-center gap-2">
-                                <input 
-                                  autoFocus
-                                  type="number"
-                                  min="0"
-                                  placeholder="∞"
-                                  defaultValue={link.maxViews || ""}
-                                  onBlur={(e) => handleUpdateMaxViews(link.id, e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      handleUpdateMaxViews(link.id, (e.target as HTMLInputElement).value);
-                                    }
-                                    // Empêcher la saisie de signe moins
-                                    if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
-                                      e.preventDefault();
-                                    }
-                                  }}
-                                  onChange={(e) => {
-                                    // Empêcher les valeurs négatives en temps réel
-                                    const val = e.target.value;
-                                    if (val !== "" && parseInt(val) < 0) {
-                                      e.target.value = "0";
-                                    }
-                                  }}
-                                  className="w-20 text-center text-[12px] font-bold bg-white border-2 border-brand-primary rounded-full py-1.5 outline-none"
-                                />
-                                <button onClick={() => setEditingField(null)} className="p-1 hover:text-red-500 transition-colors">
-                                  <CloseIcon className="w-4 h-4" />
-                                </button>
-                              </div>
-                            ) : (
-                              <button 
-                                onClick={() => setEditingField({ id: link.id, type: 'views' })}
-                                className="text-[12px] font-bold tabular-nums bg-white px-5 py-2 rounded-full border border-black/5 hover:bg-black hover:text-white transition-all shadow-sm"
-                              >
-                                {link.maxViews ? `${link.viewCount}/${link.maxViews}` : "Illimité"}
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Control: Expiry */}
-                          <div className="flex items-center justify-between p-4 bg-[#f5f5f7] rounded-3xl group/item transition-colors hover:bg-white border border-transparent hover:border-black/5">
-                            <div className="flex items-center gap-4">
-                              <Clock className="w-5 h-5 text-black/40" />
-                              <span className="text-[12px] font-bold text-black/40 uppercase tracking-widest">Expiration</span>
-                            </div>
-                            {editingField?.id === link.id && editingField?.type === 'expiry' ? (
-                              <div className="flex items-center gap-2">
-                                <input 
-                                  autoFocus
-                                  type="date"
-                                  onChange={(e) => handleUpdateExpiry(link.id, e.target.value)}
-                                  onBlur={(e) => !e.target.value && setEditingField(null)}
-                                  className="text-[12px] font-bold bg-white border-2 border-brand-primary rounded-2xl px-3 py-1.5 outline-none cursor-pointer"
-                                />
-                                <button onClick={() => setEditingField(null)} className="p-1 hover:text-red-500 transition-colors">
-                                  <CloseIcon className="w-4 h-4" />
-                                </button>
-                              </div>
-                            ) : (
-                              <button 
-                                onClick={() => setEditingField({ id: link.id, type: 'expiry' })}
-                                className="text-[12px] font-bold bg-white px-5 py-2 rounded-full border border-black/5 hover:bg-black hover:text-white transition-all shadow-sm"
-                                suppressHydrationWarning
-                              >
-                                {link.expiresAt ? new Date(link.expiresAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : "Illimitée"}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between mt-10 pt-8 border-t border-black/[0.03]">
-                        <div className="flex items-center gap-2 px-4 py-1.5 bg-[#B7C5A9]/10 rounded-full border border-[#B7C5A9]/20 shadow-sm">
-                          <div className="w-2 h-2 rounded-full bg-brand-primary animate-pulse" />
-                          <span className="text-[10px] font-bold text-[#96A982] uppercase tracking-[0.2em]">Sécurisé</span>
-                        </div>
-                        <div className="flex gap-3">
-                          <Link 
-                            href={`/share/${link.token}`} 
-                            target="_blank" 
-                            className="w-11 h-11 bg-[#f5f5f7] hover:bg-black hover:text-white flex items-center justify-center rounded-2xl transition-all active:scale-90"
-                          >
-                            <ExternalLink className="w-5 h-5" />
-                          </Link>
-                          <button 
-                            onClick={() => handleRevoke(link.id)} 
-                            className="w-11 h-11 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center rounded-2xl transition-all active:scale-90"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right Side: Analytics */}
-                    <div className="flex-1 p-10 bg-white/40">
-                      <div className="flex items-center justify-between mb-10 px-2">
-                        <div className="flex items-center gap-3">
-                          <LayoutList className="w-5 h-5 text-black/20" />
-                          <span className="text-[11px] font-bold text-black/20 uppercase tracking-[0.2em]">Statistiques</span>
-                        </div>
-                        <div className="flex gap-12">
-                          <div className="text-right space-y-1">
-                            <span className="text-[10px] font-bold text-black/20 uppercase tracking-widest block">Vues</span>
-                            <span className="text-4xl font-medium tabular-nums leading-none tracking-tighter text-black">{link.viewCount || 0}</span>
-                          </div>
-                          <div className="text-right space-y-1 border-l border-black/[0.05] pl-12">
-                            <span className="text-[10px] font-bold text-black/20 uppercase tracking-widest block">Downloads</span>
-                            <span className="text-4xl font-medium tabular-nums text-brand-primary leading-none tracking-tighter">{link.downloadCount || 0}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="h-56 -mx-2 min-h-[224px]">
-                        <SharingAnalyticsChart data={link.analytics} />
-                      </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-lg font-medium tracking-tight truncate text-black group-hover:text-brand-primary transition-colors">
+                        {link.folderName}
+                      </h3>
+                      <p className="text-xs text-black/40 mt-1" suppressHydrationWarning>
+                        Créé le {new Date(link.createdAt).toLocaleDateString('fr-FR', { 
+                          day: 'numeric', 
+                          month: 'long', 
+                          year: 'numeric' 
+                        })}
+                      </p>
                     </div>
                   </div>
-              </div>
-            </div>
-          ))
-        )}
+                  <div className="flex items-center gap-8 ml-6">
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest mb-1">Vues</p>
+                      <p className="text-2xl font-medium tabular-nums text-black">{link.viewCount || 0}</p>
+                    </div>
+                    <div className="text-right border-l border-black/[0.05] pl-8">
+                      <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest mb-1">Downloads</p>
+                      <p className="text-2xl font-medium tabular-nums text-brand-primary">{link.downloadCount || 0}</p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-black/20 group-hover:text-black group-hover:translate-x-1 transition-all ml-4" />
+                  </div>
+                </div>
+              </Link>
+            ))
+          )}
         </div>
       ) : (
-        /* Suivi en direct - Globe + Statistiques complètes intégrées */
+        /* Vue en direct - Uniquement le globe */
         <div className="space-y-8 -mt-4">
-          {/* Header avec sélecteur - Style Apple */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
             <div>
               <h2 className="text-2xl font-medium tracking-tight mb-1">Suivi en direct</h2>
               <p className="text-sm text-black/40 font-medium">
-                Visualisation géographique et analytics détaillées
+                Visualisation géographique en temps réel
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -470,8 +338,8 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
             </div>
           </div>
 
-          {/* Globe terrestre */}
-          <div className="h-[500px] w-full -mx-10">
+          {/* Globe terrestre uniquement */}
+          <div className="h-[600px] w-full -mx-10">
             {loadingAnalytics ? (
               <div className="h-full flex items-center justify-center bg-transparent">
                 <div className="text-center">
@@ -483,9 +351,6 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
               <MapboxGlobe analytics={geolocationAnalytics} />
             )}
           </div>
-
-          {/* Statistiques complètes intégrées */}
-          <AnalyticsDashboard linkId={selectedLinkId === "all" ? null : selectedLinkId} />
         </div>
       )}
 

@@ -29,6 +29,10 @@ interface GeolocationData {
   latitude?: number;
   longitude?: number;
   region?: string;
+  isp?: string;
+  asn?: string;
+  isDatacenter?: boolean;
+  isVPN?: boolean;
 }
 
 /**
@@ -43,6 +47,15 @@ interface TrackingData {
   userAgent?: string;
   fileId?: string;
   folderId?: string;
+  fileName?: string;
+  // Nouvelles données de tracking
+  invalidAttempt?: boolean; // Tentative invalide (mauvais mot de passe/token expiré)
+  ipChanged?: boolean; // Changement d'IP brutal dans la même session
+  deviceChanged?: boolean; // Changement de device brutal dans la même session
+  recipientCount?: number; // Nombre de destinataires (si partage par email)
+  isReshare?: boolean; // Quelqu'un a re-partagé le lien
+  previousIP?: string; // IP précédente pour détecter les changements
+  previousDevice?: string; // Device précédent pour détecter les changements
 }
 
 /**
@@ -92,6 +105,10 @@ export async function trackEvent(data: TrackingData) {
     if (data.geolocation.region !== undefined) analyticsData.region = data.geolocation.region;
     if (data.geolocation.latitude !== undefined) analyticsData.latitude = data.geolocation.latitude;
     if (data.geolocation.longitude !== undefined) analyticsData.longitude = data.geolocation.longitude;
+    if (data.geolocation.isp !== undefined) analyticsData.isp = data.geolocation.isp;
+    if (data.geolocation.asn !== undefined) analyticsData.asn = data.geolocation.asn;
+    if (data.geolocation.isDatacenter !== undefined) analyticsData.isDatacenter = data.geolocation.isDatacenter;
+    if (data.geolocation.isVPN !== undefined) analyticsData.isVPN = data.geolocation.isVPN;
   }
 
   // Ajouter les autres champs seulement s'ils ne sont pas undefined
@@ -100,6 +117,16 @@ export async function trackEvent(data: TrackingData) {
   if (data.userAgent !== undefined) analyticsData.userAgent = data.userAgent;
   if (data.fileId !== undefined) analyticsData.fileId = data.fileId;
   if (data.folderId !== undefined) analyticsData.folderId = data.folderId;
+  if (data.fileName !== undefined) analyticsData.fileName = data.fileName;
+  
+  // Nouvelles données de tracking
+  if (data.invalidAttempt !== undefined) analyticsData.invalidAttempt = data.invalidAttempt;
+  if (data.ipChanged !== undefined) analyticsData.ipChanged = data.ipChanged;
+  if (data.deviceChanged !== undefined) analyticsData.deviceChanged = data.deviceChanged;
+  if (data.recipientCount !== undefined) analyticsData.recipientCount = data.recipientCount;
+  if (data.isReshare !== undefined) analyticsData.isReshare = data.isReshare;
+  if (data.previousIP !== undefined) analyticsData.previousIP = data.previousIP;
+  if (data.previousDevice !== undefined) analyticsData.previousDevice = data.previousDevice;
 
   // Enregistrer l'événement complet
   await db.collection("shareAnalytics").add(analyticsData);
@@ -206,21 +233,33 @@ export async function getLinkAnalyticsWithGeolocation(linkId: string, days: numb
       const type = eventType === "OPEN_SHARE" ? "VIEW" : 
                    eventType === "DOWNLOAD_FILE" ? "DOWNLOAD" : 
                    eventType;
-      return {
-        id: doc.id,
-        linkId: linkId,
-        type: type,
-        eventType: eventType,
-        timestamp: data.timestamp?.toDate?.()?.toISOString() || new Date().toISOString(),
-        country: data.country || null,
-        city: data.city || null,
-        region: data.region || null,
-        latitude: data.latitude || null,
-        longitude: data.longitude || null,
-        ip: data.ip || null,
-        visitorId: data.visitorId || null,
-        userAgent: data.userAgent || null,
-      };
+        return {
+          id: doc.id,
+          linkId: linkId,
+          type: type,
+          eventType: eventType,
+          timestamp: data.timestamp?.toDate?.()?.toISOString() || new Date().toISOString(),
+          country: data.country || null,
+          city: data.city || null,
+          region: data.region || null,
+          latitude: data.latitude || null,
+          longitude: data.longitude || null,
+          ip: data.ip || null,
+          visitorId: data.visitorId || null,
+          userAgent: data.userAgent || null,
+          isp: data.isp || null,
+          asn: data.asn || null,
+          isDatacenter: data.isDatacenter || false,
+          isVPN: data.isVPN || false,
+          invalidAttempt: data.invalidAttempt || false,
+          ipChanged: data.ipChanged || false,
+          deviceChanged: data.deviceChanged || false,
+          recipientCount: data.recipientCount || 0,
+          isReshare: data.isReshare || false,
+          fileId: data.fileId || null,
+          fileName: data.fileName || null,
+          folderId: data.folderId || null,
+        };
     });
   } catch (error: any) {
     // Si l'index n'existe pas, essayer sans orderBy
@@ -249,6 +288,18 @@ export async function getLinkAnalyticsWithGeolocation(linkId: string, days: numb
             latitude: data.latitude || null,
             longitude: data.longitude || null,
             ip: data.ip || null,
+            isp: data.isp || null,
+            asn: data.asn || null,
+            isDatacenter: data.isDatacenter || false,
+            isVPN: data.isVPN || false,
+            invalidAttempt: data.invalidAttempt || false,
+            ipChanged: data.ipChanged || false,
+            deviceChanged: data.deviceChanged || false,
+            recipientCount: data.recipientCount || 0,
+            isReshare: data.isReshare || false,
+            fileId: data.fileId || null,
+            fileName: data.fileName || null,
+            folderId: data.folderId || null,
           };
         });
 
@@ -328,6 +379,18 @@ export async function getAllLinksAnalyticsWithGeolocation(userId: string, days: 
             ip: data.ip || null,
             visitorId: data.visitorId || null,
             userAgent: data.userAgent || null,
+            isp: data.isp || null,
+            asn: data.asn || null,
+            isDatacenter: data.isDatacenter || false,
+            isVPN: data.isVPN || false,
+            invalidAttempt: data.invalidAttempt || false,
+            ipChanged: data.ipChanged || false,
+            deviceChanged: data.deviceChanged || false,
+            recipientCount: data.recipientCount || 0,
+            isReshare: data.isReshare || false,
+            fileId: data.fileId || null,
+            fileName: data.fileName || null,
+            folderId: data.folderId || null,
           });
         });
       }

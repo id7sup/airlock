@@ -12,6 +12,10 @@ export interface GeolocationResult {
   latitude?: number;
   longitude?: number;
   ip?: string;
+  isp?: string;
+  asn?: string;
+  isDatacenter?: boolean;
+  isVPN?: boolean;
 }
 
 /**
@@ -20,13 +24,55 @@ export interface GeolocationResult {
  * @param ip - Adresse IP à géolocaliser
  * @returns Données de géolocalisation ou objet avec seulement l'IP en cas d'erreur
  */
+/**
+ * Détecte si une IP provient d'un datacenter ou VPN
+ * Basé sur des patterns connus d'ISP et ASN
+ */
+function detectDatacenterOrVPN(isp?: string, asn?: string): { isDatacenter: boolean; isVPN: boolean } {
+  if (!isp && !asn) {
+    return { isDatacenter: false, isVPN: false };
+  }
+
+  const ispLower = (isp || '').toLowerCase();
+  const asnLower = (asn || '').toLowerCase();
+
+  // Patterns pour datacenters
+  const datacenterPatterns = [
+    'datacenter', 'data center', 'hosting', 'server', 'cloud',
+    'amazon', 'aws', 'google cloud', 'azure', 'digitalocean',
+    'linode', 'vultr', 'ovh', 'hetzner', 'contabo', 'scaleway'
+  ];
+
+  // Patterns pour VPN
+  const vpnPatterns = [
+    'vpn', 'proxy', 'tor', 'anonymizer', 'nordvpn', 'expressvpn',
+    'surfshark', 'cyberghost', 'private internet access', 'mullvad',
+    'windscribe', 'protonvpn', 'hide.me', 'tunnelbear'
+  ];
+
+  const isDatacenter = datacenterPatterns.some(pattern => 
+    ispLower.includes(pattern) || asnLower.includes(pattern)
+  );
+
+  const isVPN = vpnPatterns.some(pattern => 
+    ispLower.includes(pattern) || asnLower.includes(pattern)
+  );
+
+  return { isDatacenter, isVPN };
+}
+
 export async function getGeolocationFromIP(ip: string): Promise<GeolocationResult> {
   try {
     // Utiliser ip-api.com (gratuit, 45 req/min, pas de clé API requise)
-    const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,city,regionName,lat,lon,query`);
+    // Ajouter les champs ISP et ASN
+    const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,city,regionName,lat,lon,query,isp,as,asname`);
     const data = await response.json();
 
     if (data.status === 'success') {
+      const isp = data.isp || undefined;
+      const asn = data.as ? `${data.as} - ${data.asname || ''}`.trim() : undefined;
+      const { isDatacenter, isVPN } = detectDatacenterOrVPN(isp, asn);
+
       return {
         ip: data.query || ip,
         country: data.country || undefined,
@@ -34,6 +80,10 @@ export async function getGeolocationFromIP(ip: string): Promise<GeolocationResul
         region: data.regionName || undefined,
         latitude: data.lat || undefined,
         longitude: data.lon || undefined,
+        isp: isp,
+        asn: asn,
+        isDatacenter,
+        isVPN,
       };
     }
   } catch (error: any) {

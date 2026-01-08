@@ -40,6 +40,7 @@ interface AnalyticsStats {
   // 6. Hot moments
   hotMoments: {
     activityByHour: Array<{ hour: number; count: number }>;
+    activityByPeriod: Array<{ label: string; count: number; timestamp?: number }>;
     peakActivity: { time: string; count: number };
     lastActivity: string | null;
   };
@@ -63,7 +64,8 @@ interface AnalyticsStats {
 export async function getLinkAnalyticsStats(
   linkId: string | null,
   userId: string,
-  days: number = 30
+  days: number = 30,
+  period: '1J' | '1S' | 'Max' = '1J'
 ): Promise<AnalyticsStats> {
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
@@ -103,20 +105,20 @@ export async function getLinkAnalyticsStats(
         allEvents.push(...snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       }
       
-      return calculateStats(allEvents, userId, days);
+      return calculateStats(allEvents, userId, days, period);
     }
 
     const snapshot = await query.get();
     const events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
-    return calculateStats(events, userId, days);
+    return calculateStats(events, userId, days, period);
   } catch (error) {
     console.error("Erreur lors du calcul des stats:", error);
     return getEmptyStats();
   }
 }
 
-function calculateStats(events: any[], userId: string, days: number): AnalyticsStats {
+function calculateStats(events: any[], userId: string, days: number, period: '1J' | '1S' | 'Max' = '1J'): AnalyticsStats {
   if (events.length === 0) {
     return getEmptyStats();
   }
@@ -281,12 +283,48 @@ function calculateStats(events: any[], userId: string, days: number): AnalyticsS
   };
 
   // 6. Hot moments
+  // Réutiliser la variable 'now' définie plus haut (ligne 139)
+  let periodStart: Date;
+  let periodDuration: number; // en millisecondes
+  
+  switch (period) {
+    case '1J':
+      periodStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      periodDuration = 24 * 60 * 60 * 1000;
+      break;
+    case '1S':
+      periodStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      periodDuration = 7 * 24 * 60 * 60 * 1000;
+      break;
+    case 'Max':
+      periodStart = new Date(0);
+      periodDuration = now.getTime();
+      break;
+  }
+
+  // Filtrer les événements de la période sélectionnée
+  const periodEvents = events.filter((event: any) => {
+    const timestamp = event.timestamp;
+    let date: Date;
+    if (timestamp && typeof timestamp.toDate === 'function') {
+      date = timestamp.toDate() as Date;
+    } else if (timestamp instanceof Date) {
+      date = timestamp;
+    } else if (typeof timestamp === 'string') {
+      date = new Date(timestamp);
+    } else {
+      return false;
+    }
+    return date >= periodStart && date <= now;
+  });
+
   const hourCounts: Record<number, number> = {};
+  const periodData: Record<string, number> = {};
   let maxCount = 0;
   let peakTime = "";
   let lastActivityDate: Date | null = null;
 
-  events.forEach((event: any) => {
+  periodEvents.forEach((event: any) => {
     const timestamp = event.timestamp;
     let date: Date;
     if (timestamp && typeof timestamp.toDate === 'function') {
@@ -299,12 +337,46 @@ function calculateStats(events: any[], userId: string, days: number): AnalyticsS
       date = new Date();
     }
     
+    // Pour activityByHour (toujours 24 heures pour compatibilité)
     const hour = date.getHours();
     hourCounts[hour] = (hourCounts[hour] || 0) + 1;
     
-    if (hourCounts[hour] > maxCount) {
-      maxCount = hourCounts[hour];
-      peakTime = `${hour.toString().padStart(2, '0')}:00`;
+    // Pour activityByPeriod (selon la période sélectionnée)
+    let periodKey: string;
+    let periodTimestamp: number;
+    
+    switch (period) {
+      case '1J':
+        // Utiliser l'heure complète de l'événement (sans les minutes)
+        // Cela regroupe tous les événements qui se sont produits dans la même heure
+        const eventHour = date.getHours();
+        periodKey = `${eventHour.toString().padStart(2, '0')}h`;
+        // Calculer l'index de la tranche (0 = il y a 23h, 23 = maintenant)
+        const hoursSinceEvent = Math.floor((now.getTime() - date.getTime()) / (60 * 60 * 1000));
+        periodTimestamp = Math.max(0, 23 - hoursSinceEvent);
+        break;
+      case '1S':
+        // Jours de la semaine (7 derniers jours)
+        const dayOfWeek = date.toLocaleDateString('fr-FR', { weekday: 'short' });
+        periodKey = dayOfWeek;
+        periodTimestamp = date.getTime();
+        break;
+      case 'Max':
+        // Tous les mois disponibles
+        const monthMax = date.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+        periodKey = monthMax;
+        periodTimestamp = date.getTime();
+        break;
+    }
+    
+    if (!periodData[periodKey]) {
+      periodData[periodKey] = 0;
+    }
+    periodData[periodKey]++;
+    
+    if (periodData[periodKey] > maxCount) {
+      maxCount = periodData[periodKey];
+      peakTime = periodKey;
     }
     
     if (lastActivityDate === null || date > lastActivityDate) {
@@ -312,10 +384,82 @@ function calculateStats(events: any[], userId: string, days: number): AnalyticsS
     }
   });
 
-  const activityByHour = Array.from({ length: 24 }, (_, i) => ({
-    hour: i,
-    count: hourCounts[i] || 0,
-  }));
+  // Générer activityByHour (24 heures pour compatibilité, mais basé sur les 24 dernières heures)
+  const activityByHour = Array.from({ length: 24 }, (_, i) => {
+    // Pour 1J, on utilise les heures des 24 dernières heures
+    if (period === '1J') {
+      const hoursAgo = (24 - i) % 24;
+      const targetHour = (now.getHours() - hoursAgo + 24) % 24;
+      return {
+        hour: targetHour,
+        count: hourCounts[targetHour] || 0,
+      };
+    }
+    // Pour les autres périodes, on garde l'ancien format (0-23h)
+    return {
+      hour: i,
+      count: hourCounts[i] || 0,
+    };
+  });
+
+  // Générer activityByPeriod selon la période
+  let activityByPeriod: Array<{ label: string; count: number; timestamp?: number }> = [];
+  
+  switch (period) {
+    case '1J':
+      // 24 dernières heures : créer 24 tranches d'une heure chacune
+      // Afficher les heures des 24 dernières heures dans l'ordre chronologique
+      activityByPeriod = Array.from({ length: 24 }, (_, i) => {
+        // i=0 = il y a 23h, i=23 = maintenant (heure actuelle)
+        const hoursAgo = 23 - i;
+        const targetDate = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000);
+        const hour = targetDate.getHours();
+        const label = `${hour.toString().padStart(2, '0')}h`;
+        return {
+          label,
+          count: periodData[label] || 0,
+          timestamp: i, // Index de la tranche (0-23)
+        };
+      });
+      break;
+    case '1S':
+      // 7 derniers jours
+      activityByPeriod = Array.from({ length: 7 }, (_, i) => {
+        const daysAgo = 6 - i;
+        const targetDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+        const dayLabel = targetDate.toLocaleDateString('fr-FR', { weekday: 'short' });
+        return {
+          label: dayLabel,
+          count: periodData[dayLabel] || 0,
+          timestamp: targetDate.getTime(),
+        };
+      });
+      break;
+    case 'Max':
+      // Tous les mois disponibles (trier par date)
+      const allMonths = Object.keys(periodData)
+        .map(key => {
+          // Trouver une date correspondante pour ce mois
+          const parts = key.split(' ');
+          if (parts.length === 2) {
+            const monthNames = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+            const monthIndex = monthNames.indexOf(parts[0]);
+            const year = parseInt(parts[1]);
+            if (monthIndex !== -1 && !isNaN(year)) {
+              return {
+                label: key,
+                count: periodData[key],
+                timestamp: new Date(year, monthIndex, 1).getTime(),
+              };
+            }
+          }
+          return null;
+        })
+        .filter((item): item is { label: string; count: number; timestamp: number } => item !== null)
+        .sort((a, b) => a.timestamp - b.timestamp);
+      activityByPeriod = allMonths;
+      break;
+  }
 
   // Convertir lastActivityDate en string ISO ou null
   const getLastActivityString = (date: Date | null): string | null => {
@@ -325,6 +469,7 @@ function calculateStats(events: any[], userId: string, days: number): AnalyticsS
 
   const hotMoments = {
     activityByHour,
+    activityByPeriod,
     peakActivity: { time: peakTime, count: maxCount },
     lastActivity: getLastActivityString(lastActivityDate),
   };
@@ -448,6 +593,7 @@ function getEmptyStats(): AnalyticsStats {
     },
     hotMoments: {
       activityByHour: Array.from({ length: 24 }, (_, i) => ({ hour: i, count: 0 })),
+      activityByPeriod: [],
       peakActivity: { time: "00:00", count: 0 },
       lastActivity: null,
     },

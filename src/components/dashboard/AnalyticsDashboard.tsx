@@ -55,6 +55,7 @@ interface AnalyticsStats {
   };
   hotMoments: {
     activityByHour: Array<{ hour: number; count: number }>;
+    activityByPeriod: Array<{ label: string; count: number; timestamp?: number }>;
     peakActivity: { time: string; count: number };
     lastActivity: string | null;
   };
@@ -78,14 +79,15 @@ interface AnalyticsDashboardProps {
 export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
   const [stats, setStats] = useState<AnalyticsStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState<'1J' | '1S' | 'Max'>('1J');
 
   useEffect(() => {
     const fetchStats = async () => {
       setLoading(true);
       try {
         const url = linkId 
-          ? `/api/analytics/stats?days=30&linkId=${linkId}`
-          : `/api/analytics/stats?days=30`;
+          ? `/api/analytics/stats?days=30&linkId=${linkId}&period=${period}`
+          : `/api/analytics/stats?days=30&period=${period}`;
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
@@ -101,7 +103,7 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
     fetchStats();
     const interval = setInterval(fetchStats, 30000);
     return () => clearInterval(interval);
-  }, [linkId]);
+  }, [linkId, period]);
 
   if (loading) {
     return (
@@ -137,9 +139,9 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
   const totalEvents = stats.totals.openShare + stats.totals.openFolder + stats.totals.viewFile + stats.totals.downloadFile;
 
   return (
-    <div className="space-y-24">
+    <div className="space-y-16">
       {/* Métriques principales - Ultra minimaliste */}
-      <div className="grid grid-cols-4 gap-12 border-b border-black/[0.03] pb-12">
+      <div className="grid grid-cols-4 gap-16 border-b border-black/[0.03] pb-16">
         <div className="space-y-2">
           <p className="text-[10px] font-bold text-black/25 uppercase tracking-[0.25em]">Visiteurs</p>
           <p className="text-6xl font-light tracking-[-0.02em] text-black tabular-nums leading-none">{stats.uniques.total}</p>
@@ -163,7 +165,7 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
       </div>
 
       {/* Activité en temps réel - Design complètement repensé avec graphiques explicites */}
-      <div className="space-y-12">
+      <div className="space-y-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h2 className="text-3xl font-light tracking-tight text-black">Activité en temps réel</h2>
@@ -178,15 +180,46 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
           </div>
         </div>
         
-        {/* Graphique principal - Courbe d'activité par heure */}
+        {/* Graphique principal - Courbe d'activité par période */}
         <div className="bg-white rounded-3xl border border-black/[0.05] p-8 shadow-sm">
-          <div className="mb-6">
-            <h3 className="text-lg font-medium text-black mb-2">Distribution horaire (24h)</h3>
-            <p className="text-sm text-black/40">Activité répartie sur les 24 heures de la journée</p>
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-black mb-2">
+                {period === '1J' ? 'Distribution horaire (24h)' : 
+                 period === '1S' ? 'Distribution hebdomadaire (7j)' :
+                 'Distribution globale'}
+              </h3>
+              <p className="text-sm text-black/40">
+                {period === '1J' ? 'Activité répartie sur les 24 dernières heures' :
+                 period === '1S' ? 'Activité répartie sur les 7 derniers jours' :
+                 'Activité répartie sur toute la période'}
+              </p>
+            </div>
+            {/* Sélecteur de période */}
+            <div className="flex items-center gap-2">
+              {(['1J', '1S', 'Max'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    period === p
+                      ? 'bg-black text-white'
+                      : 'bg-black/5 text-black/60 hover:bg-black/10'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="h-[400px] w-full" style={{ minHeight: '400px' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={stats.hotMoments.activityByHour} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <AreaChart 
+                data={stats.hotMoments.activityByPeriod.length > 0 
+                  ? stats.hotMoments.activityByPeriod 
+                  : stats.hotMoments.activityByHour.map(h => ({ label: `${h.hour.toString().padStart(2, '0')}h`, count: h.count }))} 
+                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              >
                 <defs>
                   <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#96A982" stopOpacity={0.3}/>
@@ -196,11 +229,13 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
                 <XAxis 
-                  dataKey="hour" 
+                  dataKey="label" 
                   tick={{ fontSize: 11, fill: 'rgba(0,0,0,0.4)', fontWeight: 500 }}
-                  tickFormatter={(value) => `${value.toString().padStart(2, '0')}h`}
                   axisLine={false}
                   tickLine={false}
+                  angle={period === 'Max' ? -45 : 0}
+                  textAnchor={period === 'Max' ? 'end' : 'middle'}
+                  height={period === 'Max' ? 60 : 30}
                 />
                 <YAxis 
                   tick={{ fontSize: 11, fill: 'rgba(0,0,0,0.4)', fontWeight: 500 }}
@@ -214,7 +249,7 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
                       return (
                         <div className="bg-white/95 backdrop-blur-xl border border-black/[0.08] p-4 rounded-2xl shadow-xl">
                           <p className="text-xs font-bold text-black/30 uppercase tracking-wider mb-2">
-                            {String(label).padStart(2, '0')}h
+                            {label}
                           </p>
                           <div className="flex items-center gap-3">
                             <div className="w-3 h-3 rounded-full bg-brand-primary" />
@@ -246,59 +281,6 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
           </div>
         </div>
 
-        {/* Graphique en barres pour une vue alternative */}
-        <div className="bg-white rounded-3xl border border-black/[0.05] p-8 shadow-sm">
-          <div className="mb-6">
-            <h3 className="text-lg font-medium text-black mb-2">Activité par heure (vue détaillée)</h3>
-            <p className="text-sm text-black/40">Nombre d'événements pour chaque heure</p>
-          </div>
-          <div className="h-[300px] w-full" style={{ minHeight: '300px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.hotMoments.activityByHour} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
-                <XAxis 
-                  dataKey="hour" 
-                  tick={{ fontSize: 10, fill: 'rgba(0,0,0,0.4)', fontWeight: 500 }}
-                  tickFormatter={(value) => `${value.toString().padStart(2, '0')}h`}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis 
-                  tick={{ fontSize: 10, fill: 'rgba(0,0,0,0.4)', fontWeight: 500 }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip 
-                  content={({ active, payload, label }) => {
-                    if (active && payload && payload.length && label !== undefined) {
-                      return (
-                        <div className="bg-white/95 backdrop-blur-xl border border-black/[0.08] p-3 rounded-xl shadow-xl">
-                          <p className="text-xs font-bold text-black/30 uppercase tracking-wider mb-1">
-                            {String(label).padStart(2, '0')}h
-                          </p>
-                          <p className="text-sm font-semibold text-black">
-                            {payload[0].value} événements
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                  cursor={{ fill: 'rgba(150, 169, 130, 0.1)' }}
-                />
-                <Bar 
-                  dataKey="count" 
-                  fill="#96A982"
-                  radius={[8, 8, 0, 0]}
-                  isAnimationActive={true}
-                  animationDuration={1500}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
         {/* Métriques résumées */}
         <div className="grid grid-cols-3 gap-6">
           <div className="bg-gradient-to-br from-white to-[#f9faf9] rounded-2xl border border-black/[0.05] p-6">
@@ -324,14 +306,6 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
           </div>
         </div>
 
-        {/* Visualisation waveform originale (conservée pour référence) */}
-        <div className="relative pt-4">
-          <div className="mb-4">
-            <h3 className="text-sm font-medium text-black/50 mb-1">Vue waveform</h3>
-            <p className="text-xs text-black/30">Visualisation alternative de l'activité</p>
-          </div>
-          <ActivityWaveform data={stats.hotMoments.activityByHour} />
-        </div>
       </div>
 
       {/* Top Pays - Ultra minimaliste */}
@@ -408,108 +382,6 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-// Nouvelle visualisation - Waveform style (comme un oscilloscope)
-function ActivityWaveform({ data }: { data: Array<{ hour: number; count: number }> }) {
-  const maxCount = Math.max(...data.map(h => h.count), 1);
-  const currentHour = new Date().getHours();
-  const total = data.reduce((acc, h) => acc + h.count, 0);
-  const average = Math.round(total / 24);
-  
-  return (
-    <div className="relative">
-      {/* Ligne de base centrale */}
-      <div className="absolute top-1/2 left-0 right-0 h-px bg-black/[0.04] transform -translate-y-1/2" />
-      
-      {/* Waveform */}
-      <div className="relative flex items-center justify-between px-1 py-16">
-      {data.map((item, idx) => {
-          const isCurrentHour = currentHour === item.hour;
-          const isPast = item.hour < currentHour;
-          const isFuture = item.hour > currentHour;
-          const normalizedCount = maxCount > 0 ? item.count / maxCount : 0;
-          const amplitude = normalizedCount * 80; // Amplitude max 80px
-          const direction = idx % 2 === 0 ? 1 : -1; // Alternance haut/bas
-          
-        return (
-            <div key={idx} className="relative flex flex-col items-center group flex-1">
-              {/* Point de connexion */}
-            <div 
-                className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full transition-all duration-700 cursor-pointer ${
-                  isCurrentHour 
-                    ? 'bg-brand-primary shadow-lg shadow-brand-primary/40' 
-                    : isPast 
-                    ? 'bg-brand-primary/50' 
-                    : 'bg-black/10'
-                }`}
-                style={{
-                  width: isCurrentHour ? '12px' : normalizedCount > 0 ? `${Math.max(6, normalizedCount * 10)}px` : '4px',
-                  height: isCurrentHour ? '12px' : normalizedCount > 0 ? `${Math.max(6, normalizedCount * 10)}px` : '4px',
-                  transform: `translate(-50%, -50%) translateY(${direction * amplitude}px)`,
-                }}
-              >
-                {/* Effet pulse pour l'heure actuelle */}
-                {isCurrentHour && (
-                  <div className="absolute inset-0 rounded-full bg-brand-primary animate-ping opacity-30" />
-                )}
-                
-                {/* Tooltip */}
-            {item.count > 0 && (
-                  <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
-                    <div className="bg-black text-white text-[10px] font-medium px-2 py-1 rounded whitespace-nowrap">
-                      {item.count} • {item.hour}h
-                    </div>
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-transparent border-t-black" />
-                  </div>
-                )}
-              </div>
-              
-              {/* Ligne de connexion (optionnelle, pour créer un effet de waveform) */}
-              {idx > 0 && item.count > 0 && (
-                <div 
-                  className="absolute top-1/2 left-0 w-full h-px bg-brand-primary/20"
-                  style={{
-                    transform: `translateY(${direction * amplitude}px)`,
-                    opacity: normalizedCount * 0.5
-                  }}
-                />
-              )}
-              
-              {/* Label heure */}
-              <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2">
-                <span className={`text-[9px] font-medium transition-colors ${
-                  isCurrentHour 
-                    ? 'text-brand-primary font-bold' 
-                    : isPast 
-                    ? 'text-black/30' 
-                    : 'text-black/15'
-                }`}>
-                  {item.hour.toString().padStart(2, '0')}
-              </span>
-              </div>
-          </div>
-        );
-      })}
-      </div>
-
-      {/* Métriques en bas - Ultra minimaliste */}
-      <div className="flex items-center justify-between pt-12 border-t border-black/[0.02] mt-8">
-        <div className="text-center">
-          <p className="text-[9px] font-bold text-black/20 uppercase tracking-[0.3em] mb-2">Total</p>
-          <p className="text-3xl font-light text-black tabular-nums tracking-tight">{total}</p>
-        </div>
-        <div className="text-center">
-          <p className="text-[9px] font-bold text-black/20 uppercase tracking-[0.3em] mb-2">Moyenne</p>
-          <p className="text-3xl font-light text-black tabular-nums tracking-tight">{average}</p>
-        </div>
-        <div className="text-center">
-          <p className="text-[9px] font-bold text-black/20 uppercase tracking-[0.3em] mb-2">Dernière</p>
-          <p className="text-xl font-light text-black">{data.find(h => h.count > 0)?.hour.toString().padStart(2, '0') || '00'}h</p>
-        </div>
-      </div>
     </div>
   );
 }
