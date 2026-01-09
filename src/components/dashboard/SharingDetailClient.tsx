@@ -21,6 +21,9 @@ import { updateShareLinkAction } from "@/lib/actions/sharing_update";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { ErrorModal } from "@/components/shared/ErrorModal";
 import { AnalyticsDashboard } from "./AnalyticsDashboard";
+import { LogsPageClient } from "@/components/dashboard/LogsPageClient";
+import { getNotificationsAction } from "@/lib/actions/notifications";
+import type { NotificationType } from "@/services/notifications";
 
 interface SharedLink {
   id: string;
@@ -76,6 +79,10 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
   const [fileNameMap, setFileNameMap] = useState<Record<string, string>>({});
   const [blockedIps, setBlockedIps] = useState<string[]>(link.blockedIps || []);
   const [blockedDevices, setBlockedDevices] = useState<string[]>(link.blockedDevices || []);
+  const [logs, setLogs] = useState<Array<{ id: string; type: NotificationType; metadata?: any; createdAt: string }>>(
+    []
+  );
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -103,6 +110,21 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
   useEffect(() => {
     setShareUrl(`${window.location.origin}/share/${linkData.token}`);
   }, [linkData.token]);
+
+  useEffect(() => {
+    const loadLogs = async () => {
+      setLoadingLogs(true);
+      try {
+        const data = await getNotificationsAction(200);
+        setLogs(data as any[]);
+      } catch (error) {
+        console.error("Erreur lors du chargement des logs:", error);
+      } finally {
+        setLoadingLogs(false);
+      }
+    };
+    loadLogs();
+  }, []);
 
   useEffect(() => {
     setNotifications(linkData.notifications || []);
@@ -492,7 +514,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
         </div>
 
         {activeTab === "Vue globale" && (
-        <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-5">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
             {/* Colonne gauche : paramètres du lien */}
             <div className="space-y-4">
               <div className="p-4 rounded-2xl border border-black/[0.06] bg-white shadow-sm space-y-3">
@@ -772,10 +794,33 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                   </div>
                 </div>
               )}
+
+              {stats && (
+                <div className="p-4 rounded-2xl border border-black/[0.06] bg-white shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-semibold text-black">Sécurité & anomalies</h3>
+                    <span className="text-[11px] uppercase tracking-[0.18em] text-red-600">Surveillance</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-3 rounded-xl bg-red-50 border border-red-100">
+                      <p className="text-[11px] font-semibold text-red-700 uppercase tracking-wide">Tentatives invalides</p>
+                      <p className="text-2xl font-semibold text-red-800 tabular-nums mt-1">{stats.invalidAttempts}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-red-50 border border-red-100">
+                      <p className="text-[11px] font-semibold text-red-700 uppercase tracking-wide">VPN / DC</p>
+                      <p className="text-2xl font-semibold text-red-800 tabular-nums mt-1">{stats.totalVPN + stats.totalDatacenter}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-black/[0.02] border border-black/[0.05]">
+                      <p className="text-[11px] font-semibold text-black/60 uppercase tracking-wide">Changements IP/Appareil</p>
+                      <p className="text-2xl font-semibold text-black tabular-nums mt-1">{stats.ipChanges + stats.deviceChanges}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Colonne droite : analytics complètes */}
-            <div className="space-y-5">
+            {/* Analytics : span deux colonnes à droite */}
+            <div className="space-y-5 xl:col-span-2">
               <AnalyticsDashboard linkId={linkData.id} />
             </div>
           </div>
@@ -783,21 +828,19 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
 
         {activeTab === "Logs" && (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-black">Logs</h2>
-            <div className="bg-white border border-black/[0.06] rounded-2xl p-4 space-y-3">
-              <div className="flex flex-wrap gap-2 text-sm">
-                <span className="px-3 py-1 rounded-full border border-black/[0.08]">Type: Tous</span>
-                <span className="px-3 py-1 rounded-full border border-black/[0.08]">Période: 7j</span>
-                <span className="px-3 py-1 rounded-full border border-black/[0.08]">Source: Toutes</span>
-              </div>
-              <div className="text-sm text-black/60 flex items-center justify-between">
-                <span>Affichage résumé (placeholder)</span>
-                <Link href={`/dashboard/sharing/logs?linkId=${linkData.id}`} className="text-black hover:underline">Ouvrir la page complète</Link>
-              </div>
-              <div className="rounded-2xl border border-black/[0.05] bg-black/[0.02] p-4 text-sm text-black/50">
-                Aucune donnée à afficher ici. Consultez la page complète pour les filtres et détails.
-              </div>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-black">Logs</h2>
+              {loadingLogs && (
+                <div className="text-xs text-black/50 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Chargement...
+                </div>
+              )}
             </div>
+            <LogsPageClient
+              initialLogs={logs}
+              linkContext={{ folderId: linkData.folderId, folderName: linkData.folderName }}
+            />
           </div>
         )}
 

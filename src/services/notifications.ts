@@ -1,7 +1,12 @@
 import { db } from "@/lib/firebase";
 import * as admin from "firebase-admin";
 
-export type NotificationType = "VIEW" | "DOWNLOAD" | "EXPIRATION" | "PASSWORD_ACCESS";
+export type NotificationType =
+  | "VIEW"
+  | "DOWNLOAD"
+  | "EXPIRATION"
+  | "PASSWORD_ACCESS"
+  | "PASSWORD_DENIED";
 
 export async function createNotification(userId: string, type: NotificationType, metadata: any) {
   try {

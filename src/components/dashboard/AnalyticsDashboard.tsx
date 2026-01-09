@@ -356,51 +356,67 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
         </div>
       )}
 
-      {/* Funnel d'engagement - Ultra minimaliste */}
-      <div className="space-y-8">
-        <h2 className="text-3xl font-light tracking-tight text-black border-b border-black/[0.02] pb-6">Funnel d'engagement</h2>
-        <div className="space-y-0.5">
-          <FunnelRow label="Vue → Téléchargement" value={stats.funnel.viewToDownload} />
-          <FunnelRow label="Vue → Fichier consulté" value={stats.funnel.viewToViewFile} />
-          <FunnelRow label="Vue → Dossier ouvert" value={stats.funnel.viewToOpenFolder} />
-        </div>
-      </div>
-
-      {/* Sources de trafic - Grid minimaliste */}
-      {stats.referrers.length > 0 && (
-        <div className="space-y-8">
-          <h2 className="text-3xl font-light tracking-tight text-black border-b border-black/[0.02] pb-6">Sources de trafic</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
-            {stats.referrers.slice(0, 8).map((item, idx) => (
-              <div key={idx} className="text-center space-y-2">
-                <p className="text-4xl font-light text-black tabular-nums tracking-tight">{item.count}</p>
-                <p className="text-sm font-light text-black/50">{item.category}</p>
-                <p className="text-xs text-black/30">{item.percentage.toFixed(1)}%</p>
+      {/* Funnel + Sources */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+        {/* Funnel d'engagement */}
+        <div className="bg-white border border-black/[0.05] rounded-2xl shadow-sm p-6 space-y-4 xl:col-span-7 xl:col-start-1">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-black">Funnel d'engagement</h2>
+            <span className="text-[11px] text-black/40 uppercase tracking-[0.18em]">Conversion</span>
+          </div>
+          <div className="space-y-3">
+            {[
+              { label: "Vue → Téléchargement", value: stats.funnel.viewToDownload },
+              { label: "Vue → Fichier consulté", value: stats.funnel.viewToViewFile },
+              { label: "Vue → Dossier ouvert", value: stats.funnel.viewToOpenFolder },
+            ].map((item) => (
+              <div key={item.label} className="bg-black/[0.02] border border-black/[0.04] rounded-xl px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-black">{item.label}</p>
+                  <span className="text-sm font-semibold text-black tabular-nums">{item.value.toFixed(1)}%</span>
+                </div>
+                <div className="mt-2 h-2 rounded-full bg-black/[0.04] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-brand-primary to-brand-secondary transition-all"
+                    style={{ width: `${Math.min(item.value, 100)}%` }}
+                  />
+                </div>
               </div>
             ))}
           </div>
         </div>
-      )}
 
-      {/* Sécurité - Minimaliste */}
-      {stats.security.totalDenials > 0 && (
-        <div className="space-y-4 pt-8 border-t border-red-200/30">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="w-4 h-4 text-red-600" />
-            <h2 className="text-3xl font-light tracking-tight text-red-900">Sécurité & Anomalies</h2>
+        {/* Sources de trafic */}
+        <div className="bg-white border border-black/[0.05] rounded-2xl shadow-sm p-6 space-y-4 xl:col-span-5 xl:col-start-8">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-black">Sources de trafic</h2>
+            <span className="text-[11px] text-black/40 uppercase tracking-[0.18em]">Top</span>
           </div>
-          <p className="text-sm text-red-700/80 font-light">{stats.security.totalDenials} refus • {stats.security.denials24h} (24h)</p>
-          {stats.security.unusualCountries.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-3">
-                {stats.security.unusualCountries.map((country, idx) => (
-                <span key={idx} className="px-3 py-1.5 bg-red-50/50 text-red-700 rounded-lg text-xs font-light border border-red-200/50">
-                    {country}
-                  </span>
-                ))}
+          {stats.referrers.length === 0 ? (
+            <p className="text-sm text-black/40">Aucune source pour l’instant.</p>
+          ) : (
+            <div className="space-y-3">
+              {stats.referrers.slice(0, 5).map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-black/[0.02] border border-black/[0.04]">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-7 h-7 rounded-lg bg-black/[0.04] flex items-center justify-center text-xs font-semibold text-black/60">
+                      {idx + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-black truncate">{item.category || "Inconnu"}</p>
+                      <p className="text-[11px] text-black/45">{item.count} événements</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold text-black tabular-nums">{item.percentage.toFixed(1)}%</p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
-      )}
+      </div>
+
     </div>
   );
 }

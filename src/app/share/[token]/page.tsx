@@ -246,6 +246,28 @@ export default async function PublicSharePage({
         const isPasswordCorrect = inputHash === link.passwordHash;
 
         if (!pwd || !isPasswordCorrect) {
+          // Notifier en cas de mot de passe saisi mais incorrect
+          if (pwd) {
+            (async () => {
+              try {
+                const ownerPerm = await db.collection("permissions")
+                  .where("folderId", "==", link.folderId)
+                  .where("role", "==", "OWNER")
+                  .limit(1)
+                  .get();
+                
+                const ownerId = !ownerPerm.empty ? ownerPerm.docs[0].data()?.userId || null : null;
+                if (ownerId && link.folder?.name) {
+                  await createNotification(ownerId, "PASSWORD_DENIED", {
+                    folderName: link.folder.name,
+                    folderId: link.folderId,
+                  }).catch(() => {});
+                }
+              } catch (e) {
+                // ignorer
+              }
+            })().catch(() => {});
+          }
           return (
             <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
               <div className="apple-card p-12 text-center max-w-md w-full shadow-2xl">
