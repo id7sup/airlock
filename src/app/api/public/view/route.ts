@@ -3,6 +3,8 @@ import { validateShareLink } from "@/services/sharing";
 import { db } from "@/lib/firebase";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { checkIfFolderIsChild } from "@/services/folders";
+import { trackEvent } from "@/services/analytics";
+import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || "auto",
@@ -28,6 +30,39 @@ export async function GET(req: NextRequest) {
   const link: any = await validateShareLink(token);
   if (!link || link.error) {
     return NextResponse.json({ error: "Lien invalide, expiré ou quota atteint" }, { status: 403 });
+  }
+
+  if (Array.isArray(link.allowedCountries) && link.allowedCountries.length > 0) {
+    const ip = getClientIP(req);
+    let country: string | null = null;
+    try {
+      const geo = ip && ip !== "unknown" ? await getGeolocationFromIP(ip) : null;
+      country = geo?.country ? String(geo.country).toUpperCase() : null;
+    } catch (e) {
+      // ignore
+    }
+    const isAllowed = country ? link.allowedCountries.map((c: string) => c.toUpperCase()).includes(country) : false;
+    if (!isAllowed) {
+      try {
+        await trackEvent({ linkId: link.id || link.linkId, eventType: "ACCESS_DENIED", invalidAttempt: true });
+      } catch (e) {
+        // ignore
+      }
+      return NextResponse.json({ error: "Accès non autorisé pour ce pays" }, { status: 403 });
+    }
+  }
+
+  if (link.allowViewOnline === false) {
+    try {
+      await trackEvent({
+        linkId: link.id || link.linkId,
+        eventType: "ACCESS_DENIED",
+        invalidAttempt: true,
+      });
+    } catch (e) {
+      // ignore
+    }
+    return NextResponse.json({ error: "Consultation en ligne désactivée" }, { status: 403 });
   }
 
   // 2. Vérifier que le fichier appartient au dossier (récursif pour les sous-dossiers)

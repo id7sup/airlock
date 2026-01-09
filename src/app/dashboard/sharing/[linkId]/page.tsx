@@ -54,11 +54,21 @@ export default async function SharingDetailPage({
       viewCount: linkData.viewCount || 0,
       downloadCount: linkData.downloadCount || 0,
       allowDownload: linkData.allowDownload !== false,
+      allowViewOnline: linkData.allowViewOnline !== false,
+      allowFolderAccess: linkData.allowFolderAccess !== false,
+      restrictDomain: linkData.restrictDomain === true,
+      restrictCountry: linkData.restrictCountry === true,
+      blockVpn: linkData.blockVpn === true,
+      allowedDomains: Array.isArray(linkData.allowedDomains) ? linkData.allowedDomains : [],
+      allowedCountries: Array.isArray(linkData.allowedCountries) ? linkData.allowedCountries : [],
       maxViews: linkData.maxViews || null,
       expiresAt: linkData.expiresAt?.toDate ? linkData.expiresAt.toDate().toISOString() : (linkData.expiresAt ? new Date(linkData.expiresAt).toISOString() : null),
       createdAt: linkData.createdAt?.toDate ? linkData.createdAt.toDate().toISOString() : (linkData.createdAt ? new Date(linkData.createdAt).toISOString() : new Date().toISOString()),
       isRevoked: linkData.isRevoked === true,
       analytics: analytics || [],
+      notifications: Array.isArray(linkData.notifications) ? linkData.notifications : [],
+      blockedIps: Array.isArray(linkData.blockedIps) ? linkData.blockedIps : [],
+      blockedDevices: Array.isArray(linkData.blockedDevices) ? linkData.blockedDevices : [],
     };
 
     return <SharingDetailClient link={link} />;

@@ -136,36 +136,55 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
     return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
   };
 
+  const formatNumber = (value: number) => value.toLocaleString("fr-FR");
   const totalEvents = stats.totals.openShare + stats.totals.openFolder + stats.totals.viewFile + stats.totals.downloadFile;
 
+  const summaryCards = [
+    {
+      label: "Visiteurs",
+      value: formatNumber(stats.uniques.total),
+      detail: `${formatNumber(stats.uniques.last24h)} aujourd'hui`,
+      icon: <Users className="w-5 h-5 text-black/50" />,
+    },
+    {
+      label: "Vues",
+      value: formatNumber(stats.totals.openShare),
+      detail: `${stats.uniques.viewsPerVisitor.toFixed(1)} par visiteur`,
+      icon: <Eye className="w-5 h-5 text-black/50" />,
+    },
+    {
+      label: "Téléchargements",
+      value: formatNumber(stats.totals.downloadFile),
+      detail: `${stats.funnel.viewToDownload.toFixed(1)}% conversion`,
+      icon: <Download className="w-5 h-5 text-black/50" />,
+    },
+    {
+      label: "Événements",
+      value: formatNumber(totalEvents),
+      detail: formatTimeAgo(stats.hotMoments.lastActivity),
+      icon: <Activity className="w-5 h-5 text-black/50" />,
+    },
+  ];
+
   return (
-    <div className="space-y-16">
-      {/* Métriques principales - Ultra minimaliste */}
-      <div className="grid grid-cols-4 gap-16 border-b border-black/[0.03] pb-16">
-        <div className="space-y-2">
-          <p className="text-[10px] font-bold text-black/25 uppercase tracking-[0.25em]">Visiteurs</p>
-          <p className="text-6xl font-light tracking-[-0.02em] text-black tabular-nums leading-none">{stats.uniques.total}</p>
-          <p className="text-xs text-black/35 font-medium mt-3">{stats.uniques.last24h} aujourd'hui</p>
-        </div>
-        <div className="space-y-2">
-          <p className="text-[10px] font-bold text-black/25 uppercase tracking-[0.25em]">Vues</p>
-          <p className="text-6xl font-light tracking-[-0.02em] text-black tabular-nums leading-none">{stats.totals.openShare}</p>
-          <p className="text-xs text-black/35 font-medium mt-3">{stats.uniques.viewsPerVisitor.toFixed(1)} par visiteur</p>
-        </div>
-        <div className="space-y-2">
-          <p className="text-[10px] font-bold text-black/25 uppercase tracking-[0.25em]">Téléchargements</p>
-          <p className="text-6xl font-light tracking-[-0.02em] text-black tabular-nums leading-none">{stats.totals.downloadFile}</p>
-          <p className="text-xs text-black/35 font-medium mt-3">{stats.funnel.viewToDownload.toFixed(1)}% conversion</p>
-        </div>
-        <div className="space-y-2">
-          <p className="text-[10px] font-bold text-black/25 uppercase tracking-[0.25em]">Événements</p>
-          <p className="text-6xl font-light tracking-[-0.02em] text-black tabular-nums leading-none">{totalEvents}</p>
-          <p className="text-xs text-black/35 font-medium mt-3">{formatTimeAgo(stats.hotMoments.lastActivity)}</p>
-        </div>
+    <div className="space-y-8">
+      {/* Métriques principales repensées */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 pb-2">
+        {summaryCards.map((card) => (
+          <div
+            key={card.label}
+            className="bg-white border border-black/[0.06] rounded-2xl shadow-sm p-5 h-full flex flex-col items-center justify-center gap-3 text-center"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-black/[0.03] flex items-center justify-center">{card.icon}</div>
+            <p className="text-[11px] font-semibold text-black/50 tracking-[0.16em] uppercase">{card.label}</p>
+            <p className="text-4xl font-semibold text-black leading-none tabular-nums">{card.value}</p>
+            <p className="text-xs text-black/45">{card.detail}</p>
+          </div>
+        ))}
       </div>
 
       {/* Activité en temps réel - Design complètement repensé avec graphiques explicites */}
-      <div className="space-y-10">
+      <div className="space-y-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h2 className="text-3xl font-light tracking-tight text-black">Activité en temps réel</h2>

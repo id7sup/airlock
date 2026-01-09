@@ -3,6 +3,7 @@ import { validateShareLink } from "@/services/sharing";
 import { getDownloadUrl } from "@/services/storage";
 import { db } from "@/lib/firebase";
 import { checkIfFolderIsChild } from "@/services/folders";
+import { trackEvent } from "@/services/analytics";
 
 /**
  * Endpoint pour télécharger le fichier original
@@ -29,6 +30,17 @@ export async function POST(
     // 1. Valider le lien de partage
     const linkResult: any = await validateShareLink(token);
     if (linkResult.error) {
+      if (linkResult.linkId) {
+        try {
+          await trackEvent({
+            linkId: linkResult.linkId,
+            eventType: "ACCESS_DENIED",
+            invalidAttempt: true,
+          });
+        } catch (e) {
+          // ignore
+        }
+      }
       return NextResponse.json(
         { error: "Lien invalide, expiré ou quota atteint" },
         { status: 403 }
@@ -56,10 +68,19 @@ export async function POST(
     }
 
     // 3. Utiliser downloadDefault du lien (pas de règles par fichier)
-    const downloadAllowed = link.downloadDefault ?? (link.allowDownload ?? true);
+    const downloadAllowed = link.allowDownload ?? link.downloadDefault ?? true;
 
     // 4. Vérifier si le téléchargement est autorisé
     if (!downloadAllowed) {
+      try {
+        await trackEvent({
+          linkId: link.id || link.linkId,
+          eventType: "ACCESS_DENIED",
+          invalidAttempt: true,
+        });
+      } catch (e) {
+        // ignore
+      }
       return NextResponse.json(
         { error: "Le téléchargement est désactivé pour ce lien (Consultation seule)" },
         { status: 403 }

@@ -6,6 +6,7 @@ import * as admin from "firebase-admin";
 import { createNotification } from "@/services/notifications";
 import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
 import { checkIfFolderIsChild } from "@/services/folders";
+import { trackEvent } from "@/services/analytics";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -19,6 +20,16 @@ export async function GET(req: NextRequest) {
   // 1. Valider le lien
   const link: any = await validateShareLink(token);
   if (!link || link.error) {
+    if (link?.linkId) {
+      try {
+        await trackEvent({
+          linkId: link.linkId,
+          eventType: "ACCESS_DENIED",
+        });
+      } catch (e) {
+        // ignorer erreur de tracking
+      }
+    }
     console.error("Download validation failed for token:", token, link?.error);
     return NextResponse.json({ error: "Lien invalide, expiré ou quota atteint" }, { status: 403 });
   }
@@ -43,10 +54,19 @@ export async function GET(req: NextRequest) {
   const file = fileDoc.data()!;
 
   // 3. Utiliser downloadDefault du lien (pas de règles par fichier)
-  const downloadAllowed = link.downloadDefault ?? (link.allowDownload ?? true);
+  const downloadAllowed = link.allowDownload ?? link.downloadDefault ?? true;
 
   // 4. Vérifier si le téléchargement est autorisé
   if (!downloadAllowed) {
+    try {
+      await trackEvent({
+        linkId: link.id || link.linkId,
+        eventType: "ACCESS_DENIED",
+        invalidAttempt: true,
+      });
+    } catch (e) {
+      // ignorer
+    }
     return NextResponse.json(
       { error: "Le téléchargement est désactivé pour ce lien (Consultation seule)" },
       { status: 403 }
