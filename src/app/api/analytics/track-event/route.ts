@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
         userAgent,
         fileId,
         folderId,
+        fileName,
       });
     } catch (error) {
       console.error("Error tracking event:", error);

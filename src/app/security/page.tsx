@@ -1,6 +1,6 @@
 "use client";
 
-import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { ChevronDown, Shield, Lock, Server, Cloud, Compass, ShieldCheck, Activity, Key, Eye, Clock, Network, Database } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/shared/Logo";
@@ -40,16 +40,12 @@ export default function SecurityPage() {
 
             <div className="flex items-center gap-3 shrink-0">
               <SignedOut>
-                <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
-                  <button className="text-white/70 hover:text-white text-[13px] font-medium px-3 py-1.5 transition-colors">
-                    Connexion
-                  </button>
-                </SignInButton>
-                <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
-                  <button className="bg-white text-black text-[13px] font-medium px-4 py-1.5 rounded-full hover:bg-white/90 transition-all">
-                    Inscription
-                  </button>
-                </SignUpButton>
+                <Link href="/login" className="text-white/70 hover:text-white text-[13px] font-medium px-3 py-1.5 transition-colors">
+                  Connexion
+                </Link>
+                <Link href="/register" className="bg-white text-black text-[13px] font-medium px-4 py-1.5 rounded-full hover:bg-white/90 transition-all">
+                  Inscription
+                </Link>
               </SignedOut>
               <SignedIn>
                 <Link href="/dashboard" className="text-white/70 hover:text-white text-[13px] font-medium px-3 py-1.5 transition-colors">

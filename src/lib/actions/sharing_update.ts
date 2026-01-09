@@ -6,9 +6,20 @@ import { revalidatePath } from "next/cache";
 
 export async function updateShareLinkAction(linkId: string, data: {
   allowDownload?: boolean;
+  downloadDefault?: boolean;
+  allowViewOnline?: boolean;
+  allowFolderAccess?: boolean;
+  restrictDomain?: boolean;
+  restrictCountry?: boolean;
+  blockVpn?: boolean;
+  allowedDomains?: string[];
+  allowedCountries?: string[];
   expiresAt?: Date | null;
   maxViews?: number | null;
   status?: "ACTIVE" | "REVOKED";
+  notifications?: string[];
+  blockedIps?: string[];
+  blockedDevices?: string[];
 }) {
   const { userId } = await auth();
   if (!userId) throw new Error("Non autorisé");
@@ -32,10 +43,24 @@ export async function updateShareLinkAction(linkId: string, data: {
     updatedAt: new Date(),
   };
 
-  if (typeof data.allowDownload === "boolean") updateData.allowDownload = data.allowDownload;
+  if (typeof data.allowDownload === "boolean") {
+    updateData.allowDownload = data.allowDownload;
+    updateData.downloadDefault = data.allowDownload;
+  }
+  if (typeof data.downloadDefault === "boolean") updateData.downloadDefault = data.downloadDefault;
+  if (typeof data.allowViewOnline === "boolean") updateData.allowViewOnline = data.allowViewOnline;
+  if (typeof data.allowFolderAccess === "boolean") updateData.allowFolderAccess = data.allowFolderAccess;
+  if (typeof data.restrictDomain === "boolean") updateData.restrictDomain = data.restrictDomain;
+  if (typeof data.restrictCountry === "boolean") updateData.restrictCountry = data.restrictCountry;
+  if (typeof data.blockVpn === "boolean") updateData.blockVpn = data.blockVpn;
+  if (Array.isArray(data.allowedDomains)) updateData.allowedDomains = data.allowedDomains;
+  if (Array.isArray(data.allowedCountries)) updateData.allowedCountries = data.allowedCountries;
   if (data.expiresAt !== undefined) updateData.expiresAt = data.expiresAt;
   if (data.maxViews !== undefined) updateData.maxViews = data.maxViews;
   if (data.status) updateData.isRevoked = data.status === "REVOKED";
+  if (Array.isArray(data.notifications)) updateData.notifications = data.notifications;
+  if (Array.isArray(data.blockedIps)) updateData.blockedIps = data.blockedIps;
+  if (Array.isArray(data.blockedDevices)) updateData.blockedDevices = data.blockedDevices;
 
   await db.collection("shareLinks").doc(linkId).update(updateData);
 

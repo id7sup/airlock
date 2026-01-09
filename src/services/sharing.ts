@@ -1,6 +1,7 @@
 import { db } from "@/lib/firebase";
 import * as admin from "firebase-admin";
 import crypto from "crypto";
+import { trackEvent } from "@/services/analytics";
 
 /**
  * Convertit les timestamps Firestore en objets sérialisables (ISO strings)
@@ -59,6 +60,13 @@ export async function createShareLink(data: {
   isReadOnly?: boolean;
   maxViews?: number | null;
   allowDownload?: boolean;
+  allowViewOnline?: boolean;
+  allowFolderAccess?: boolean;
+  restrictDomain?: boolean;
+  restrictCountry?: boolean;
+  blockVpn?: boolean;
+  allowedDomains?: string[];
+  allowedCountries?: string[];
 }) {
   // Générer un token unique (64 caractères hex)
   const token = crypto.randomBytes(32).toString("hex");
@@ -81,6 +89,13 @@ export async function createShareLink(data: {
     maxViews: data.maxViews || null,
     allowDownload: data.allowDownload ?? true,
     downloadDefault: data.allowDownload ?? true,
+    allowViewOnline: data.allowViewOnline ?? true,
+    allowFolderAccess: data.allowFolderAccess ?? true,
+    restrictDomain: data.restrictDomain ?? false,
+    restrictCountry: data.restrictCountry ?? false,
+    blockVpn: data.blockVpn ?? false,
+    allowedDomains: data.allowedDomains ?? [],
+    allowedCountries: data.allowedCountries ?? [],
     viewCount: 0,
     downloadCount: 0,
     isRevoked: false,
@@ -132,18 +147,28 @@ export async function validateShareLink(token: string) {
     if (linkData.expiresAt) {
       const expiresAt = linkData.expiresAt?.toDate ? linkData.expiresAt.toDate() : new Date(linkData.expiresAt);
       if (expiresAt < new Date()) {
+        // tracer l'accès refusé
+        await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true }).catch(() => {});
         return { error: "EXPIRED", linkId: linkDoc.id, folderId: linkData.folderId };
       }
     }
 
     // Vérifier quota de vues
     if (linkData.maxViews && (linkData.viewCount || 0) >= linkData.maxViews) {
+      await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true }).catch(() => {});
       return { error: "QUOTA_EXCEEDED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
     // Vérifier révocation
     if (linkData.isRevoked === true) {
+      await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true }).catch(() => {});
       return { error: "REVOKED", linkId: linkDoc.id, folderId: linkData.folderId };
+    }
+
+    // Vérifier accès au dossier
+    if (linkData.allowFolderAccess === false) {
+      await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true }).catch(() => {});
+      return { error: "ACCESS_DISABLED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
     // Récupérer le dossier
@@ -160,6 +185,7 @@ export async function validateShareLink(token: string) {
       } catch (e) {
         // Ignorer les erreurs de révocation
       }
+      await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true }).catch(() => {});
       return { error: "NOT_FOUND", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
@@ -177,6 +203,7 @@ export async function validateShareLink(token: string) {
       } catch (e) {
         // Ignorer les erreurs de révocation
       }
+      await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true }).catch(() => {});
       return { error: "REVOKED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, Eye, Download, Clock, Lock, Check, X, Loader2 } from "lucide-react";
+import { Bell, Eye, Download, Clock, Lock, Check, X, Loader2, ShieldAlert } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getNotificationsAction, markAsReadAction } from "@/lib/actions/notifications";
 import type { NotificationType } from "@/services/notifications";
@@ -62,6 +62,7 @@ export function NotificationCenter() {
       case "DOWNLOAD": return <Download className="w-4 h-4 text-brand-primary" />;
       case "EXPIRATION": return <Clock className="w-4 h-4 text-red-500" />;
       case "PASSWORD_ACCESS": return <Lock className="w-4 h-4 text-blue-500" />;
+      case "PASSWORD_DENIED": return <ShieldAlert className="w-4 h-4 text-red-500" />;
       default: return <Bell className="w-4 h-4" />;
     }
   };
@@ -73,6 +74,7 @@ export function NotificationCenter() {
       case "DOWNLOAD": return `"${meta.fileName}" téléchargé.`;
       case "EXPIRATION": return `Lien "${meta.folderName}" expiré.`;
       case "PASSWORD_ACCESS": return `Accès déverrouillé pour "${meta.folderName}".`;
+      case "PASSWORD_DENIED": return `Mot de passe incorrect saisi pour "${meta.folderName}".`;
       default: return "Activité détectée.";
     }
   };

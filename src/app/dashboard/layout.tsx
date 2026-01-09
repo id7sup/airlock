@@ -5,6 +5,7 @@ import { TopBar } from "@/components/dashboard/TopBar";
 import { redirect } from "next/navigation";
 import { SidebarProvider } from "@/components/dashboard/SidebarProvider";
 import { MainContent } from "@/components/dashboard/MainContent";
+import { ClerkProvider } from "@clerk/nextjs";
 
 export default async function DashboardLayout({
   children,
@@ -31,16 +32,18 @@ export default async function DashboardLayout({
   }
 
   return (
-    <SidebarProvider>
-      <div className="flex h-screen bg-[#fbfbfd]">
-        <Sidebar storageUsed={storageUsed} />
-        <MainContent>
-          <TopBar />
-          <main className="flex-1 overflow-y-auto bg-white/50 backdrop-blur-3xl">
-            {children}
-          </main>
-        </MainContent>
-      </div>
-    </SidebarProvider>
+    <ClerkProvider>
+      <SidebarProvider>
+        <div className="flex h-screen bg-[#fbfbfd]">
+          <Sidebar storageUsed={storageUsed} />
+          <MainContent>
+            <TopBar />
+            <main className="flex-1 overflow-y-auto bg-white/50 backdrop-blur-3xl">
+              {children}
+            </main>
+          </MainContent>
+        </div>
+      </SidebarProvider>
+    </ClerkProvider>
   );
 }
