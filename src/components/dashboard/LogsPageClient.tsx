@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactElement } from "react";
 import {
   Eye,
   Download,
@@ -32,7 +32,7 @@ type LogsPageClientProps = {
   } | null;
 };
 
-const typeConfig: Record<NotificationType, { label: string; icon: JSX.Element; tone: string }> = {
+const typeConfig: Record<NotificationType, { label: string; icon: ReactElement; tone: string }> = {
   VIEW: {
     label: "Consultations",
     icon: <Eye className="w-4 h-4 text-[--primary]" />,
@@ -304,7 +304,7 @@ function StatCard({
 }: {
   title: string;
   value: number;
-  icon: JSX.Element;
+  icon: ReactElement;
   accent: string;
 }) {
   return (

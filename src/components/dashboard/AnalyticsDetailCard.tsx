@@ -79,7 +79,9 @@ function getTimeAgo(date: Date): string {
 
 export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetailCardProps) {
   const isCluster = detail ? "pointCount" in detail : false;
-  const events = detail ? (isCluster ? detail.points : [detail as AnalyticsDetail]) : [];
+  const events = detail 
+    ? (isCluster ? (detail as ClusterDetail).points : [detail as AnalyticsDetail]) 
+    : [];
   const currentEvent = events[0];
 
   const eventType = currentEvent?.eventType || currentEvent?.type;

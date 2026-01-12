@@ -721,8 +721,9 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         <AnalyticsDetailCard
           detail={selectedDetail}
           onClose={() => setSelectedDetail(null)}
+          isOpen={!!selectedDetail}
         />
-          )}
+      )}
     </div>
   );
 }
