@@ -47,8 +47,8 @@ export function FileListClient({
               className="p-6 flex items-center justify-between hover:bg-apple-gray/[0.02] transition-colors group block"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-apple-gray rounded-xl flex items-center justify-center text-apple-secondary group-hover:bg-orange-50 group-hover:text-orange-600 transition-all duration-300">
-                  <FolderOpen className="w-5 h-5" />
+                <div className="w-12 h-12 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary group-hover:bg-brand-primary/20 group-hover:text-brand-primary transition-all duration-300">
+                  <FolderOpen className="w-5 h-5 fill-current" />
                 </div>
                 <div>
                   <p className="font-bold text-apple-text tracking-tight">{item.name}</p>

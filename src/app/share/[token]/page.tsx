@@ -345,7 +345,7 @@ export default async function PublicSharePage({
           <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl shadow-black/[0.03] border border-black/[0.01]">
             <div className="p-8 border-b border-black/[0.02] bg-gradient-to-br from-white to-apple-gray/[0.05]">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-apple-primary text-white rounded-2xl flex items-center justify-center shadow-xl shadow-apple-primary/20">
+                <div className="w-14 h-14 bg-brand-primary/10 text-brand-primary rounded-2xl flex items-center justify-center shadow-xl shadow-brand-primary/20">
                   <FolderOpen className="w-8 h-8 fill-current" />
                 </div>
                 <div>

@@ -230,7 +230,7 @@ export default function PricingPage() {
                 <li className="flex items-center gap-3"><Check className="w-5 h-5 text-[#96A982]" /> Analytics basiques</li>
               </ul>
 
-              <Link href="/dashboard" className="block w-full text-center py-4 bg-white rounded-2xl font-medium border border-black/5 hover:bg-black hover:text-white transition-all">
+              <Link href="/login" className="block w-full text-center py-4 bg-white rounded-2xl font-medium border border-black/5 hover:bg-black hover:text-white transition-all">
                 Démarrer maintenant
               </Link>
             </div>

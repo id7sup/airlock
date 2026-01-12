@@ -295,7 +295,7 @@ export default async function PublicShareFolderPage({
                     <ChevronLeft className="w-6 h-6" />
                   </Link>
                 )}
-                <div className="w-14 h-14 bg-apple-primary text-white rounded-2xl flex items-center justify-center shadow-xl shadow-apple-primary/20">
+                <div className="w-14 h-14 bg-brand-primary/10 text-brand-primary rounded-2xl flex items-center justify-center shadow-xl shadow-brand-primary/20">
                   <FolderOpen className="w-8 h-8 fill-current" />
                 </div>
                 <div>

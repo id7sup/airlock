@@ -277,8 +277,8 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                      <FolderOpen className="w-6 h-6 text-white fill-current" />
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform bg-brand-primary/10 text-brand-primary group-hover:bg-brand-primary/20">
+                      <FolderOpen className="w-6 h-6 fill-current" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-lg font-medium tracking-tight truncate text-black group-hover:text-brand-primary transition-colors">

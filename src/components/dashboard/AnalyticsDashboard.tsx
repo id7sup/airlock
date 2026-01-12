@@ -357,9 +357,9 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
       )}
 
       {/* Funnel + Sources */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Funnel d'engagement */}
-        <div className="bg-white border border-black/[0.05] rounded-2xl shadow-sm p-6 space-y-4 xl:col-span-7 xl:col-start-1">
+        <div className="bg-white border border-black/[0.05] rounded-2xl shadow-sm p-6 space-y-4 xl:col-span-7">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-black">Funnel d'engagement</h2>
             <span className="text-[11px] text-black/40 uppercase tracking-[0.18em]">Conversion</span>
@@ -387,7 +387,7 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
         </div>
 
         {/* Sources de trafic */}
-        <div className="bg-white border border-black/[0.05] rounded-2xl shadow-sm p-6 space-y-4 xl:col-span-5 xl:col-start-8">
+        <div className="bg-white border border-black/[0.05] rounded-2xl shadow-sm p-6 space-y-4 xl:col-span-5">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-black">Sources de trafic</h2>
             <span className="text-[11px] text-black/40 uppercase tracking-[0.18em]">Top</span>
@@ -417,6 +417,49 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
         </div>
       </div>
 
+      {/* Sécurité & anomalies */}
+      <div className="bg-white border border-black/[0.05] rounded-2xl shadow-sm p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <h2 className="text-xl font-semibold text-black">Sécurité & Anomalies</h2>
+          </div>
+          <span className="text-[11px] text-red-700 uppercase tracking-[0.18em]">Surveillance</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="p-3 rounded-xl bg-red-50 border border-red-100">
+            <p className="text-[11px] font-semibold text-red-700 uppercase tracking-wide">Refus totaux</p>
+            <p className="text-2xl font-semibold text-red-800 tabular-nums mt-1">{stats.security.totalDenials}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-red-50 border border-red-100">
+            <p className="text-[11px] font-semibold text-red-700 uppercase tracking-wide">Refus 24h</p>
+            <p className="text-2xl font-semibold text-red-800 tabular-nums mt-1">{stats.security.denials24h}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-black/[0.02] border border-black/[0.05]">
+            <p className="text-[11px] font-semibold text-black/60 uppercase tracking-wide">Pays principaux</p>
+            {stats.security.topDenialCountries.length === 0 ? (
+              <p className="text-sm text-black/45 mt-1">Aucun</p>
+            ) : (
+              <p className="text-sm font-medium text-black mt-1">
+                {stats.security.topDenialCountries.slice(0, 2).map((c) => c.country).join(", ")}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {stats.security.unusualCountries.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-black/60 uppercase tracking-wide">Pays inhabituels</p>
+            <div className="flex flex-wrap gap-2">
+              {stats.security.unusualCountries.map((country, idx) => (
+                <span key={idx} className="px-3 py-1.5 bg-red-50/70 text-red-700 rounded-lg text-xs font-semibold border border-red-200">
+                  {country}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

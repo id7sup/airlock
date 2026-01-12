@@ -384,7 +384,7 @@ export default function Home() {
 
             <div className="flex flex-col items-center justify-center gap-4 pt-4">
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link href="/dashboard" className="bg-[#96A982] text-white px-8 md:px-10 py-4 md:py-4.5 rounded-[22px] font-medium text-[17px] hover:opacity-90 transition-all shadow-xl shadow-[#96A982]/20 w-full sm:w-auto min-w-[220px]">
+                <Link href="/login" className="bg-[#96A982] text-white px-8 md:px-10 py-4 md:py-4.5 rounded-[22px] font-medium text-[17px] hover:opacity-90 transition-all shadow-xl shadow-[#96A982]/20 w-full sm:w-auto min-w-[220px]">
                   Démarrer gratuitement
                 </Link>
                 <Link href="#demo" className="bg-[#f5f5f7] text-[#1d1d1f] px-8 md:px-10 py-4 md:py-4.5 rounded-[22px] font-medium text-[17px] hover:bg-[#e8e8ed] transition-all w-full sm:w-auto min-w-[220px]">

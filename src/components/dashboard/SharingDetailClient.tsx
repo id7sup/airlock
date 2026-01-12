@@ -58,7 +58,7 @@ interface ExtendedStats {
   topFiles: Array<{ fileId: string; fileName: string; count: number }>;
 }
 
-const tabs = ["Vue globale", "Logs", "Destinataires", "Sécurité"];
+const tabs = ["Vue globale", "Logs", "Sécurité"];
 
 export default function SharingDetailClient({ link }: { link: SharedLink }) {
   const router = useRouter();
@@ -482,8 +482,8 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
 
         {/* Identity row */}
         <div className="flex flex-wrap items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-black text-white flex items-center justify-center shadow-sm">
-            <FolderOpen className="w-6 h-6" />
+          <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 text-brand-primary flex items-center justify-center shadow-sm">
+            <FolderOpen className="w-6 h-6 fill-current" />
           </div>
           <div className="space-y-1">
             <h1 className="text-3xl font-semibold tracking-tight text-black">{linkData.folderName}</h1>
@@ -841,34 +841,6 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
               initialLogs={logs}
               linkContext={{ folderId: linkData.folderId, folderName: linkData.folderName }}
             />
-          </div>
-        )}
-
-        {activeTab === "Destinataires" && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-black">Destinataires</h2>
-            <div className="bg-white border border-black/[0.06] rounded-2xl p-4 space-y-3">
-              <div className="flex flex-wrap gap-2">
-                <input
-                  type="email"
-                  placeholder="email@exemple.com"
-                  className="px-3 py-2 rounded-lg border border-black/[0.08] text-sm w-full sm:w-64"
-                />
-                <button className="px-4 py-2 rounded-lg bg-black text-white text-sm font-semibold hover:bg-black/90">Ajouter</button>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between p-3 rounded-xl border border-black/[0.05]">
-                  <div>
-                    <p className="font-semibold text-black">Invités (placeholder)</p>
-                    <p className="text-black/60 text-xs">Statut, relances, révocations...</p>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <button className="px-3 py-1 rounded-lg border border-black/[0.08] hover:bg-black/5">Relancer</button>
-                    <button className="px-3 py-1 rounded-lg border border-black/[0.08] hover:bg-black/5">Révoquer</button>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
