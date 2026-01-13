@@ -45,7 +45,24 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<any>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const isAnimatingRef = useRef<boolean>(false);
+
+  // Synchroniser isDrawerOpen avec selectedDetail
+  useEffect(() => {
+    if (selectedDetail) {
+      setIsDrawerOpen(true);
+    }
+  }, [selectedDetail]);
+
+  // Gérer la fermeture du drawer
+  const handleClose = () => {
+    setIsDrawerOpen(false);
+    // Attendre la fin de l'animation avant de retirer selectedDetail
+    setTimeout(() => {
+      setSelectedDetail(null);
+    }, 150); // Durée de l'animation
+  };
 
   // 1. Préparer les points GeoJSON
   const points = useMemo(() => {
@@ -64,6 +81,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           region: ev.region || "",
           visitorId: ev.visitorId || "",
           userAgent: ev.userAgent || "",
+          ip: ev.ip || null,
           pointColor: getColorFromId(ev.id),
         },
         geometry: {
@@ -398,7 +416,9 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
             timestamp: finalProps.timestamp || new Date().toISOString(),
             visitorId: finalProps.visitorId || "",
             userAgent: finalProps.userAgent || "",
+            ip: finalProps.ip || null,
           });
+          setIsDrawerOpen(true);
           return;
         }
         
@@ -424,7 +444,9 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         timestamp: finalProps.timestamp || new Date().toISOString(),
         visitorId: finalProps.visitorId || "",
         userAgent: finalProps.userAgent || "",
+        ip: finalProps.ip || null,
       });
+      setIsDrawerOpen(true);
     };
 
     // Clic sur cluster = zoom
@@ -437,7 +459,10 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       const targetZoom = Math.min(expansionZoom * 1.8, 12);
       const [lng, lat] = (feature.geometry as any).coordinates;
 
-      setSelectedDetail(null); // Fermer le détail
+      setIsDrawerOpen(false);
+      setTimeout(() => {
+        setSelectedDetail(null); // Fermer le détail après l'animation
+      }, 150);
       isAnimatingRef.current = true;
 
       map.current!.flyTo({
@@ -720,8 +745,8 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       {selectedDetail && (
         <AnalyticsDetailCard
           detail={selectedDetail}
-          onClose={() => setSelectedDetail(null)}
-          isOpen={!!selectedDetail}
+          onClose={handleClose}
+          isOpen={isDrawerOpen}
         />
       )}
     </div>

@@ -35,8 +35,17 @@ const isPublicRoute = createRouteMatcher([
  * Proxy principal (exécuté avant chaque requête)
  * 
  * Vérifie si la route est publique. Si non, exige une authentification.
+ * Les routes SEO (sitemap.xml, robots.txt) sont toujours publiques.
  */
 export default clerkMiddleware(async (auth, request) => {
+  const pathname = request.nextUrl.pathname;
+  
+  // Toujours permettre l'accès aux routes SEO publiques (priorité absolue)
+  if (pathname === '/sitemap.xml' || pathname === '/robots.txt' || pathname === '/manifest.json') {
+    return;
+  }
+  
+  // Vérifier si la route est publique
   if (!isPublicRoute(request)) {
     await auth.protect();
   }
@@ -44,10 +53,10 @@ export default clerkMiddleware(async (auth, request) => {
 
 export const config = {
   matcher: [
-    // Exclure les fichiers statiques et Next.js internals
-    // Exclure explicitement manifest.json, sitemap.xml, robots.txt
-    '/((?!_next|manifest\\.json|sitemap\\.xml|robots\\.txt|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|json)).*)',
-    // Toujours exécuter pour les routes API (sauf manifest.json, sitemap.xml, robots.txt)
-    '/(api|trpc)((?!.*manifest\\.json|.*sitemap\\.xml|.*robots\\.txt).*)',
+    // Exclure les fichiers statiques, Next.js internals, et les routes SEO publiques
+    // Exclure explicitement: _next, fichiers statiques, sitemap.xml, robots.txt, manifest.json
+    '/((?!_next|sitemap\\.xml|robots\\.txt|manifest\\.json|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|json)).*)',
+    // Toujours exécuter pour les routes API (sauf les routes SEO publiques)
+    '/(api|trpc)((?!.*sitemap\\.xml|.*robots\\.txt|.*manifest\\.json).*)',
   ],
 };
