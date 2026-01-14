@@ -32,26 +32,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Lien invalide, expiré ou quota atteint" }, { status: 403 });
   }
 
-  if (Array.isArray(link.allowedCountries) && link.allowedCountries.length > 0) {
-    const ip = getClientIP(req);
-    let country: string | null = null;
-    try {
-      const geo = ip && ip !== "unknown" ? await getGeolocationFromIP(ip) : null;
-      country = geo?.country ? String(geo.country).toUpperCase() : null;
-    } catch (e) {
-      // ignore
-    }
-    const isAllowed = country ? link.allowedCountries.map((c: string) => c.toUpperCase()).includes(country) : false;
-    if (!isAllowed) {
-      try {
-        await trackEvent({ linkId: link.id || link.linkId, eventType: "ACCESS_DENIED", invalidAttempt: true });
-      } catch (e) {
-        // ignore
-      }
-      return NextResponse.json({ error: "Accès non autorisé pour ce pays" }, { status: 403 });
-    }
-  }
-
   if (link.allowViewOnline === false) {
     try {
       await trackEvent({
@@ -84,7 +64,45 @@ export async function GET(req: NextRequest) {
 
   const file = fileDoc.data()!;
 
-  // 3. Servir le fichier original via proxy (pour que l'iframe puisse l'afficher)
+  // 3. Tracker la visualisation du fichier côté serveur (important pour mobile et tous devices)
+  try {
+    const clientIP = getClientIP(req);
+    const userAgent = req.headers.get("user-agent") || undefined;
+    const referer = req.headers.get("referer") || undefined;
+    
+    const { generateVisitorId } = await import("@/lib/visitor");
+    const visitorId = generateVisitorId(clientIP, userAgent);
+    
+    let geolocation;
+    try {
+      if (clientIP !== 'unknown') {
+        geolocation = await getGeolocationFromIP(clientIP);
+        if (geolocation) {
+          geolocation = Object.fromEntries(
+            Object.entries(geolocation).filter(([_, v]) => v !== undefined)
+          ) as any;
+        }
+      }
+    } catch (error) {
+      console.error("Error getting geolocation for VIEW_FILE:", error);
+    }
+
+    await trackEvent({
+      linkId: link.id || link.linkId,
+      eventType: "VIEW_FILE",
+      geolocation,
+      visitorId,
+      referer,
+      userAgent,
+      fileId: fileId,
+      fileName: file.name,
+    });
+  } catch (error) {
+    console.error("Error tracking VIEW_FILE:", error);
+    // Ne pas bloquer l'affichage si le tracking échoue
+  }
+
+  // 4. Servir le fichier original via proxy (pour que l'iframe puisse l'afficher)
   try {
     const command = new GetObjectCommand({
       Bucket: BUCKET_NAME,

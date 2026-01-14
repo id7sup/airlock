@@ -149,40 +149,6 @@ export default async function PublicSharePage({
 
     const link = result as any;
 
-    // Filtre pays si configuré
-    if (Array.isArray(link.allowedCountries) && link.allowedCountries.length > 0) {
-      const headersList = await headers();
-      const ip =
-        headersList.get("x-forwarded-for")?.split(",")[0].trim() ||
-        headersList.get("x-real-ip") ||
-        headersList.get("cf-connecting-ip") ||
-        "unknown";
-      let country: string | null = null;
-      try {
-        const geo = ip && ip !== "unknown" ? await getGeolocationFromIP(ip) : null;
-        country = geo?.country ? String(geo.country).toUpperCase() : null;
-      } catch (e) {
-        // ignore
-      }
-      const isAllowed = country ? link.allowedCountries.map((c: string) => c.toUpperCase()).includes(country) : false;
-      if (!isAllowed) {
-        await trackEvent({ linkId: link.id, eventType: "ACCESS_DENIED", invalidAttempt: true }).catch(() => {});
-        return (
-          <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-            <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Info className="w-8 h-8" />
-              </div>
-              <h1 className="text-2xl font-bold mb-2 tracking-tight">Accès refusé</h1>
-              <p className="text-apple-secondary font-medium">
-                Ce lien n'est pas disponible depuis votre pays.
-              </p>
-            </div>
-          </div>
-        );
-      }
-    }
-
     // Vérifier que le lien a les données nécessaires
     if (!link || !link.folderId) {
       return (
@@ -332,6 +298,48 @@ export default async function PublicSharePage({
     const folderName = link.folder.name || "Dossier sans nom";
     const files = Array.isArray(link.folder.files) ? link.folder.files : [];
     const children = Array.isArray(link.folder.children) ? link.folder.children : [];
+
+    // Tracker l'ouverture du lien côté serveur (important pour mobile et tous devices)
+    (async () => {
+      try {
+        const headersList = await headers();
+        const clientIP = 
+          headersList.get("x-forwarded-for")?.split(",")[0].trim() ||
+          headersList.get("x-real-ip") ||
+          headersList.get("cf-connecting-ip") ||
+          "unknown";
+        const userAgent = headersList.get("user-agent") || undefined;
+        const referer = headersList.get("referer") || undefined;
+        
+        const { generateVisitorId } = await import("@/lib/visitor");
+        const visitorId = generateVisitorId(clientIP, userAgent);
+        
+        let geolocation;
+        try {
+          if (clientIP !== 'unknown') {
+            geolocation = await getGeolocationFromIP(clientIP);
+            if (geolocation) {
+              geolocation = Object.fromEntries(
+                Object.entries(geolocation).filter(([_, v]) => v !== undefined)
+              ) as any;
+            }
+          }
+        } catch (error) {
+          console.error("Error getting geolocation for OPEN_SHARE:", error);
+        }
+
+        await trackEvent({
+          linkId: link.id,
+          eventType: "OPEN_SHARE",
+          geolocation,
+          visitorId,
+          referer,
+          userAgent,
+        });
+      } catch (error) {
+        console.error("Error tracking OPEN_SHARE:", error);
+      }
+    })().catch(() => {});
 
     // Afficher la page de partage
     return (

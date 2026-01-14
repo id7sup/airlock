@@ -4,6 +4,8 @@ import { getDownloadUrl } from "@/services/storage";
 import { db } from "@/lib/firebase";
 import { checkIfFolderIsChild } from "@/services/folders";
 import { trackEvent } from "@/services/analytics";
+import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
+import { generateVisitorId } from "@/lib/visitor";
 
 /**
  * Endpoint pour télécharger le fichier original
@@ -87,7 +89,46 @@ export async function POST(
       );
     }
 
-    // 5. Générer une URL présignée vers l'original
+    // 5. Tracker le téléchargement côté serveur (important pour mobile)
+    try {
+      const clientIP = getClientIP(req);
+      const userAgent = req.headers.get("user-agent") || undefined;
+      const referer = req.headers.get("referer") || undefined;
+      
+      // Générer visitorId
+      const visitorId = generateVisitorId(clientIP, userAgent);
+      
+      // Capturer la géolocalisation précise
+      let geolocation;
+      try {
+        if (clientIP !== 'unknown') {
+          geolocation = await getGeolocationFromIP(clientIP);
+          if (geolocation) {
+            geolocation = Object.fromEntries(
+              Object.entries(geolocation).filter(([_, v]) => v !== undefined)
+            ) as any;
+          }
+        }
+      } catch (error) {
+        console.error("Error getting geolocation for download:", error);
+      }
+
+      await trackEvent({
+        linkId: link.id || link.linkId,
+        eventType: "DOWNLOAD_FILE",
+        geolocation,
+        visitorId,
+        referer,
+        userAgent,
+        fileId: fileId,
+        fileName: file.name,
+      });
+    } catch (error) {
+      console.error("Error tracking download:", error);
+      // Ne pas bloquer le téléchargement si le tracking échoue
+    }
+
+    // 6. Générer une URL présignée vers l'original
     const downloadUrl = await getDownloadUrl(file.s3Key, file.name);
 
     return NextResponse.json({

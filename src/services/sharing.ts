@@ -63,10 +63,8 @@ export async function createShareLink(data: {
   allowViewOnline?: boolean;
   allowFolderAccess?: boolean;
   restrictDomain?: boolean;
-  restrictCountry?: boolean;
   blockVpn?: boolean;
   allowedDomains?: string[];
-  allowedCountries?: string[];
 }) {
   // Générer un token unique (64 caractères hex)
   const token = crypto.randomBytes(32).toString("hex");
@@ -92,10 +90,8 @@ export async function createShareLink(data: {
     allowViewOnline: data.allowViewOnline ?? true,
     allowFolderAccess: data.allowFolderAccess ?? true,
     restrictDomain: data.restrictDomain ?? false,
-    restrictCountry: data.restrictCountry ?? false,
     blockVpn: data.blockVpn ?? false,
     allowedDomains: data.allowedDomains ?? [],
-    allowedCountries: data.allowedCountries ?? [],
     viewCount: 0,
     downloadCount: 0,
     isRevoked: false,

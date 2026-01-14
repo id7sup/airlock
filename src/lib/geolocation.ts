@@ -63,8 +63,38 @@ function detectDatacenterOrVPN(isp?: string, asn?: string): { isDatacenter: bool
 
 export async function getGeolocationFromIP(ip: string): Promise<GeolocationResult> {
   try {
-    // Utiliser ip-api.com (gratuit, 45 req/min, pas de clé API requise)
-    // Ajouter les champs ISP et ASN
+    // Essayer d'abord ipapi.co (plus précis, gratuit jusqu'à 1000 req/jour)
+    try {
+      const response = await fetch(`https://ipapi.co/${ip}/json/`, {
+        headers: {
+          'User-Agent': 'Airlock/1.0'
+        }
+      });
+      const data = await response.json();
+
+      if (!data.error && data.latitude && data.longitude) {
+        const isp = data.org || undefined;
+        const asn = data.asn ? `AS${data.asn} - ${data.org || ''}`.trim() : undefined;
+        const { isDatacenter, isVPN } = detectDatacenterOrVPN(isp, asn);
+
+        return {
+          ip: data.ip || ip,
+          country: data.country_name || data.country || undefined,
+          city: data.city || undefined,
+          region: data.region || data.region_code || undefined,
+          latitude: data.latitude || undefined,
+          longitude: data.longitude || undefined,
+          isp: isp,
+          asn: asn,
+          isDatacenter,
+          isVPN,
+        };
+      }
+    } catch (ipapiError) {
+      // Fallback sur ip-api.com si ipapi.co échoue
+    }
+
+    // Fallback : ip-api.com (gratuit, 45 req/min)
     const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,city,regionName,lat,lon,query,isp,as,asname`);
     const data = await response.json();
 
@@ -88,6 +118,7 @@ export async function getGeolocationFromIP(ip: string): Promise<GeolocationResul
     }
   } catch (error: any) {
     // Ignorer les erreurs de géolocalisation (non critique)
+    console.error("Geolocation error:", error);
   }
 
   return { ip };

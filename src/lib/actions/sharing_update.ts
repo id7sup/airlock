@@ -10,10 +10,8 @@ export async function updateShareLinkAction(linkId: string, data: {
   allowViewOnline?: boolean;
   allowFolderAccess?: boolean;
   restrictDomain?: boolean;
-  restrictCountry?: boolean;
   blockVpn?: boolean;
   allowedDomains?: string[];
-  allowedCountries?: string[];
   expiresAt?: Date | null;
   maxViews?: number | null;
   status?: "ACTIVE" | "REVOKED";
@@ -51,10 +49,8 @@ export async function updateShareLinkAction(linkId: string, data: {
   if (typeof data.allowViewOnline === "boolean") updateData.allowViewOnline = data.allowViewOnline;
   if (typeof data.allowFolderAccess === "boolean") updateData.allowFolderAccess = data.allowFolderAccess;
   if (typeof data.restrictDomain === "boolean") updateData.restrictDomain = data.restrictDomain;
-  if (typeof data.restrictCountry === "boolean") updateData.restrictCountry = data.restrictCountry;
   if (typeof data.blockVpn === "boolean") updateData.blockVpn = data.blockVpn;
   if (Array.isArray(data.allowedDomains)) updateData.allowedDomains = data.allowedDomains;
-  if (Array.isArray(data.allowedCountries)) updateData.allowedCountries = data.allowedCountries;
   if (data.expiresAt !== undefined) updateData.expiresAt = data.expiresAt;
   if (data.maxViews !== undefined) updateData.maxViews = data.maxViews;
   if (data.status) updateData.isRevoked = data.status === "REVOKED";

@@ -88,39 +88,6 @@ export default async function PublicShareFolderPage({
 
     const link = result as any;
 
-    if (Array.isArray(link.allowedCountries) && link.allowedCountries.length > 0) {
-      const headersList = await headers();
-      const ip =
-        headersList.get("x-forwarded-for")?.split(",")[0].trim() ||
-        headersList.get("x-real-ip") ||
-        headersList.get("cf-connecting-ip") ||
-        "unknown";
-      let country: string | null = null;
-      try {
-        const geo = ip && ip !== "unknown" ? await getGeolocationFromIP(ip) : null;
-        country = geo?.country ? String(geo.country).toUpperCase() : null;
-      } catch (e) {
-        // ignore
-      }
-      const isAllowed = country ? link.allowedCountries.map((c: string) => c.toUpperCase()).includes(country) : false;
-      if (!isAllowed) {
-        await trackEvent({ linkId: link.id, eventType: "ACCESS_DENIED", invalidAttempt: true }).catch(() => {});
-        return (
-          <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-            <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Info className="w-8 h-8" />
-              </div>
-              <h1 className="text-2xl font-bold mb-2 tracking-tight">Accès refusé</h1>
-              <p className="text-apple-secondary font-medium">
-                Ce lien n'est pas disponible depuis votre pays.
-              </p>
-            </div>
-          </div>
-        );
-      }
-    }
-
     if (!link || !link.folderId) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
@@ -268,6 +235,49 @@ export default async function PublicShareFolderPage({
       console.error("[SHARE_FOLDER] Error fetching files/children:", error?.message);
       // Continuer avec des tableaux vides plutôt que de crasher
     }
+
+    // Tracker l'ouverture du dossier côté serveur (important pour mobile et tous devices)
+    (async () => {
+      try {
+        const headersList = await headers();
+        const clientIP = 
+          headersList.get("x-forwarded-for")?.split(",")[0].trim() ||
+          headersList.get("x-real-ip") ||
+          headersList.get("cf-connecting-ip") ||
+          "unknown";
+        const userAgent = headersList.get("user-agent") || undefined;
+        const referer = headersList.get("referer") || undefined;
+        
+        const { generateVisitorId } = await import("@/lib/visitor");
+        const visitorId = generateVisitorId(clientIP, userAgent);
+        
+        let geolocation;
+        try {
+          if (clientIP !== 'unknown') {
+            geolocation = await getGeolocationFromIP(clientIP);
+            if (geolocation) {
+              geolocation = Object.fromEntries(
+                Object.entries(geolocation).filter(([_, v]) => v !== undefined)
+              ) as any;
+            }
+          }
+        } catch (error) {
+          console.error("Error getting geolocation for OPEN_FOLDER:", error);
+        }
+
+        await trackEvent({
+          linkId: link.id,
+          eventType: "OPEN_FOLDER",
+          geolocation,
+          visitorId,
+          referer,
+          userAgent,
+          folderId: folderId,
+        });
+      } catch (error) {
+        console.error("Error tracking OPEN_FOLDER:", error);
+      }
+    })().catch(() => {});
 
     return (
       <div className="min-h-screen bg-apple-gray py-12 px-6 text-apple-text animate-in fade-in duration-700">

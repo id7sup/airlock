@@ -34,9 +34,7 @@ interface SharedLink {
   downloadCount: number;
   allowDownload: boolean;
   restrictDomain?: boolean;
-  restrictCountry?: boolean;
   blockVpn?: boolean;
-  allowedCountries?: string[];
   maxViews: number | null;
   expiresAt: string | null;
   createdAt: string;
@@ -71,10 +69,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
   const [copied, setCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [restrictDomain, setRestrictDomain] = useState(link.restrictDomain === true);
-  const [restrictCountry, setRestrictCountry] = useState(link.restrictCountry === true);
   const [blockVpn, setBlockVpn] = useState(link.blockVpn === true);
-  const [allowedCountries, setAllowedCountries] = useState<string[]>(link.allowedCountries || []);
-  const [countryInput, setCountryInput] = useState<string>((link.allowedCountries || []).join(", "));
   const [notifications, setNotifications] = useState<string[]>(link.notifications || []);
   const [fileNameMap, setFileNameMap] = useState<Record<string, string>>({});
   const [blockedIps, setBlockedIps] = useState<string[]>(link.blockedIps || []);
@@ -131,10 +126,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
     setBlockedIps(linkData.blockedIps || []);
     setBlockedDevices(linkData.blockedDevices || []);
     setRestrictDomain(linkData.restrictDomain === true);
-    setRestrictCountry(linkData.restrictCountry === true);
     setBlockVpn(linkData.blockVpn === true);
-    setAllowedCountries(linkData.allowedCountries || []);
-    setCountryInput((linkData.allowedCountries || []).join(", "));
   }, [linkData.maxViews, linkData.expiresAt]);
 
   useEffect(() => {
@@ -618,103 +610,6 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                     <p className="text-sm font-semibold text-black">Restrictions</p>
                   </div>
                   <div className="grid grid-cols-1 gap-3">
-                    {/* Pays autorisés */}
-                    <div className="p-3 bg-black/[0.02] border border-black/[0.05] rounded-2xl space-y-2">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-black">Pays autorisés</p>
-                          <p className="text-xs text-black/50">
-                            Laissez vide pour autoriser tous les pays. Codes ISO2 (FR, BE, CA...).
-                          </p>
-                        </div>
-                      </div>
-                      {allowedCountries.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {allowedCountries.map((c) => (
-                            <span
-                              key={c}
-                              className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-black/[0.08] bg-white text-xs font-semibold"
-                            >
-                              {c}
-                              <button
-                                onClick={async () => {
-                                  const nextList = allowedCountries.filter((x) => x !== c);
-                                  const shouldRestrict = nextList.length > 0;
-                                  setUpdating(true);
-                                  try {
-                                    await updateShareLinkAction(linkData.id, {
-                                      allowedCountries: nextList,
-                                      restrictCountry: shouldRestrict,
-                                    });
-                                    setAllowedCountries(nextList);
-                                    setRestrictCountry(shouldRestrict);
-                                    setLinkData((prev) => ({ ...prev, allowedCountries: nextList }));
-                                  } catch {
-                                    setErrorModal({
-                                      isOpen: true,
-                                      title: "Erreur",
-                                      message: "Impossible d'enregistrer les pays",
-                                    });
-                                  } finally {
-                                    setUpdating(false);
-                                  }
-                                }}
-                                className="text-black/50 hover:text-black"
-                              >
-                                ✕
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex flex-col gap-2">
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            placeholder="Ajouter un pays (ex: FR)"
-                            value={countryInput}
-                            onChange={(e) => setCountryInput(e.target.value.toUpperCase())}
-                            className="flex-1 px-3 py-2 rounded-lg border border-black/[0.08] text-sm"
-                          />
-                          <button
-                            onClick={async () => {
-                              const raw = countryInput.trim().toUpperCase();
-                              if (!raw) return;
-                              if (allowedCountries.includes(raw)) {
-                                setCountryInput("");
-                                return;
-                              }
-                              const nextList = [...allowedCountries, raw];
-                              const shouldRestrict = nextList.length > 0;
-                              setUpdating(true);
-                              try {
-                                await updateShareLinkAction(linkData.id, {
-                                  allowedCountries: nextList,
-                                  restrictCountry: shouldRestrict,
-                                });
-                                setAllowedCountries(nextList);
-                                setRestrictCountry(shouldRestrict);
-                                setLinkData((prev) => ({ ...prev, allowedCountries: nextList }));
-                              } catch {
-                                setErrorModal({
-                                  isOpen: true,
-                                  title: "Erreur",
-                                  message: "Impossible d'enregistrer les pays",
-                                });
-                              } finally {
-                                setUpdating(false);
-                                setCountryInput("");
-                              }
-                            }}
-                            className="px-3 py-2 rounded-lg bg-black text-white text-xs font-semibold hover:bg-black/90"
-                          >
-                            Ajouter
-                          </button>
-                        </div>
-                        <p className="text-[11px] text-black/40">Laisser vide = tous les pays.</p>
-                      </div>
-                    </div>
-
                     {/* Blocage VPN / datacenter */}
                     <div className="p-3 bg-black/[0.02] border border-black/[0.05] rounded-2xl space-y-2">
                       <div className="flex items-center justify-between gap-3">

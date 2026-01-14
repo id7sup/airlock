@@ -64,31 +64,61 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
     }, 150); // Durée de l'animation
   };
 
-  // 1. Préparer les points GeoJSON
+  // 1. Préparer les points GeoJSON - UN SEUL POINT PAR VISITEUR
   const points = useMemo(() => {
-    return analytics
-      .filter(p => p.latitude != null && p.longitude != null)
-      .map(ev => ({
-        type: "Feature" as const,
-        properties: {
-          cluster: false,
-          eventId: ev.id,
-          type: ev.eventType || ev.type || "VIEW",
-          timestamp: ev.timestamp,
-          linkId: ev.linkId,
-          country: ev.country || "Inconnu",
-          city: ev.city || "Inconnu",
-          region: ev.region || "",
-          visitorId: ev.visitorId || "",
-          userAgent: ev.userAgent || "",
-          ip: ev.ip || null,
-          pointColor: getColorFromId(ev.id),
-        },
-        geometry: {
-          type: "Point" as const,
-          coordinates: [ev.longitude!, ev.latitude!] as [number, number],
-        },
-      }));
+    // Filtrer les événements avec géolocalisation valide
+    const validEvents = analytics.filter(p => 
+      p.latitude != null && 
+      p.longitude != null && 
+      p.visitorId // Un visiteur doit avoir un visitorId
+    );
+
+    // Grouper par visitorId - UN SEUL POINT PAR PERSONNE
+    const visitorMap = new Map<string, typeof validEvents[0]>();
+    
+    validEvents.forEach(ev => {
+      const visitorId = ev.visitorId || '';
+      if (!visitorId) return; // Ignorer les événements sans visitorId
+      
+      const existing = visitorMap.get(visitorId);
+      
+      // Si pas encore de point pour ce visiteur, l'ajouter
+      if (!existing) {
+        visitorMap.set(visitorId, ev);
+      } else {
+        // Si on a déjà un point pour ce visiteur, garder le plus récent
+        const existingTime = new Date(existing.timestamp).getTime();
+        const currentTime = new Date(ev.timestamp).getTime();
+        
+        if (currentTime > existingTime) {
+          // L'événement actuel est plus récent, le garder
+          visitorMap.set(visitorId, ev);
+        }
+      }
+    });
+
+    // Convertir en points GeoJSON - UN SEUL POINT PAR VISITEUR
+    return Array.from(visitorMap.values()).map(ev => ({
+      type: "Feature" as const,
+      properties: {
+        cluster: false,
+        eventId: ev.id, // ID du dernier événement de ce visiteur
+        type: ev.eventType || ev.type || "VIEW",
+        timestamp: ev.timestamp,
+        linkId: ev.linkId,
+        country: ev.country || "Inconnu",
+        city: ev.city || "Inconnu",
+        region: ev.region || "",
+        visitorId: ev.visitorId || "",
+        userAgent: ev.userAgent || "",
+        ip: ev.ip || null,
+        pointColor: getColorFromId(ev.visitorId || ev.id), // Couleur basée sur visitorId pour cohérence
+      },
+      geometry: {
+        type: "Point" as const,
+        coordinates: [ev.longitude!, ev.latitude!] as [number, number],
+      },
+    }));
   }, [analytics]);
 
   // 2. Indexer avec Supercluster

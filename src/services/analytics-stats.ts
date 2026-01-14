@@ -65,20 +65,27 @@ export async function getLinkAnalyticsStats(
   linkId: string | null,
   userId: string,
   days: number = 30,
-  period: '1J' | '1S' | 'Max' = '1J'
+  period: '1J' | '1S' | 'Max' = 'Max'
 ): Promise<AnalyticsStats> {
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
+  // Pour MAX, récupérer tous les événements depuis le début
+  const startDate = days >= 9999 ? new Date(0) : new Date();
+  if (days < 9999) {
+    startDate.setDate(startDate.getDate() - days);
+  }
   
   const allTimeStartDate = new Date(0); // Tous les temps
 
   try {
-    // Récupérer tous les événements
+    // Récupérer les événements pour la période spécifiée (pour les stats de période)
     let query = db.collection("shareAnalytics")
       .where("timestamp", ">=", startDate);
     
+    // Récupérer TOUS les événements (sans filtre de date) pour calculer le total de visiteurs uniques
+    let allTimeQuery = db.collection("shareAnalytics");
+    
     if (linkId) {
       query = query.where("linkId", "==", linkId) as any;
+      allTimeQuery = allTimeQuery.where("linkId", "==", linkId) as any;
     } else {
       // Pour tous les liens de l'utilisateur
       const linksSnapshot = await db.collection("shareLinks")
@@ -97,28 +104,41 @@ export async function getLinkAnalyticsStats(
       }
       
       const allEvents: any[] = [];
+      const allTimeEvents: any[] = [];
+      
       for (const chunk of chunks) {
+        // Événements pour la période
         const snapshot = await db.collection("shareAnalytics")
           .where("linkId", "in", chunk)
           .where("timestamp", ">=", startDate)
           .get();
         allEvents.push(...snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        
+        // TOUS les événements (pour le total de visiteurs)
+        const allTimeSnapshot = await db.collection("shareAnalytics")
+          .where("linkId", "in", chunk)
+          .get();
+        allTimeEvents.push(...allTimeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       }
       
-      return calculateStats(allEvents, userId, days, period);
+      return calculateStats(allEvents, userId, days, period, allTimeEvents);
     }
 
     const snapshot = await query.get();
     const events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
-    return calculateStats(events, userId, days, period);
+    // Récupérer TOUS les événements pour le total de visiteurs
+    const allTimeSnapshot = await allTimeQuery.get();
+    const allTimeEvents = allTimeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    return calculateStats(events, userId, days, period, allTimeEvents);
   } catch (error) {
     console.error("Erreur lors du calcul des stats:", error);
     return getEmptyStats();
   }
 }
 
-function calculateStats(events: any[], userId: string, days: number, period: '1J' | '1S' | 'Max' = '1J'): AnalyticsStats {
+function calculateStats(events: any[], userId: string, days: number, period: '1J' | '1S' | 'Max' = '1J', allTimeEvents?: any[]): AnalyticsStats {
   if (events.length === 0) {
     return getEmptyStats();
   }
@@ -136,13 +156,19 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
   // Exclure les événements du propriétaire du lien pour un comptage plus précis
   const externalEvents = events.filter(e => e.ownerId !== userId);
   
+  // Pour le TOTAL de visiteurs uniques, utiliser TOUS les événements (allTimeEvents)
+  // Sinon utiliser les événements de la période
+  const allTimeExternalEvents = allTimeEvents 
+    ? allTimeEvents.filter(e => e.ownerId !== userId)
+    : externalEvents;
+  
   const now = new Date();
   const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   
-  // Filtrer les visitorIds valides et uniques
+  // TOTAL de visiteurs uniques : utiliser TOUS les événements depuis le début
   const allVisitorIds = new Set(
-    externalEvents
+    allTimeExternalEvents
       .map(e => e.visitorId)
       .filter(Boolean)
       .filter((id): id is string => typeof id === 'string' && id.length > 0)
@@ -318,6 +344,43 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
     return date >= periodStart && date <= now;
   });
 
+  // Pour MAX : calculer la durée réelle des données pour adapter l'unité
+  let maxPeriodUnit: 'day' | 'week' | 'month' = 'month';
+  if (period === 'Max' && periodEvents.length > 0) {
+    const dates = periodEvents.map((event: any) => {
+      const timestamp = event.timestamp;
+      if (timestamp && typeof timestamp.toDate === 'function') {
+        return timestamp.toDate() as Date;
+      } else if (timestamp instanceof Date) {
+        return timestamp;
+      } else if (typeof timestamp === 'string') {
+        return new Date(timestamp);
+      }
+      return null;
+    }).filter((d): d is Date => d !== null).sort((a, b) => a.getTime() - b.getTime());
+    
+    if (dates.length > 0) {
+      const firstDate = dates[0];
+      const lastDate = dates[dates.length - 1];
+      const durationDays = Math.ceil((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Adapter l'unité selon la durée
+      if (durationDays <= 7) {
+        // 1 semaine ou moins → par jour
+        maxPeriodUnit = 'day';
+      } else if (durationDays <= 90) {
+        // ~3 mois ou moins → par semaine
+        maxPeriodUnit = 'week';
+      } else {
+        // Plus de 3 mois → par mois
+        maxPeriodUnit = 'month';
+      }
+    }
+  }
+  
+  // Variable constante pour éviter les problèmes de narrowing TypeScript
+  const maxUnit: 'day' | 'week' | 'month' = maxPeriodUnit;
+
   const hourCounts: Record<number, number> = {};
   const periodData: Record<string, number> = {};
   let maxCount = 0;
@@ -362,10 +425,35 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
         periodTimestamp = date.getTime();
         break;
       case 'Max':
-        // Tous les mois disponibles
-        const monthMax = date.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
-        periodKey = monthMax;
-        periodTimestamp = date.getTime();
+        // Adapter selon la durée des données
+        switch (maxUnit) {
+          case 'week':
+            // Par semaine : calculer le début de semaine (lundi)
+            const weekStart = new Date(date);
+            const dayOfWeek = date.getDay(); // 0 = dimanche, 1 = lundi, etc.
+            const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convertir dimanche (0) en 6
+            weekStart.setDate(date.getDate() - daysToMonday);
+            weekStart.setHours(0, 0, 0, 0);
+            
+            // Créer une clé unique pour cette semaine (format: YYYY-MM-DD pour le lundi de la semaine)
+            const year = weekStart.getFullYear();
+            const month = String(weekStart.getMonth() + 1).padStart(2, '0');
+            const day = String(weekStart.getDate()).padStart(2, '0');
+            periodKey = `${year}-${month}-${day}`; // Clé unique par semaine (lundi de la semaine)
+            periodTimestamp = weekStart.getTime();
+            break;
+          case 'day':
+            // Par jour
+            periodKey = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+            periodTimestamp = date.getTime();
+            break;
+          default:
+            // Par mois (par défaut)
+            const monthMax = date.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+            periodKey = monthMax;
+            periodTimestamp = date.getTime();
+            break;
+        }
         break;
     }
     
@@ -436,28 +524,91 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
       });
       break;
     case 'Max':
-      // Tous les mois disponibles (trier par date)
-      const allMonths = Object.keys(periodData)
-        .map(key => {
-          // Trouver une date correspondante pour ce mois
-          const parts = key.split(' ');
-          if (parts.length === 2) {
-            const monthNames = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-            const monthIndex = monthNames.indexOf(parts[0]);
-            const year = parseInt(parts[1]);
-            if (monthIndex !== -1 && !isNaN(year)) {
-              return {
-                label: key,
-                count: periodData[key],
-                timestamp: new Date(year, monthIndex, 1).getTime(),
-              };
-            }
+      // Adapter selon la durée des données
+      if (maxUnit === 'week') {
+        // Par semaine : utiliser les clés générées dans le forEach (format YYYY-MM-DD)
+        const weekKeys = Object.keys(periodData).filter(key => /^\d{4}-\d{2}-\d{2}$/.test(key));
+        
+        const weeks: Array<{ label: string; count: number; timestamp: number }> = [];
+        
+        weekKeys.forEach(key => {
+          // Parser la clé YYYY-MM-DD (lundi de la semaine)
+          const [year, month, day] = key.split('-').map(Number);
+          const weekStart = new Date(year, month - 1, day);
+          
+          weeks.push({
+            label: `Sem. ${weekStart.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`,
+            count: periodData[key] || 0,
+            timestamp: weekStart.getTime(),
+          });
+        });
+        
+        // Trier par timestamp
+        activityByPeriod = weeks.sort((a, b) => a.timestamp - b.timestamp);
+      } else if (maxUnit === 'day') {
+        // Par jour : utiliser les clés générées dans le forEach
+        const dates = periodEvents.map((event: any) => {
+          const timestamp = event.timestamp;
+          if (timestamp && typeof timestamp.toDate === 'function') {
+            return timestamp.toDate() as Date;
+          } else if (timestamp instanceof Date) {
+            return timestamp;
+          } else if (typeof timestamp === 'string') {
+            return new Date(timestamp);
           }
           return null;
-        })
-        .filter((item): item is { label: string; count: number; timestamp: number } => item !== null)
-        .sort((a, b) => a.timestamp - b.timestamp);
-      activityByPeriod = allMonths;
+        }).filter((d): d is Date => d !== null).sort((a, b) => a.getTime() - b.getTime());
+        
+        if (dates.length > 0) {
+          const firstDate = new Date(dates[0]);
+          firstDate.setHours(0, 0, 0, 0);
+          const lastDate = new Date(dates[dates.length - 1]);
+          lastDate.setHours(23, 59, 59, 999);
+          
+          const days: Array<{ label: string; count: number; timestamp: number }> = [];
+          let currentDay = new Date(firstDate);
+          
+          while (currentDay <= lastDate) {
+            const dayKey = currentDay.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+            const count = periodData[dayKey] || 0;
+            
+            days.push({
+              label: dayKey,
+              count: count,
+              timestamp: currentDay.getTime(),
+            });
+            
+            currentDay.setDate(currentDay.getDate() + 1);
+          }
+          
+          activityByPeriod = days;
+        } else {
+          activityByPeriod = [];
+        }
+      } else {
+        // Par mois (par défaut) : utiliser les clés générées dans le forEach
+        const allMonths = Object.entries(periodData)
+          .map(([key, count]) => {
+            // Vérifier si c'est un format de mois (ex: "janv. 2026")
+            const parts = key.split(' ');
+            if (parts.length === 2) {
+              const monthNames = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+              const monthIndex = monthNames.indexOf(parts[0]);
+              const year = parseInt(parts[1]);
+              if (monthIndex !== -1 && !isNaN(year)) {
+                return {
+                  label: key,
+                  count: count,
+                  timestamp: new Date(year, monthIndex, 1).getTime(),
+                };
+              }
+            }
+            return null;
+          })
+          .filter((item): item is { label: string; count: number; timestamp: number } => item !== null)
+          .sort((a, b) => a.timestamp - b.timestamp);
+        activityByPeriod = allMonths;
+      }
       break;
   }
 

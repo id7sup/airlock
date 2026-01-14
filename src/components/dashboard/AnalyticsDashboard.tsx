@@ -79,15 +79,16 @@ interface AnalyticsDashboardProps {
 export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
   const [stats, setStats] = useState<AnalyticsStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<'1J' | '1S' | 'Max'>('1J');
+  const [period, setPeriod] = useState<'1J' | '1S' | 'Max'>('Max');
 
   useEffect(() => {
     const fetchStats = async () => {
       setLoading(true);
       try {
+        // Toujours utiliser MAX pour les données globales, mais la période pour le graphique
         const url = linkId 
-          ? `/api/analytics/stats?days=30&linkId=${linkId}&period=${period}`
-          : `/api/analytics/stats?days=30&period=${period}`;
+          ? `/api/analytics/stats?days=9999&linkId=${linkId}&period=${period}`
+          : `/api/analytics/stats?days=9999&period=${period}`;
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
@@ -236,8 +237,8 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
               <AreaChart 
                 data={stats.hotMoments.activityByPeriod.length > 0 
                   ? stats.hotMoments.activityByPeriod 
-                  : stats.hotMoments.activityByHour.map(h => ({ label: `${h.hour.toString().padStart(2, '0')}h`, count: h.count }))} 
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                  : []} 
+                margin={{ top: 10, right: 30, left: 0, bottom: period === 'Max' ? 60 : 0 }}
               >
                 <defs>
                   <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
@@ -297,31 +298,6 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
                 />
               </AreaChart>
             </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Métriques résumées */}
-        <div className="grid grid-cols-3 gap-6">
-          <div className="bg-gradient-to-br from-white to-[#f9faf9] rounded-2xl border border-black/[0.05] p-6">
-            <p className="text-[10px] font-bold text-black/30 uppercase tracking-wider mb-3">Total 24h</p>
-            <p className="text-4xl font-light text-black tabular-nums">
-              {stats.hotMoments.activityByHour.reduce((acc, h) => acc + h.count, 0)}
-            </p>
-            <p className="text-xs text-black/40 mt-2">événements</p>
-          </div>
-          <div className="bg-gradient-to-br from-white to-[#f9faf9] rounded-2xl border border-black/[0.05] p-6">
-            <p className="text-[10px] font-bold text-black/30 uppercase tracking-wider mb-3">Moyenne</p>
-            <p className="text-4xl font-light text-black tabular-nums">
-              {Math.round(stats.hotMoments.activityByHour.reduce((acc, h) => acc + h.count, 0) / 24)}
-            </p>
-            <p className="text-xs text-black/40 mt-2">par heure</p>
-          </div>
-          <div className="bg-gradient-to-br from-white to-[#f9faf9] rounded-2xl border border-black/[0.05] p-6">
-            <p className="text-[10px] font-bold text-black/30 uppercase tracking-wider mb-3">Heure actuelle</p>
-            <p className="text-4xl font-light text-black tabular-nums">
-              {stats.hotMoments.activityByHour[new Date().getHours()]?.count || 0}
-            </p>
-            <p className="text-xs text-black/40 mt-2">événements</p>
           </div>
         </div>
 
@@ -415,50 +391,6 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Sécurité & anomalies */}
-      <div className="bg-white border border-black/[0.05] rounded-2xl shadow-sm p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
-            <h2 className="text-xl font-semibold text-black">Sécurité & Anomalies</h2>
-          </div>
-          <span className="text-[11px] text-red-700 uppercase tracking-[0.18em]">Surveillance</span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="p-3 rounded-xl bg-red-50 border border-red-100">
-            <p className="text-[11px] font-semibold text-red-700 uppercase tracking-wide">Refus totaux</p>
-            <p className="text-2xl font-semibold text-red-800 tabular-nums mt-1">{stats.security.totalDenials}</p>
-          </div>
-          <div className="p-3 rounded-xl bg-red-50 border border-red-100">
-            <p className="text-[11px] font-semibold text-red-700 uppercase tracking-wide">Refus 24h</p>
-            <p className="text-2xl font-semibold text-red-800 tabular-nums mt-1">{stats.security.denials24h}</p>
-          </div>
-          <div className="p-3 rounded-xl bg-black/[0.02] border border-black/[0.05]">
-            <p className="text-[11px] font-semibold text-black/60 uppercase tracking-wide">Pays principaux</p>
-            {stats.security.topDenialCountries.length === 0 ? (
-              <p className="text-sm text-black/45 mt-1">Aucun</p>
-            ) : (
-              <p className="text-sm font-medium text-black mt-1">
-                {stats.security.topDenialCountries.slice(0, 2).map((c) => c.country).join(", ")}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {stats.security.unusualCountries.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-black/60 uppercase tracking-wide">Pays inhabituels</p>
-            <div className="flex flex-wrap gap-2">
-              {stats.security.unusualCountries.map((country, idx) => (
-                <span key={idx} className="px-3 py-1.5 bg-red-50/70 text-red-700 rounded-lg text-xs font-semibold border border-red-200">
-                  {country}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -90,8 +90,45 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // 7. Le tracking est géré côté client via /api/analytics/track-event
-  // Pas besoin de tracker ici pour éviter le double comptage
+  // 7. Tracker le téléchargement côté serveur (important pour mobile)
+  try {
+    const clientIP = getClientIP(req);
+    const userAgent = req.headers.get("user-agent") || undefined;
+    const referer = req.headers.get("referer") || undefined;
+    
+    // Générer visitorId
+    const { generateVisitorId } = await import("@/lib/visitor");
+    const visitorId = generateVisitorId(clientIP, userAgent);
+    
+    // Capturer la géolocalisation précise
+    let geolocation;
+    try {
+      if (clientIP !== 'unknown') {
+        geolocation = await getGeolocationFromIP(clientIP);
+        if (geolocation) {
+          geolocation = Object.fromEntries(
+            Object.entries(geolocation).filter(([_, v]) => v !== undefined)
+          ) as any;
+        }
+      }
+    } catch (error) {
+      console.error("Error getting geolocation for download:", error);
+    }
+
+    await trackEvent({
+      linkId: link.id || link.linkId,
+      eventType: "DOWNLOAD_FILE",
+      geolocation,
+      visitorId,
+      referer,
+      userAgent,
+      fileId: fileId,
+      fileName: file.name,
+    });
+  } catch (error) {
+    console.error("Error tracking download:", error);
+    // Ne pas bloquer le téléchargement si le tracking échoue
+  }
 
   // 8. Servir l'original (pas de watermark pour les téléchargements autorisés)
   const downloadUrl = await getDownloadUrl(file.s3Key, file.name);
