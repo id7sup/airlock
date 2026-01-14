@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { validateShareLink } from "@/services/sharing";
 import { db } from "@/lib/firebase";
 import { checkIfFolderIsChild } from "@/services/folders";
+import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
+import { trackEvent } from "@/services/analytics";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -18,7 +20,42 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Lien invalide, expiré ou quota atteint" }, { status: 403 });
   }
 
-  // 2. Vérifier que le fichier appartient au dossier (récursif pour les sous-dossiers)
+  // 2. Vérifier le blocage VPN/Datacenter si activé
+  if (link.blockVpn === true) {
+    try {
+      const clientIP = getClientIP(req);
+      if (clientIP !== 'unknown') {
+        const geolocation = await getGeolocationFromIP(clientIP);
+        if (geolocation && (geolocation.isVPN === true || geolocation.isDatacenter === true)) {
+          // Tracker l'accès refusé
+          try {
+            const userAgent = req.headers.get("user-agent") || undefined;
+            const referer = req.headers.get("referer") || undefined;
+            const { generateVisitorId } = await import("@/lib/visitor");
+            const visitorId = generateVisitorId(clientIP, userAgent);
+            
+            await trackEvent({
+              linkId: link.id || link.linkId,
+              eventType: "ACCESS_DENIED",
+              geolocation,
+              visitorId,
+              referer,
+              userAgent,
+            });
+          } catch (e) {
+            console.error("Error tracking ACCESS_DENIED:", e);
+          }
+          
+          return NextResponse.json({ error: "L'accès via VPN ou datacenter est bloqué" }, { status: 403 });
+        }
+      }
+    } catch (error) {
+      console.error("Error checking VPN/Datacenter:", error);
+      // En cas d'erreur, on autorise l'accès pour ne pas bloquer les utilisateurs légitimes
+    }
+  }
+
+  // 3. Vérifier que le fichier appartient au dossier (récursif pour les sous-dossiers)
   const fileDoc = await db.collection("files").doc(fileId).get();
   if (!fileDoc.exists) {
     return NextResponse.json({ error: "Fichier non trouvé" }, { status: 404 });
@@ -37,7 +74,7 @@ export async function GET(req: NextRequest) {
 
   const file = fileDoc.data()!;
 
-  // 3. Utiliser downloadDefault du lien (pas de règles par fichier)
+  // 4. Utiliser downloadDefault du lien (pas de règles par fichier)
   const downloadAllowed = link.downloadDefault ?? (link.allowDownload ?? true);
 
   return NextResponse.json({

@@ -869,7 +869,13 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8 lg:mb-12">
         <div className="space-y-1">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight">Mes dossiers</h1>
-          <p className="text-black/40 text-sm sm:text-base font-medium">Organisez vos documents par simple glissement.</p>
+          <p className="text-black/40 text-sm sm:text-base font-medium">
+            {currentFilter === "favorites" && "Gérez vos dossiers favoris en sélectionnant plusieurs éléments à la fois."}
+            {currentFilter === "trash" && "Restaurez ou supprimez définitivement plusieurs dossiers en une seule action."}
+            {currentFilter === "recent" && "Accédez rapidement à vos dossiers récemment modifiés et gérez-les par lot."}
+            {currentFilter === "shared" && "Gérez les permissions et accès de plusieurs dossiers partagés simultanément."}
+            {(currentFilter === "all" || !currentFilter) && "Sélectionnez plusieurs dossiers pour créer des groupes, partager ou organiser en masse."}
+          </p>
         </div>
         
         <div className="flex flex-wrap gap-2 sm:gap-4">

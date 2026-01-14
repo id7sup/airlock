@@ -131,7 +131,8 @@ export async function trackEvent(data: TrackingData) {
   // Enregistrer l'événement complet
   await db.collection("shareAnalytics").add(analyticsData);
 
-  // Mettre à jour les compteurs sur le lien (pour compatibilité)
+  // Mettre à jour les compteurs sur le lien spécifique (indépendant des autres liens)
+  // Chaque lien a ses propres compteurs, même s'ils pointent vers le même dossier
   const linkRef = db.collection("shareLinks").doc(data.linkId);
   const updateData: any = { updatedAt: new Date() };
   
@@ -141,6 +142,7 @@ export async function trackEvent(data: TrackingData) {
     updateData.downloadCount = admin.firestore.FieldValue.increment(1);
   }
   
+  // Mise à jour atomique sur ce lien spécifique uniquement
   await linkRef.update(updateData);
 }
 

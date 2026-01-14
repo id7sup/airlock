@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   FolderOpen, 
   Eye, 
@@ -17,8 +17,10 @@ import {
   Check,
   X as CloseIcon,
   CircleDot,
-  Globe
+  Globe,
+  ChevronDown
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { SharingAnalyticsChart } from "./SharingAnalyticsChart";
 import { MapboxGlobe } from "./MapboxGlobe";
 import { AnalyticsDashboard } from "./AnalyticsDashboard";
@@ -48,7 +50,25 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
   const [selectedLinkId, setSelectedLinkId] = useState<string | "all">("all");
   const [geolocationAnalytics, setGeolocationAnalytics] = useState<any[]>([]);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   
+  // Fermer le dropdown au clic extérieur
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
   
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<{ id: string, type: 'views' | 'expiry' } | null>(null);
@@ -159,7 +179,8 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
       onConfirm: async () => {
         try {
           await revokeShareLinkAction(id);
-          setLinks(links.filter(l => l.id !== id));
+          // Mettre à jour le lien pour le marquer comme révoqué au lieu de le supprimer
+          setLinks(links.map(l => l.id === id ? { ...l, isRevoked: true } : l));
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
         } catch (error) {
           setErrorModal({
@@ -312,9 +333,9 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
       ) : (
         /* Vue en direct - Uniquement le globe */
         <div className="space-y-8 -mt-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
-            <div>
-              <h2 className="text-2xl font-medium tracking-tight mb-1">Suivi en direct</h2>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
+            <div className="space-y-1">
+              <h2 className="text-2xl font-medium tracking-tight text-black">Statistiques en direct</h2>
               <p className="text-sm text-black/40 font-medium">
                 Visualisation géographique en temps réel
               </p>
@@ -323,18 +344,117 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
               {loadingAnalytics && (
                 <Loader2 className="w-5 h-5 text-black/40 animate-spin" />
               )}
-              <select
-                value={selectedLinkId}
-                onChange={(e) => setSelectedLinkId(e.target.value)}
-                className="px-4 py-2.5 bg-white border border-black/[0.08] rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/10 transition-all hover:border-black/15 shadow-sm"
-              >
-                <option value="all">Tous les partages</option>
-                {links.map((link) => (
-                  <option key={link.id} value={link.id}>
-                    {link.folderName}
-                  </option>
-                ))}
-              </select>
+              
+              {/* Dropdown personnalisé - Menu séparé en position absolue */}
+              <div className="relative" ref={dropdownRef}>
+                {/* Bouton principal */}
+                <button
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="flex items-center gap-3 px-5 py-3 bg-white border border-black/[0.08] text-black rounded-2xl text-sm font-medium hover:bg-black/5 hover:border-black/15 transition-all duration-200 shadow-sm hover:shadow-md min-w-[220px] justify-between group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <FolderOpen className="w-4 h-4 text-brand-primary" />
+                    <span className="truncate font-medium">
+                      {selectedLinkId === "all" 
+                        ? "Tous les partages" 
+                        : links.find(l => l.id === selectedLinkId)?.folderName || "Sélectionner"}
+                    </span>
+                  </div>
+                  <ChevronDown 
+                    className={`w-4 h-4 text-black/40 transition-transform duration-200 ${
+                      isDropdownOpen ? 'rotate-180' : ''
+                    }`} 
+                  />
+                </button>
+
+                {/* Menu qui se déroule en position absolue */}
+                <AnimatePresence>
+                  {isDropdownOpen && (
+                    <>
+                      {/* Overlay pour fermer au clic extérieur */}
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="fixed inset-0 z-10"
+                      />
+                      
+                      {/* Menu dropdown séparé avec effet de déroulement */}
+                      <motion.div
+                        initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="absolute top-full left-0 mt-2 z-20 bg-white rounded-2xl border border-black/[0.08] shadow-2xl shadow-black/10 overflow-hidden w-full min-w-[220px]"
+                      >
+                        <div className="py-1.5">
+                          {/* Option "Tous les partages" */}
+                          <button
+                            onClick={() => {
+                              setSelectedLinkId("all");
+                              setIsDropdownOpen(false);
+                            }}
+                            className={`w-full px-5 py-3 text-left flex items-center gap-3 hover:bg-black/5 transition-colors group ${
+                              selectedLinkId === "all" ? "bg-black/5" : ""
+                            }`}
+                          >
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                              selectedLinkId === "all" 
+                                ? "border-black bg-black" 
+                                : "border-black/20 group-hover:border-black/40"
+                            }`}>
+                              {selectedLinkId === "all" && (
+                                <Check className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-black">
+                                Tous les partages
+                              </div>
+                            </div>
+                          </button>
+
+                          {/* Séparateur */}
+                          {links.length > 0 && (
+                            <div className="h-px bg-black/[0.05] my-1 mx-5" />
+                          )}
+
+                          {/* Options pour chaque partage */}
+                          {links.map((link) => (
+                            <button
+                              key={link.id}
+                              onClick={() => {
+                                setSelectedLinkId(link.id);
+                                setIsDropdownOpen(false);
+                              }}
+                              className={`w-full px-5 py-3 text-left flex items-center gap-3 hover:bg-black/5 transition-colors group ${
+                                selectedLinkId === link.id ? "bg-black/5" : ""
+                              }`}
+                            >
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                                selectedLinkId === link.id 
+                                  ? "border-black bg-black" 
+                                  : "border-black/20 group-hover:border-black/40"
+                              }`}>
+                                {selectedLinkId === link.id && (
+                                  <Check className="w-3 h-3 text-white" />
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                <FolderOpen className="w-4 h-4 text-brand-primary flex-shrink-0" />
+                                <span className="text-sm font-medium text-black truncate">
+                                  {link.folderName}
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { 
   Copy, 
   Network, 
@@ -28,8 +29,7 @@ import { createPortal } from "react-dom";
 import { useEffect } from "react";
 import { FileIcon, Settings, Info, FolderOpen } from "lucide-react";
 
-type ShareMode = "select" | "internal" | "external" | "success";
-type ExternalStep = "rules" | "result";
+type ShareMode = "select" | "internal" | "success";
 type ShareRole = "VIEWER" | "EDITOR";
 
 export function ShareModal({ 
@@ -43,14 +43,11 @@ export function ShareModal({
   folderId: string;
   folderName: string;
 }) {
+  const router = useRouter();
   const [mode, setMode] = useState<ShareMode>("select");
-  const [externalStep, setExternalStep] = useState<ExternalStep>("rules");
   const [isCreatingLink, setIsCreatingLink] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
   const [email, setEmail] = useState("");
-  const [shareLink, setShareLink] = useState<string | null>(null);
-  const [shareLinkId, setShareLinkId] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [inviteSuccess, setInviteSuccess] = useState(false);
   const [errorModal, setErrorModal] = useState<{
@@ -67,13 +64,6 @@ export function ShareModal({
   const [internalRole, setInternalRole] = useState<ShareRole>("VIEWER");
   const [internalCanDownload, setInternalCanDownload] = useState(true);
 
-  // External share settings
-  const [allowDownload, setAllowDownload] = useState(true);
-  const [maxViews, setMaxViews] = useState<string>("");
-  const [expiryDays, setExpiryDays] = useState<string>("7");
-  const [isPasswordProtected, setIsPasswordProtected] = useState(false);
-  const [password, setPassword] = useState("");
-
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -83,17 +73,9 @@ export function ShareModal({
     if (!isOpen) {
       setTimeout(() => {
         setMode("select");
-        setExternalStep("rules");
-        setShareLink(null);
-        setShareLinkId(null);
         setEmail("");
         setInternalRole("VIEWER");
         setInternalCanDownload(true);
-        setAllowDownload(true);
-        setMaxViews("");
-        setExpiryDays("7");
-        setIsPasswordProtected(false);
-        setPassword("");
       }, 300);
     }
   }, [isOpen]);
@@ -124,54 +106,28 @@ export function ShareModal({
     }
   };
 
-  const handleCreatePublicLink = async () => {
+  const handleCreatePublicLinkDirect = async () => {
     setIsCreatingLink(true);
     try {
-      const expiresAt = expiryDays ? new Date() : null;
-      if (expiresAt) {
-        expiresAt.setDate(expiresAt.getDate() + parseInt(expiryDays));
-      }
-
-      // Validation : empêcher les valeurs négatives
-      const maxViewsValue = maxViews ? parseInt(maxViews) : null;
-      if (maxViewsValue !== null && maxViewsValue < 0) {
-        setErrorModal({
-          isOpen: true,
-          title: "Erreur de validation",
-          message: "Le quota de vues ne peut pas être négatif"
-        });
-        setIsCreatingLink(false);
-        return;
-      }
-
+      // Créer le lien avec des valeurs par défaut (initialisé à 0)
       const result = await createShareLinkAction({
         folderId,
-        expiresAt,
-        maxViews: maxViewsValue,
-        allowDownload,
-        password: isPasswordProtected ? password : undefined,
+        expiresAt: null, // Pas d'expiration par défaut
+        maxViews: null, // Pas de limite de vues par défaut
+        allowDownload: true, // Téléchargement autorisé par défaut
+        password: undefined, // Pas de mot de passe par défaut
       });
       
-      const fullUrl = `${window.location.origin}/share/${result.token}`;
-      setShareLink(fullUrl);
-      setShareLinkId(result.id);
-      setExternalStep("result");
+      // Fermer le modal et rediriger vers la page de détails
+      onClose();
+      router.push(`/dashboard/sharing/${result.id}`);
     } catch (error) {
       setErrorModal({
         isOpen: true,
         title: "Erreur",
         message: "Erreur lors de la création du lien"
       });
-    } finally {
       setIsCreatingLink(false);
-    }
-  };
-
-  const copyToClipboard = () => {
-    if (shareLink) {
-      navigator.clipboard.writeText(shareLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -245,9 +201,15 @@ export function ShareModal({
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setMode("external")}
-                      className="group p-6 bg-black/5 hover:bg-black/10 rounded-2xl border border-black/10 hover:border-black/20 transition-all text-left"
+                      onClick={handleCreatePublicLinkDirect}
+                      disabled={isCreatingLink}
+                      className="group p-6 bg-black/5 hover:bg-black/10 rounded-2xl border border-black/10 hover:border-black/20 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed relative"
                     >
+                      {isCreatingLink && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-2xl">
+                          <Loader2 className="w-6 h-6 text-black animate-spin" />
+                        </div>
+                      )}
                       <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center mb-4 shadow-lg">
                         <Network className="w-6 h-6 text-white" />
                       </div>
@@ -411,222 +373,6 @@ export function ShareModal({
                   </div>
                 </motion.div>
               )}
-
-              {/* Mode: External - Rules Step - Grid Layout */}
-              {mode === "external" && externalStep === "rules" && (
-                <motion.div
-                  key="external-rules"
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-5"
-                >
-                  <button
-                    onClick={() => setMode("select")}
-                    className="flex items-center gap-1.5 text-xs font-medium text-black/40 hover:text-black transition-colors -mb-2"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    Retour
-                  </button>
-
-                  <div>
-                    <h3 className="text-lg font-medium text-black mb-1">Contrôle du partage</h3>
-                    <p className="text-xs text-black/30 font-medium">Règles globales pour tous les fichiers</p>
-                  </div>
-
-                  {/* Grid Layout for Rules */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Download */}
-                    <div 
-                      onClick={() => setAllowDownload(!allowDownload)}
-                      className="p-5 bg-white rounded-2xl border border-black/[0.03] hover:border-black/10 hover:shadow-sm transition-all cursor-pointer group"
-                    >
-                      <div className="flex items-center justify-between mb-4">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                          allowDownload ? "bg-black text-white" : "bg-black/[0.03] text-black/20"
-                        }`}>
-                          <Download className="w-5 h-5" />
-                        </div>
-                        <div className={`w-10 h-5 rounded-full relative transition-all duration-300 ${
-                          allowDownload ? "bg-black" : "bg-black/10"
-                        }`}>
-                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-all duration-300 ${
-                            allowDownload ? "translate-x-5" : "translate-x-0"
-                          }`} />
-                        </div>
-                      </div>
-                      <p className="text-sm font-medium text-black mb-0.5">Téléchargement</p>
-                      <p className="text-[11px] text-black/35 font-medium">Par défaut</p>
-                    </div>
-
-                    {/* Max Views */}
-                    <div className="p-5 bg-white rounded-2xl border border-black/[0.03] hover:border-black/10 hover:shadow-sm transition-all">
-                      <div className="w-10 h-10 bg-black/[0.03] rounded-xl flex items-center justify-center text-black/25 mb-4">
-                        <Eye className="w-5 h-5" />
-                      </div>
-                      <p className="text-sm font-medium text-black mb-3">Limite de vues</p>
-                      <div className="relative h-10">
-                        {!maxViews && (
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                            <span className="text-3xl text-black/15 font-extralight tracking-tight">∞</span>
-                          </div>
-                        )}
-                        <input 
-                          type="number" 
-                          placeholder="" 
-                          value={maxViews}
-                          min="0"
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === "" || (parseInt(val) >= 0)) {
-                              setMaxViews(val);
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
-                              e.preventDefault();
-                            }
-                          }}
-                          className="w-full h-full px-3 bg-transparent border-none rounded-lg text-sm text-center font-medium outline-none focus:ring-1 focus:ring-black/5 transition-all relative z-10" 
-                        />
-                      </div>
-                    </div>
-
-                    {/* Expiration */}
-                    <div className="p-5 bg-white rounded-2xl border border-black/[0.03] hover:border-black/10 hover:shadow-sm transition-all">
-                      <div className="w-10 h-10 bg-black/[0.03] rounded-xl flex items-center justify-center text-black/25 mb-4">
-                        <Clock className="w-5 h-5" />
-                      </div>
-                      <p className="text-sm font-medium text-black mb-3">Expiration</p>
-                      <div className="flex items-center gap-2 bg-black/[0.02] rounded-xl px-3 py-2.5 border border-transparent focus-within:bg-white focus-within:border-black/5 transition-all">
-                        <input 
-                          type="number" 
-                          value={expiryDays}
-                          onChange={(e) => setExpiryDays(e.target.value)}
-                          className="w-14 bg-transparent border-none text-sm text-center font-medium outline-none" 
-                        />
-                        <span className="text-[11px] font-medium text-black/30">jours</span>
-                      </div>
-                    </div>
-
-                    {/* Password */}
-                    <div className="p-5 bg-white rounded-2xl border border-black/[0.03] hover:border-black/10 hover:shadow-sm transition-all">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                          isPasswordProtected ? "bg-brand-primary/10 text-brand-primary" : "bg-black/[0.03] text-black/20"
-                        }`}>
-                          <Lock className="w-5 h-5" />
-                        </div>
-                        <div 
-                          onClick={() => setIsPasswordProtected(!isPasswordProtected)}
-                          className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer ${
-                            isPasswordProtected ? "bg-brand-primary" : "bg-black/10"
-                          }`}
-                        >
-                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-all duration-300 ${
-                            isPasswordProtected ? "translate-x-5" : "translate-x-0"
-                          }`} />
-                        </div>
-                      </div>
-                      <p className="text-sm font-medium text-black mb-0.5">Mot de passe</p>
-                      <p className="text-[11px] text-black/35 font-medium">Protection</p>
-                    </div>
-                  </div>
-
-                  {/* Password Input - Full Width */}
-                  {isPasswordProtected && (
-                    <motion.input 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      type="password" 
-                      placeholder="Mot de passe secret..." 
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-4 py-3 bg-black/[0.02] border border-black/[0.03] rounded-xl text-sm outline-none focus:bg-white focus:border-black/10 focus:ring-1 focus:ring-black/5 transition-all" 
-                    />
-                  )}
-
-                  <button 
-                    onClick={handleCreatePublicLink}
-                    disabled={isCreatingLink}
-                    className="w-full h-12 bg-black text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2 shadow-xl shadow-black/10 hover:bg-black/90 active:scale-[0.99] transition-all disabled:opacity-50 mt-2"
-                  >
-                    {isCreatingLink ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Génération...
-                      </>
-                    ) : (
-                      <>
-                        <ShieldCheck className="w-4 h-4" />
-                        Générer le lien de partage
-                      </>
-                    )}
-                  </button>
-                </motion.div>
-              )}
-
-
-              {/* Mode: External - Result Step */}
-              {mode === "external" && externalStep === "result" && shareLink && (
-                <motion.div
-                  key="external-result"
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-5"
-                >
-                  <div className="text-center space-y-3">
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: 0.1, type: "spring" }}
-                      className="w-16 h-16 bg-brand-primary text-white rounded-2xl flex items-center justify-center mx-auto shadow-xl"
-                    >
-                      <ShieldCheck className="w-8 h-8" />
-                    </motion.div>
-                    <div>
-                      <h3 className="text-lg font-medium text-black mb-1">Lien créé</h3>
-                      <p className="text-xs text-black/40 font-medium">
-                        Prêt à être partagé
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-black/20 uppercase tracking-[0.2em] block">
-                      Lien sécurisé
-                    </label>
-                    <div className="flex items-center gap-2 p-3 bg-black/5 rounded-xl border border-black/10">
-                      <input 
-                        readOnly 
-                        value={shareLink} 
-                        className="flex-1 bg-transparent border-none text-xs font-medium text-black outline-none select-all"
-                      />
-                      <button 
-                        onClick={copyToClipboard}
-                        className="w-10 h-10 bg-white rounded-lg flex items-center justify-center hover:bg-black/5 active:scale-90 transition-all border border-black/[0.05] shadow-sm"
-                      >
-                        {copied ? (
-                          <Check className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <Copy className="w-4 h-4 text-black/40" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                    <button 
-                      onClick={onClose}
-                    className="w-full py-2.5 bg-black text-white rounded-xl font-medium text-xs hover:bg-black/90 transition-all"
-                    >
-                      Terminé
-                    </button>
-                </motion.div>
-              )}
-
 
               {/* Mode: Success (Internal) */}
               {mode === "success" && (

@@ -20,7 +20,19 @@ export default async function FolderPage({
   const user = await currentUser();
   const userEmail = user?.emailAddresses?.[0]?.emailAddress?.toLowerCase();
 
-  const folderDoc = await db.collection("folders").doc(id).get();
+  // Paralléliser la récupération du dossier et les vérifications de permissions
+  const [folderDoc, permsByUserId, permsByEmail] = await Promise.all([
+    db.collection("folders").doc(id).get(),
+    userId ? db.collection("permissions")
+      .where("folderId", "==", id)
+      .where("userId", "==", userId)
+      .get() : Promise.resolve({ docs: [] } as any),
+    userEmail ? db.collection("permissions")
+      .where("folderId", "==", id)
+      .where("userEmail", "==", userEmail)
+      .get() : Promise.resolve({ docs: [] } as any)
+  ]);
+
   if (!folderDoc.exists) notFound();
   const folderData = folderDoc.data()!;
 
@@ -39,24 +51,47 @@ export default async function FolderPage({
     );
   }
 
-  // Vérifier accès par userId ET par email (y compris les permissions masquées pour vérifier)
-  const [permsByUserId, permsByEmail] = await Promise.all([
-    db.collection("permissions")
-      .where("folderId", "==", id)
-      .where("userId", "==", userId || "")
-      .get(),
-    userEmail ? db.collection("permissions")
-      .where("folderId", "==", id)
-      .where("userEmail", "==", userEmail)
-      .get() : Promise.resolve({ docs: [] } as any)
-  ]);
-
   // Vérifier si l'utilisateur a une permission active (non masquée)
   const allPerms = [...permsByUserId.docs, ...permsByEmail.docs];
-  const activePermDoc = allPerms.find(doc => {
+  let activePermDoc = allPerms.find(doc => {
     const perm = doc.data();
     return (perm.userId === userId || (userEmail && perm.userEmail === userEmail)) && perm.isHidden !== true;
   });
+
+  // Si aucune permission explicite, vérifier si l'utilisateur est membre du workspace
+  // Cela permet d'accéder aux dossiers même si les permissions n'ont pas été créées correctement
+  if (!activePermDoc && folderData.workspaceId && userId) {
+    try {
+      const workspaceDoc = await db.collection("workspaces").doc(folderData.workspaceId).get();
+      if (workspaceDoc.exists) {
+        const workspaceData = workspaceDoc.data();
+        const memberIds = workspaceData?.memberIds || [];
+        // Si l'utilisateur est membre du workspace, lui donner accès en tant qu'OWNER
+        if (memberIds.includes(userId)) {
+          // Créer une permission virtuelle pour l'accès
+          activePermDoc = {
+            data: () => ({ role: "OWNER", userId, isHidden: false })
+          } as any;
+          
+          // Optionnel : créer la permission manquante pour éviter ce problème à l'avenir
+          try {
+            await db.collection("permissions").add({
+              folderId: id,
+              userId: userId,
+              role: "OWNER",
+              createdAt: new Date(),
+              isHidden: false,
+            });
+          } catch (permError) {
+            // Ignorer les erreurs de création de permission (peut déjà exister)
+            console.error("Erreur lors de la création de la permission:", permError);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Erreur lors de la vérification du workspace:", error);
+    }
+  }
 
   if (!activePermDoc) {
     return (
@@ -72,22 +107,25 @@ export default async function FolderPage({
   const activePerm = activePermDoc.data();
   const userRole = activePerm.role || "VIEWER";
 
-  // Récupérer fichiers et sous-dossiers de manière concurrente
+  // Récupérer fichiers et sous-dossiers de manière concurrente avec select() pour optimiser
   const [filesSnapshot, childrenSnapshot] = await Promise.all([
     (async () => {
       try {
         return await db.collection("files")
           .where("folderId", "==", id)
+          .select("name", "size", "mimeType", "s3Key", "updatedAt")
           .orderBy("updatedAt", "desc")
           .get();
       } catch (e) {
         return await db.collection("files")
           .where("folderId", "==", id)
+          .select("name", "size", "mimeType", "s3Key", "updatedAt")
           .get();
       }
     })(),
     db.collection("folders")
       .where("parentId", "==", id)
+      .select("name", "isFavorite", "isDeleted", "createdAt", "updatedAt")
       .get()
   ]);
 

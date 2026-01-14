@@ -4,7 +4,7 @@ import { checkIfFolderIsChild } from "@/services/folders";
 import { FolderOpen, Info, ChevronLeft, Lock } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import { FileList } from "@/components/shared/FileList";
-import { TrackEvent } from "@/components/shared/TrackEvent";
+// TrackEvent supprimé - le tracking est fait côté serveur pour éviter le double comptage
 import Link from "next/link";
 import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
 import { headers } from "next/headers";
@@ -46,9 +46,14 @@ export default async function PublicShareFolderPage({
       );
     }
     
+    // Paralléliser la validation du lien et la récupération du dossier
     let result;
+    let folderDoc;
     try {
-      result = await validateShareLink(token);
+      [result, folderDoc] = await Promise.all([
+        validateShareLink(token),
+        db.collection("folders").doc(folderId).get()
+      ]);
     } catch (error: any) {
       console.error("[SHARE_FOLDER] Error validating link:", error?.message);
       return (
@@ -105,25 +110,7 @@ export default async function PublicShareFolderPage({
     }
 
     // 2. Vérifier que le sous-dossier appartient au dossier partagé (récursif)
-    let folderDoc;
-    try {
-      folderDoc = await db.collection("folders").doc(folderId).get();
-    } catch (error: any) {
-      console.error("[SHARE_FOLDER] Error fetching folder:", error?.message);
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-          <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Info className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2 tracking-tight">Erreur</h1>
-            <p className="text-apple-secondary font-medium">
-              Impossible de charger le dossier.
-            </p>
-          </div>
-        </div>
-      );
-    }
+    // folderDoc a déjà été récupéré en parallèle
 
     if (!folderDoc.exists) {
       return (
@@ -157,52 +144,24 @@ export default async function PublicShareFolderPage({
         </div>
       );
     }
-    
-    // Vérifier que le dossier est bien un enfant du dossier partagé
-    let isChildOfSharedFolder = false;
-    try {
-      isChildOfSharedFolder = await checkIfFolderIsChild(folderId, link.folderId);
-    } catch (error: any) {
-      console.error("[SHARE_FOLDER] Error checking hierarchy:", error?.message);
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-          <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Info className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2 tracking-tight">Erreur</h1>
-            <p className="text-apple-secondary font-medium">
-              Impossible de vérifier l'accès au dossier.
-            </p>
-          </div>
-        </div>
-      );
-    }
 
-    if (!isChildOfSharedFolder) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-          <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Info className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2 tracking-tight">Accès refusé</h1>
-            <p className="text-apple-secondary font-medium">
-              Ce dossier n'appartient pas au partage.
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    // 3. Récupérer les fichiers et sous-dossiers de ce dossier
+    // 2. Vérifier la hiérarchie et récupérer les fichiers/sous-dossiers en parallèle
     let files: any[] = [];
     let children: any[] = [];
+    let isChildOfSharedFolder = false;
     try {
-      const [filesSnapshot, childrenSnapshot] = await Promise.all([
-        db.collection("files").where("folderId", "==", folderId).get(),
-        db.collection("folders").where("parentId", "==", folderId).get(),
+      const [filesSnapshot, childrenSnapshot, hierarchyCheck] = await Promise.all([
+        db.collection("files")
+          .where("folderId", "==", folderId)
+          .select("name", "size", "mimeType", "s3Key", "updatedAt", "rule")
+          .get(),
+        db.collection("folders")
+          .where("parentId", "==", folderId)
+          .select("name", "parentId", "updatedAt")
+          .get(),
+        checkIfFolderIsChild(folderId, link.folderId)
       ]);
+      isChildOfSharedFolder = hierarchyCheck;
 
       // Fonction pour convertir les timestamps Firestore
       const convertFirestoreData = (data: any): any => {
@@ -233,7 +192,40 @@ export default async function PublicShareFolderPage({
       children = childrenSnapshot.docs.map(doc => ({ id: doc.id, ...convertFirestoreData(doc.data()) }));
     } catch (error: any) {
       console.error("[SHARE_FOLDER] Error fetching files/children:", error?.message);
+      // Si c'est une erreur de hiérarchie, retourner l'erreur
+      if (error?.message?.includes("hierarchy") || error?.message?.includes("checkIfFolderIsChild")) {
+        return (
+          <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
+            <div className="apple-card p-12 text-center max-w-md shadow-2xl">
+              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Info className="w-8 h-8" />
+              </div>
+              <h1 className="text-2xl font-bold mb-2 tracking-tight">Erreur</h1>
+              <p className="text-apple-secondary font-medium">
+                Impossible de vérifier l'accès au dossier.
+              </p>
+            </div>
+          </div>
+        );
+      }
       // Continuer avec des tableaux vides plutôt que de crasher
+    }
+
+    // Vérifier que le dossier est bien un enfant du dossier partagé
+    if (!isChildOfSharedFolder) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
+          <div className="apple-card p-12 text-center max-w-md shadow-2xl">
+            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Info className="w-8 h-8" />
+            </div>
+            <h1 className="text-2xl font-bold mb-2 tracking-tight">Accès refusé</h1>
+            <p className="text-apple-secondary font-medium">
+              Ce dossier n'appartient pas au partage.
+            </p>
+          </div>
+        </div>
+      );
     }
 
     // Vérifier le blocage VPN/Datacenter si activé
@@ -332,9 +324,9 @@ export default async function PublicShareFolderPage({
       }
     })().catch(() => {});
 
+    // Note: Le tracking est fait côté serveur (ligne 313), pas besoin du composant TrackEvent ici
     return (
       <div className="min-h-screen bg-apple-gray py-12 px-6 text-apple-text animate-in fade-in duration-700">
-        <TrackEvent linkId={link.id} eventType="OPEN_FOLDER" folderId={folderId} />
         <div className="max-w-4xl mx-auto">
           <header className="flex items-center justify-center mb-12">
             <Logo className="w-20 h-20" />
@@ -366,6 +358,7 @@ export default async function PublicShareFolderPage({
                   <p className="text-apple-secondary text-sm font-semibold uppercase tracking-widest mt-1 opacity-50">
                     {files.length} fichiers • {children.length} sous-dossiers • Partage Sécurisé
                   </p>
+                  <p className="text-apple-secondary/60 text-xs font-medium mt-2">Explorez les sous-dossiers et fichiers de ce dossier partagé. Utilisez le bouton retour pour remonter dans la hiérarchie.</p>
                 </div>
               </div>
             </div>

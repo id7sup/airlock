@@ -2,20 +2,32 @@
 
 import Link from "next/link";
 import { FolderOpen, History, Bookmark, Trash2, Settings2, LayoutList, Users, X } from "lucide-react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { Logo } from "@/components/shared/Logo";
 import { useSidebar } from "./SidebarProvider";
 import { motion, AnimatePresence } from "framer-motion";
+import { useEffect } from "react";
 
 export function Sidebar({ storageUsed = 0 }: { storageUsed?: number }) {
   const { isOpen, close } = useSidebar();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const currentFilter = searchParams.get("filter");
   
   const MAX_STORAGE = 5 * 1024 * 1024 * 1024; // 5 GB
   const percentage = Math.min((storageUsed / MAX_STORAGE) * 100, 100);
   const storageFormatted = (storageUsed / 1024 / 1024 / 1024).toFixed(2);
+
+  // Prefetch toutes les pages de filtres au chargement
+  useEffect(() => {
+    if (pathname === "/dashboard") {
+      const filters = ["recent", "favorites", "shared", "trash"];
+      filters.forEach(filter => {
+        router.prefetch(`/dashboard?filter=${filter}`);
+      });
+    }
+  }, [pathname, router]);
 
   const menuItems = [
     { icon: FolderOpen, label: "Tous les dossiers", href: "/dashboard", active: pathname === "/dashboard" && !currentFilter },
@@ -172,6 +184,7 @@ export function Sidebar({ storageUsed = 0 }: { storageUsed?: number }) {
               >
                 <Link
                   href={item.href}
+                  prefetch={true}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-300 group relative overflow-hidden ${
                     item.active 
                       ? "bg-black text-white shadow-md shadow-black/10" 
@@ -230,6 +243,7 @@ export function Sidebar({ storageUsed = 0 }: { storageUsed?: number }) {
                 >
                   <Link
                     href={item.href}
+                    prefetch={true}
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-300 group relative overflow-hidden ${
                       item.active 
                         ? "bg-black text-white shadow-md shadow-black/10" 

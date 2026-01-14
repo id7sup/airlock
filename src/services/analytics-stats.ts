@@ -125,11 +125,26 @@ export async function getLinkAnalyticsStats(
     }
 
     const snapshot = await query.get();
-    const events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const events = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return { id: doc.id, ...data };
+    });
     
-    // Récupérer TOUS les événements pour le total de visiteurs
-    const allTimeSnapshot = await allTimeQuery.get();
-    const allTimeEvents = allTimeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Récupérer TOUS les événements pour le total de visiteurs (sans filtre de date)
+    // Important : récupérer tous les événements pour ce lien, pas seulement ceux de la période
+    let allTimeSnapshot;
+    try {
+      allTimeSnapshot = await allTimeQuery.get();
+    } catch (error: any) {
+      // Si la requête échoue (par exemple, index manquant), utiliser les événements de la période
+      console.warn("[ANALYTICS] Erreur lors de la récupération de allTimeEvents, utilisation des événements de la période:", error?.message);
+      allTimeSnapshot = snapshot;
+    }
+    
+    const allTimeEvents = allTimeSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return { id: doc.id, ...data };
+    });
     
     return calculateStats(events, userId, days, period, allTimeEvents);
   } catch (error) {
@@ -153,47 +168,78 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
   };
 
   // 2. Visiteurs uniques
-  // Exclure les événements du propriétaire du lien pour un comptage plus précis
-  const externalEvents = events.filter(e => e.ownerId !== userId);
+  // IMPORTANT : Compter TOUS les visiteurs uniques basés sur visitorId
+  // Un visiteur unique = un visitorId unique, indépendamment de ownerId
+  // On exclut uniquement les événements où ownerId === userId (propriétaire) pour les stats externes
+  // Mais pour le TOTAL de visiteurs uniques, on compte TOUS les visitorId uniques
   
-  // Pour le TOTAL de visiteurs uniques, utiliser TOUS les événements (allTimeEvents)
-  // Sinon utiliser les événements de la période
-  const allTimeExternalEvents = allTimeEvents 
-    ? allTimeEvents.filter(e => e.ownerId !== userId)
-    : externalEvents;
+  // Filtrer les événements externes (exclure seulement le propriétaire) pour les stats de période
+  const externalEvents = events.filter(e => {
+    // Inclure si ownerId est null/undefined (anciens événements ou cas spéciaux)
+    if (e.ownerId === null || e.ownerId === undefined) return true;
+    // Inclure si ownerId est différent du userId (visiteurs externes)
+    return e.ownerId !== userId;
+  });
+  
+  // Pour le TOTAL de visiteurs uniques, on compte TOUS les visitorId uniques
+  // Même si c'est le propriétaire qui teste, chaque visitorId unique compte comme un visiteur
+  // Cela permet de tester en local et de voir les visiteurs même si on teste seul
+  const allTimeExternalEvents = (allTimeEvents && allTimeEvents.length > 0)
+    ? allTimeEvents // Utiliser TOUS les événements pour le total de visiteurs uniques
+    : events; // Si pas de allTimeEvents, utiliser tous les événements de la période
   
   const now = new Date();
   const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   
   // TOTAL de visiteurs uniques : utiliser TOUS les événements depuis le début
-  const allVisitorIds = new Set(
-    allTimeExternalEvents
-      .map(e => e.visitorId)
-      .filter(Boolean)
-      .filter((id): id is string => typeof id === 'string' && id.length > 0)
-  );
+  // Filtrer uniquement les événements qui ont un visitorId valide
+  // Important : compter les visiteurs uniques basés sur visitorId, pas sur les événements
+  const visitorIdsFromAllTime = allTimeExternalEvents
+    .map(e => {
+      // Extraire visitorId de différentes façons possibles
+      const vid = e.visitorId || e.visitor_id || null;
+      return vid;
+    })
+    .filter((id): id is string => {
+      // Filtrer les valeurs null, undefined, et les chaînes vides
+      return typeof id === 'string' && id.length > 0;
+    });
   
+  const allVisitorIds = new Set(visitorIdsFromAllTime);
+  
+  // Pour les périodes 24h et 7d, on compte aussi TOUS les visiteurs uniques
+  // Cela permet de voir les stats même en développement local
   const visitorIds24h = new Set(
-    externalEvents
+    events
       .filter(e => {
         const eventDate = e.timestamp?.toDate?.() || new Date(e.timestamp);
         return eventDate >= last24h;
       })
-      .map(e => e.visitorId)
-      .filter(Boolean)
-      .filter((id): id is string => typeof id === 'string' && id.length > 0)
+      .map(e => {
+        // Extraire visitorId de différentes façons possibles
+        return e.visitorId || e.visitor_id || null;
+      })
+      .filter((id): id is string => {
+        // Filtrer les valeurs null, undefined, et les chaînes vides
+        return typeof id === 'string' && id.length > 0;
+      })
   );
   
   const visitorIds7d = new Set(
-    externalEvents
+    events
       .filter(e => {
         const eventDate = e.timestamp?.toDate?.() || new Date(e.timestamp);
         return eventDate >= last7d;
       })
-      .map(e => e.visitorId)
-      .filter(Boolean)
-      .filter((id): id is string => typeof id === 'string' && id.length > 0)
+      .map(e => {
+        // Extraire visitorId de différentes façons possibles
+        return e.visitorId || e.visitor_id || null;
+      })
+      .filter((id): id is string => {
+        // Filtrer les valeurs null, undefined, et les chaînes vides
+        return typeof id === 'string' && id.length > 0;
+      })
   );
 
   // Nouveaux vs retours (simplifié : si visitorId vu avant les 7 derniers jours = returning)
@@ -201,7 +247,8 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
   const newVisitorIds = new Set<string>();
   
   externalEvents.forEach(event => {
-    const vid = event.visitorId;
+    // Extraire visitorId de différentes façons possibles
+    const vid = event.visitorId || event.visitor_id || null;
     if (!vid || typeof vid !== 'string' || vid.length === 0) return;
     
     const eventDate = event.timestamp?.toDate?.() || new Date(event.timestamp);
@@ -284,16 +331,28 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
 
   // 5. Funnel
   const uniqueViewers = new Set(
-    events.filter(e => e.eventType === "OPEN_SHARE").map(e => e.visitorId).filter(Boolean)
+    events
+      .filter(e => e.eventType === "OPEN_SHARE")
+      .map(e => e.visitorId || e.visitor_id || null)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
   );
   const uniqueDownloaders = new Set(
-    events.filter(e => e.eventType === "DOWNLOAD_FILE").map(e => e.visitorId).filter(Boolean)
+    events
+      .filter(e => e.eventType === "DOWNLOAD_FILE")
+      .map(e => e.visitorId || e.visitor_id || null)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
   );
   const uniqueFileViewers = new Set(
-    events.filter(e => e.eventType === "VIEW_FILE").map(e => e.visitorId).filter(Boolean)
+    events
+      .filter(e => e.eventType === "VIEW_FILE")
+      .map(e => e.visitorId || e.visitor_id || null)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
   );
   const uniqueFolderOpeners = new Set(
-    events.filter(e => e.eventType === "OPEN_FOLDER").map(e => e.visitorId).filter(Boolean)
+    events
+      .filter(e => e.eventType === "OPEN_FOLDER")
+      .map(e => e.visitorId || e.visitor_id || null)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
   );
 
   const funnel = {

@@ -42,6 +42,15 @@ function convertFirestoreData(data: any): any {
 /**
  * Crée un nouveau lien de partage pour un dossier
  * 
+ * IMPORTANT : Chaque lien créé est complètement indépendant.
+ * Un même dossier peut avoir plusieurs liens, chacun avec :
+ * - Son propre token unique
+ * - Ses propres paramètres (expiration, quota, mot de passe, etc.)
+ * - Ses propres compteurs (viewCount, downloadCount)
+ * - Ses propres analytics
+ * 
+ * Les modifications d'un lien n'affectent jamais les autres liens du même dossier.
+ * 
  * @param data - Données du lien de partage
  * @param data.folderId - ID du dossier à partager
  * @param data.userId - ID de l'utilisateur créateur
@@ -50,7 +59,7 @@ function convertFirestoreData(data: any): any {
  * @param data.isReadOnly - Mode lecture seule (défaut: true)
  * @param data.maxViews - Nombre maximum de vues (optionnel)
  * @param data.allowDownload - Autoriser le téléchargement (défaut: true)
- * @returns Lien de partage créé avec token
+ * @returns Lien de partage créé avec token unique
  */
 export async function createShareLink(data: {
   folderId: string;
@@ -66,7 +75,8 @@ export async function createShareLink(data: {
   blockVpn?: boolean;
   allowedDomains?: string[];
 }) {
-  // Générer un token unique (64 caractères hex)
+  // Générer un token unique (64 caractères hex) pour ce lien spécifique
+  // Chaque lien a son propre token, même pour le même dossier
   const token = crypto.randomBytes(32).toString("hex");
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
@@ -92,6 +102,7 @@ export async function createShareLink(data: {
     restrictDomain: data.restrictDomain ?? false,
     blockVpn: data.blockVpn ?? false,
     allowedDomains: data.allowedDomains ?? [],
+    // Compteurs indépendants pour ce lien spécifique
     viewCount: 0,
     downloadCount: 0,
     isRevoked: false,
@@ -99,6 +110,7 @@ export async function createShareLink(data: {
     updatedAt: new Date(),
   };
 
+  // Créer un nouveau document pour ce lien (même si le dossier a déjà d'autres liens)
   const docRef = await db.collection("shareLinks").add(shareLinkData);
 
   return { id: docRef.id, ...shareLinkData, token };

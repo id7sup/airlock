@@ -559,157 +559,157 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
           </div>
         </div>
       )}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8 lg:mb-12">
-        <div className="flex items-center gap-3 sm:gap-6">
+      {/* En-tête redesigné */}
+      <div className="mb-8 lg:mb-12">
+        <div className="flex items-center gap-4 mb-6">
           <Link 
             href={parentId ? `/dashboard/folder/${parentId}${fromFilter ? `?from=${fromFilter}` : ''}` : (fromFilter ? `/dashboard?filter=${fromFilter}` : "/dashboard")} 
-            className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-black/5 hover:bg-black/10 rounded-full transition-all text-black active:scale-90 flex-shrink-0"
+            className="w-10 h-10 flex items-center justify-center bg-white border border-black/10 hover:bg-black/5 rounded-xl transition-all text-black active:scale-95 flex-shrink-0 shadow-sm"
           >
-            <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+            <ChevronLeft className="w-5 h-5" />
           </Link>
-          <div className="space-y-0.5 sm:space-y-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-medium tracking-tight truncate">{folder.name}</h1>
-            <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] font-bold text-black/20 uppercase tracking-[0.2em]">
-              <span>Dossier</span>
-              <span>•</span>
-              <span>{folder.files.length + folder.children.length} éléments</span>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl lg:text-3xl font-semibold tracking-tight truncate mb-1">{folder.name}</h1>
+            <div className="flex items-center gap-2 text-xs font-medium text-black/40">
+              <span>{folder.files.length + folder.children.length} élément{folder.files.length + folder.children.length > 1 ? 's' : ''}</span>
             </div>
           </div>
         </div>
         
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+        {/* Barre d'actions redesignée */}
+        <div className="flex flex-wrap items-center gap-3 mb-6">
           <AnimatePresence>
             {selectedIds.length > 0 && (
               <motion.div 
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                className="flex items-center gap-2 sm:gap-3 bg-black text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-xl flex-1 sm:flex-initial"
+                className="flex items-center gap-2 bg-black text-white px-4 py-2.5 rounded-xl shadow-lg flex-1 sm:flex-initial"
               >
-                <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest mr-1 sm:mr-2 whitespace-nowrap">{selectedIds.length} sélectionnés</span>
-                <button onClick={handleBatchDelete} className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg sm:rounded-xl transition-colors">
-                  <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="text-xs font-semibold whitespace-nowrap">{selectedIds.length} sélectionné{selectedIds.length > 1 ? 's' : ''}</span>
+                <div className="h-4 w-px bg-white/20" />
+                <button onClick={handleBatchDelete} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
+                  <Trash2 className="w-4 h-4" />
                 </button>
-                <button onClick={() => setSelectedIds([])} className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg sm:rounded-xl transition-colors border-l border-white/10 pl-2 sm:pl-3">
-                  <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <button onClick={() => setSelectedIds([])} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
+                  <X className="w-4 h-4" />
                 </button>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {canEdit && (
-          <button 
-            onClick={() => setShowCreateInput(true)}
-            className="h-9 sm:h-11 px-3 sm:px-5 bg-white border border-black/10 rounded-lg sm:rounded-xl text-xs sm:text-[13px] font-semibold hover:bg-black/5 transition-all flex items-center gap-1.5 sm:gap-2 shadow-sm text-black flex-shrink-0"
-          >
-            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 opacity-40" />
-            <span className="hidden sm:inline">Nouveau sous-dossier</span>
-            <span className="sm:hidden">Sous-dossier</span>
-          </button>
-          )}
-          {canShare && (
-          <button 
-            onClick={() => setIsShareModalOpen(true)}
-            className="h-9 sm:h-11 px-3 sm:px-5 bg-white border border-black/10 rounded-lg sm:rounded-xl text-xs sm:text-[13px] font-semibold hover:bg-black/5 transition-all flex items-center gap-1.5 sm:gap-2 shadow-sm text-black flex-shrink-0"
-          >
-            <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 opacity-40" />
-            <span className="hidden sm:inline">Partager</span>
-            <span className="sm:hidden">Partager</span>
-          </button>
-          )}
-          
-          {canEdit && (
-            <>
-          <input 
-            type="file" 
-            multiple
-            className="hidden" 
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-          />
-          <div className="flex flex-col items-end gap-2">
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            className="h-9 sm:h-11 px-4 sm:px-6 bg-black text-white rounded-lg sm:rounded-xl font-semibold text-xs sm:text-[13px] disabled:opacity-50 shadow-lg shadow-black/10 hover:bg-black/90 transition-all flex items-center gap-1.5 sm:gap-2 flex-shrink-0"
-          >
-            {isUploading ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-            {isUploading ? "Envoi..." : "Ajouter"}
-          </button>
-            {isUploading && uploadProgress.total > 0 && (
-              <div className="w-full sm:w-auto min-w-[200px] sm:min-w-[250px] bg-black/5 rounded-lg sm:rounded-xl p-2 sm:p-2.5">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] sm:text-[11px] font-semibold text-black/60">
-                    {uploadProgress.current} / {uploadProgress.total} fichiers
-                  </span>
-                  <span className="text-[10px] sm:text-[11px] font-semibold text-black/60">
-                    {Math.round((uploadProgress.current / uploadProgress.total) * 100)}%
-                  </span>
-                </div>
-                <div className="w-full bg-black/10 rounded-full h-1.5 sm:h-2 overflow-hidden">
-                  <div 
-                    className="h-full bg-brand-primary transition-all duration-300 ease-out rounded-full"
-                    style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
-                  />
-                </div>
-              </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {canEdit && (
+              <button 
+                onClick={() => setShowCreateInput(true)}
+                className="h-10 px-4 bg-white border border-black/10 rounded-xl text-sm font-medium hover:bg-black/5 transition-all flex items-center gap-2 shadow-sm text-black"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span className="hidden sm:inline">Nouveau dossier</span>
+                <span className="sm:hidden">Dossier</span>
+              </button>
+            )}
+            {canShare && (
+              <button 
+                onClick={() => setIsShareModalOpen(true)}
+                className="h-10 px-4 bg-white border border-black/10 rounded-xl text-sm font-medium hover:bg-black/5 transition-all flex items-center gap-2 shadow-sm text-black"
+              >
+                <ArrowUpRight className="w-4 h-4" />
+                <span>Partager</span>
+              </button>
+            )}
+            
+            {canEdit && (
+              <>
+                <input 
+                  type="file" 
+                  multiple
+                  className="hidden" 
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                />
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="h-10 px-5 bg-black text-white rounded-xl font-medium text-sm disabled:opacity-50 shadow-md hover:bg-black/90 transition-all flex items-center gap-2"
+                >
+                  {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {isUploading ? "Envoi..." : "Ajouter"}
+                </button>
+                {isUploading && uploadProgress.total > 0 && (
+                  <div className="w-full sm:w-auto min-w-[200px] bg-black/5 rounded-xl p-2.5">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-medium text-black/60">
+                        {uploadProgress.current} / {uploadProgress.total} fichiers
+                      </span>
+                      <span className="text-xs font-medium text-black/60">
+                        {Math.round((uploadProgress.current / uploadProgress.total) * 100)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-black/10 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className="h-full bg-brand-primary transition-all duration-300 ease-out rounded-full"
+                        style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
-            </>
-          )}
         </div>
       </div>
 
-      {/* Desktop Table View */}
-      <div className="hidden lg:block bg-white rounded-2xl overflow-hidden shadow-2xl shadow-black/5">
+      {/* Desktop Table View - Redesigné */}
+      <div className="hidden lg:block bg-white rounded-2xl border border-black/[0.05] overflow-hidden shadow-sm">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-black/[0.02] bg-[#fbfbfd]">
-                <th className="w-16 px-8 py-5">
+              <tr className="border-b border-black/[0.05] bg-black/[0.02]">
+                <th className="w-16 px-6 py-4">
                   <button 
                     onClick={() => {
                       const allIds = [...folder.children.map((c: any) => c.id), ...folder.files.map((f: any) => f.id)];
                       setSelectedIds(selectedIds.length === allIds.length ? [] : allIds);
                     }}
-                    className="text-black/20 hover:text-brand-primary transition-colors"
+                    className="text-black/30 hover:text-brand-primary transition-colors"
                   >
                     {selectedIds.length > 0 ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
                   </button>
                 </th>
-                <th className="px-4 py-5 text-[11px] font-bold text-black/20 uppercase tracking-[0.2em]">Nom</th>
-                <th className="px-8 py-5 text-[11px] font-bold text-black/20 uppercase tracking-[0.2em]">Type</th>
-                <th className="px-8 py-5 text-[11px] font-bold text-black/20 uppercase tracking-[0.2em]">Modifié</th>
-                <th className="px-8 py-5"></th>
+                <th className="px-4 py-4 text-xs font-semibold text-black/50">Nom</th>
+                <th className="px-6 py-4 text-xs font-semibold text-black/50">Type</th>
+                <th className="px-6 py-4 text-xs font-semibold text-black/50">Modifié</th>
+                <th className="px-6 py-4"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/[0.02]">
+            <tbody className="divide-y divide-black/[0.03]">
               {showCreateInput && (
-                <tr className="bg-brand-primary/[0.02] animate-in slide-in-from-top-2 duration-300">
-                  <td className="px-8 py-5" colSpan={5}>
-                    <div className="flex items-center gap-6">
-                      <div className="w-12 h-12 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary">
-                        <FolderOpen className="w-6 h-6" />
+                <tr className="bg-brand-primary/5 animate-in slide-in-from-top-2 duration-300">
+                  <td className="px-6 py-4" colSpan={5}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary">
+                        <FolderOpen className="w-5 h-5" />
                       </div>
                       <input 
                         autoFocus
-                        className="flex-1 bg-transparent border-b-2 border-brand-primary/10 outline-none text-lg font-medium py-2 focus:border-brand-primary transition-colors"
-                        placeholder="Nom du sous-dossier..."
+                        className="flex-1 bg-transparent border-b-2 border-brand-primary/20 outline-none text-base font-medium py-2 focus:border-brand-primary transition-colors"
+                        placeholder="Nom du dossier..."
                         value={newFolderName}
                         onChange={(e) => setNewFolderName(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
                       />
-                      <div className="flex gap-6">
+                      <div className="flex gap-3">
                         <button 
                           onClick={handleCreateFolder}
                           disabled={isCreatingFolder}
-                          className="text-[11px] font-bold text-black uppercase tracking-widest hover:underline disabled:opacity-50 flex items-center gap-2"
+                          className="px-4 py-2 bg-brand-primary text-white rounded-lg text-sm font-medium hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center gap-2"
                         >
-                          {isCreatingFolder && <RefreshCw className="w-3 h-3 animate-spin" />}
-                          Confirmer
+                          {isCreatingFolder && <RefreshCw className="w-4 h-4 animate-spin" />}
+                          Créer
                         </button>
                         <button 
                           onClick={() => setShowCreateInput(false)}
-                          className="text-[11px] font-bold text-black/30 uppercase tracking-widest hover:underline"
+                          className="px-4 py-2 bg-white border border-black/10 rounded-lg text-sm font-medium hover:bg-black/5 transition-all"
                         >
                           Annuler
                         </button>
@@ -721,9 +721,13 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
               
               {folder.children.length === 0 && folder.files.length === 0 && !showCreateInput && (
                 <tr>
-                  <td colSpan={5} className="px-8 py-24 text-center text-black/20 font-medium">
-                    <Folder className="w-12 h-12 mx-auto mb-4 opacity-10" />
-                    Ce dossier est vide.
+                  <td colSpan={5} className="px-8 py-20 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-16 h-16 bg-black/5 rounded-2xl flex items-center justify-center mb-2">
+                        <Folder className="w-8 h-8 text-black/20" />
+                      </div>
+                      <p className="text-sm font-medium text-black/40">Ce dossier est vide</p>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -731,35 +735,35 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
               {folder.children.map((child: any) => (
                 <tr 
                   key={child.id} 
-                  className={`hover:bg-[#fbfbfd] transition-colors group ${selectedIds.includes(child.id) ? 'bg-black/[0.02]' : ''}`}
+                  className={`hover:bg-black/[0.02] transition-colors group ${selectedIds.includes(child.id) ? 'bg-brand-primary/5' : ''}`}
                 >
-                  <td className="px-8 py-6">
-                    <button onClick={() => toggleSelect(child.id)} className="text-black/10 hover:text-brand-primary transition-colors">
+                  <td className="px-6 py-4">
+                    <button onClick={() => toggleSelect(child.id)} className="text-black/20 hover:text-brand-primary transition-colors">
                       {selectedIds.includes(child.id) ? <CheckSquare className="w-5 h-5 text-brand-primary" /> : <Square className="w-5 h-5 opacity-0 group-hover:opacity-100" />}
                     </button>
                   </td>
-                  <td className="px-4 py-6">
-                    <Link href={`/dashboard/folder/${child.id}?from=${fromFilter || ''}&parent=${folder.id}`} className="flex items-center gap-5">
-                      <div className="w-12 h-12 bg-black/5 rounded-xl flex items-center justify-center text-brand-primary/60 group-hover:bg-black/15 group-hover:text-brand-primary transition-all duration-500 group-hover:scale-110">
-                        <FolderOpen className="w-6 h-6 fill-current" />
+                  <td className="px-4 py-4">
+                    <Link href={`/dashboard/folder/${child.id}?from=${fromFilter || ''}&parent=${folder.id}`} className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary group-hover:bg-brand-primary/20 transition-all">
+                        <FolderOpen className="w-5 h-5 fill-current" />
                       </div>
-                      <span className="text-lg font-medium tracking-tight text-black">{child.name}</span>
+                      <span className="text-base font-medium text-black">{child.name}</span>
                     </Link>
                   </td>
-                  <td className="px-8 py-6 text-[12px] font-bold text-black/20 uppercase tracking-widest">
+                  <td className="px-6 py-4 text-sm text-black/40">
                     Dossier
                   </td>
-                  <td className="px-8 py-6 text-[12px] font-bold text-black/40 tabular-nums" suppressHydrationWarning>
-                    {new Date(child.updatedAt).toLocaleDateString()}
+                  <td className="px-6 py-4 text-sm text-black/40 tabular-nums" suppressHydrationWarning>
+                    {new Date(child.updatedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
                   </td>
-                  <td className="px-8 py-6 text-right">
+                  <td className="px-6 py-4 text-right">
                     {canEdit && (
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
                       <button 
                         onClick={(e) => handleDeleteSubFolder(child.id, e)}
-                        className="p-3 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                        className="p-2 text-black/30 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                       >
-                        <Trash2 className="w-5 h-5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                     )}
@@ -770,41 +774,41 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
               {folder.files.map((file: any) => (
                 <tr 
                   key={file.id} 
-                  className={`hover:bg-[#fbfbfd] transition-colors group ${selectedIds.includes(file.id) ? 'bg-black/[0.02]' : ''}`}
+                  className={`hover:bg-black/[0.02] transition-colors group ${selectedIds.includes(file.id) ? 'bg-brand-primary/5' : ''}`}
                 >
-                  <td className="px-8 py-6">
-                    <button onClick={() => toggleSelect(file.id)} className="text-black/10 hover:text-brand-primary transition-colors">
+                  <td className="px-6 py-4">
+                    <button onClick={() => toggleSelect(file.id)} className="text-black/20 hover:text-brand-primary transition-colors">
                       {selectedIds.includes(file.id) ? <CheckSquare className="w-5 h-5 text-brand-primary" /> : <Square className="w-5 h-5 opacity-0 group-hover:opacity-100" />}
                     </button>
                   </td>
-                  <td className="px-4 py-6">
-                    <div className="flex items-center gap-5">
-                      <div className="w-12 h-12 bg-black/5 rounded-xl flex items-center justify-center text-brand-primary/60 group-hover:bg-black/15 group-hover:text-brand-primary transition-all duration-500 group-hover:scale-110">
-                        <FileText className="w-6 h-6" />
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-black/5 rounded-xl flex items-center justify-center text-black/40 group-hover:bg-black/10 transition-all">
+                        <FileText className="w-5 h-5" />
                       </div>
-                      <span className="text-lg font-medium tracking-tight text-black">{file.name}</span>
+                      <span className="text-base font-medium text-black">{file.name}</span>
                     </div>
                   </td>
-                  <td className="px-8 py-6 text-[12px] font-bold text-black/20 tabular-nums uppercase tracking-widest">
+                  <td className="px-6 py-4 text-sm text-black/40 tabular-nums">
                     {(file.size / 1024 / 1024).toFixed(2)} Mo
                   </td>
-                  <td className="px-8 py-6 text-[12px] font-bold text-black/40 tabular-nums" suppressHydrationWarning>
-                    {new Date(file.updatedAt).toLocaleDateString()}
+                  <td className="px-6 py-4 text-sm text-black/40 tabular-nums" suppressHydrationWarning>
+                    {new Date(file.updatedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
                   </td>
-                  <td className="px-8 py-6 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
                       <button 
                         onClick={() => handleDownload(file.id)}
-                        className="p-3 bg-black/5 text-black/40 hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all"
+                        className="p-2 text-black/30 hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-all"
                       >
-                        <Download className="w-5 h-5" />
+                        <Download className="w-4 h-4" />
                       </button>
                       {canEdit && (
                       <button 
                         onClick={(e) => handleDeleteFile(file.id, e)}
-                        className="p-3 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                        className="p-2 text-black/30 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                       >
-                        <Trash2 className="w-5 h-5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                       )}
                     </div>
@@ -815,49 +819,51 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
           </table>
       </div>
 
-      {/* Mobile List View */}
-      <div className="lg:hidden space-y-2">
+      {/* Mobile List View - Redesigné */}
+      <div className="lg:hidden space-y-3">
         {/* Select All Button */}
-        <div className="flex items-center justify-between p-3 bg-[#fbfbfd] rounded-xl mb-2">
-          <button 
-            onClick={() => {
-              const allIds = [...folder.children.map((c: any) => c.id), ...folder.files.map((f: any) => f.id)];
-              setSelectedIds(selectedIds.length === allIds.length ? [] : allIds);
-            }}
-            className="flex items-center gap-2 text-sm font-medium text-black/60"
-          >
-            {selectedIds.length > 0 ? <CheckSquare className="w-4 h-4 text-brand-primary" /> : <Square className="w-4 h-4" />}
-            <span>Tout sélectionner</span>
-          </button>
-        </div>
+        {folder.children.length > 0 || folder.files.length > 0 ? (
+          <div className="flex items-center justify-between p-3 bg-white border border-black/10 rounded-xl">
+            <button 
+              onClick={() => {
+                const allIds = [...folder.children.map((c: any) => c.id), ...folder.files.map((f: any) => f.id)];
+                setSelectedIds(selectedIds.length === allIds.length ? [] : allIds);
+              }}
+              className="flex items-center gap-2 text-sm font-medium text-black/60"
+            >
+              {selectedIds.length > 0 ? <CheckSquare className="w-4 h-4 text-brand-primary" /> : <Square className="w-4 h-4" />}
+              <span>Tout sélectionner</span>
+            </button>
+          </div>
+        ) : null}
 
         {/* Create Input Mobile */}
         {canEdit && showCreateInput && (
-          <div className="p-4 bg-brand-primary/[0.02] rounded-xl border-2 border-brand-primary/10 animate-in slide-in-from-top-2 duration-300 mb-2">
-            <div className="flex items-center gap-4">
+          <div className="p-4 bg-brand-primary/5 rounded-xl border border-brand-primary/20 animate-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary flex-shrink-0">
                 <FolderOpen className="w-5 h-5" />
               </div>
               <input 
                 autoFocus
-                className="flex-1 bg-transparent border-b-2 border-brand-primary/10 outline-none text-base font-medium py-2 focus:border-brand-primary transition-colors"
-                placeholder="Nom du sous-dossier..."
+                className="flex-1 bg-transparent border-b-2 border-brand-primary/20 outline-none text-base font-medium py-2 focus:border-brand-primary transition-colors"
+                placeholder="Nom du dossier..."
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
               />
-              <div className="flex gap-4 flex-shrink-0">
+              <div className="flex gap-2 flex-shrink-0">
                 <button 
                   onClick={handleCreateFolder}
                   disabled={isCreatingFolder}
-                  className="text-[10px] font-bold text-black uppercase tracking-widest hover:underline disabled:opacity-50 flex items-center gap-1"
+                  className="px-3 py-2 bg-brand-primary text-white rounded-lg text-sm font-medium hover:bg-brand-primary/90 transition-all disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  {isCreatingFolder && <RefreshCw className="w-3 h-3 animate-spin" />}
-                  OK
+                  {isCreatingFolder && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  Créer
                 </button>
                 <button 
                   onClick={() => setShowCreateInput(false)}
-                  className="text-[10px] font-bold text-black/30 uppercase tracking-widest hover:underline"
+                  className="px-3 py-2 bg-white border border-black/10 rounded-lg text-sm font-medium hover:bg-black/5 transition-all"
                 >
                   Annuler
                 </button>
@@ -868,9 +874,13 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
 
         {/* Empty State Mobile */}
         {folder.children.length === 0 && folder.files.length === 0 && !showCreateInput && (
-          <div className="p-12 text-center text-black/20 font-medium">
-            <Folder className="w-10 h-10 mx-auto mb-3 opacity-10" />
-            <p>Ce dossier est vide.</p>
+          <div className="p-16 text-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-16 h-16 bg-black/5 rounded-2xl flex items-center justify-center">
+                <Folder className="w-8 h-8 text-black/20" />
+              </div>
+              <p className="text-sm font-medium text-black/40">Ce dossier est vide</p>
+            </div>
           </div>
         )}
 
@@ -878,25 +888,25 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
         {folder.children.map((child: any) => (
           <div 
             key={child.id} 
-            className={`p-4 bg-white rounded-xl border border-black/[0.05] hover:bg-[#fbfbfd] transition-colors ${
-              selectedIds.includes(child.id) ? 'bg-black/[0.02] ring-2 ring-black' : ''
+            className={`p-4 bg-white rounded-xl border border-black/10 hover:border-black/20 transition-all ${
+              selectedIds.includes(child.id) ? 'bg-brand-primary/5 border-brand-primary/30' : ''
             }`}
           >
             <div className="flex items-center gap-3">
-              <button onClick={() => toggleSelect(child.id)} className="text-black/10 hover:text-brand-primary transition-colors flex-shrink-0">
+              <button onClick={() => toggleSelect(child.id)} className="text-black/20 hover:text-brand-primary transition-colors flex-shrink-0">
                 {selectedIds.includes(child.id) ? <CheckSquare className="w-5 h-5 text-brand-primary" /> : <Square className="w-5 h-5" />}
               </button>
               <Link href={`/dashboard/folder/${child.id}?from=${fromFilter || ''}&parent=${folder.id}`} className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-10 h-10 bg-black/5 rounded-xl flex items-center justify-center text-brand-primary/60 flex-shrink-0">
+                <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary flex-shrink-0">
                   <FolderOpen className="w-5 h-5 fill-current" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-base font-medium tracking-tight text-black truncate">{child.name}</div>
+                  <div className="text-base font-medium text-black truncate">{child.name}</div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] font-bold text-black/20 uppercase tracking-widest">Dossier</span>
-                    <span className="text-[10px] text-black/30">•</span>
-                    <span className="text-[10px] font-bold text-black/40 tabular-nums" suppressHydrationWarning>
-                      {new Date(child.updatedAt).toLocaleDateString()}
+                    <span className="text-xs text-black/40">Dossier</span>
+                    <span className="text-xs text-black/20">•</span>
+                    <span className="text-xs text-black/40 tabular-nums" suppressHydrationWarning>
+                      {new Date(child.updatedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
                     </span>
                   </div>
                 </div>
@@ -904,7 +914,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
               {canEdit && (
               <button 
                 onClick={(e) => handleDeleteSubFolder(child.id, e)}
-                className="p-2 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all flex-shrink-0"
+                className="p-2 text-black/30 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all flex-shrink-0"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -917,27 +927,27 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
         {folder.files.map((file: any) => (
           <div 
             key={file.id} 
-            className={`p-4 bg-white rounded-xl border border-black/[0.05] hover:bg-[#fbfbfd] transition-colors ${
-              selectedIds.includes(file.id) ? 'bg-black/[0.02] ring-2 ring-black' : ''
+            className={`p-4 bg-white rounded-xl border border-black/10 hover:border-black/20 transition-all ${
+              selectedIds.includes(file.id) ? 'bg-brand-primary/5 border-brand-primary/30' : ''
             }`}
           >
             <div className="flex items-center gap-3">
-              <button onClick={() => toggleSelect(file.id)} className="text-black/10 hover:text-brand-primary transition-colors flex-shrink-0">
+              <button onClick={() => toggleSelect(file.id)} className="text-black/20 hover:text-brand-primary transition-colors flex-shrink-0">
                 {selectedIds.includes(file.id) ? <CheckSquare className="w-5 h-5 text-brand-primary" /> : <Square className="w-5 h-5" />}
               </button>
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-10 h-10 bg-black/5 rounded-xl flex items-center justify-center text-brand-primary/60 flex-shrink-0">
+                <div className="w-10 h-10 bg-black/5 rounded-xl flex items-center justify-center text-black/40 flex-shrink-0">
                   <FileText className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-base font-medium tracking-tight text-black truncate">{file.name}</div>
+                  <div className="text-base font-medium text-black truncate">{file.name}</div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] font-bold text-black/20 tabular-nums uppercase tracking-widest">
+                    <span className="text-xs text-black/40 tabular-nums">
                       {(file.size / 1024 / 1024).toFixed(2)} Mo
                     </span>
-                    <span className="text-[10px] text-black/30">•</span>
-                    <span className="text-[10px] font-bold text-black/40 tabular-nums" suppressHydrationWarning>
-                      {new Date(file.updatedAt).toLocaleDateString()}
+                    <span className="text-xs text-black/20">•</span>
+                    <span className="text-xs text-black/40 tabular-nums" suppressHydrationWarning>
+                      {new Date(file.updatedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
                     </span>
                   </div>
                 </div>
@@ -945,14 +955,14 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
               <div className="flex items-center gap-1 flex-shrink-0">
                 <button 
                   onClick={() => handleDownload(file.id)}
-                  className="p-2 bg-black/5 text-black/40 hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-all"
+                  className="p-2 text-black/30 hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-all"
                 >
                   <Download className="w-4 h-4" />
                 </button>
                 {canEdit && (
                 <button 
                   onClick={(e) => handleDeleteFile(file.id, e)}
-                  className="p-2 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                  className="p-2 text-black/30 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

@@ -282,9 +282,16 @@ export async function revokeShareLinkAction(linkId: string) {
 
   if (permSnapshot.empty) throw new Error("Non autorisé");
 
-  await db.collection("shareLinks").doc(linkId).delete();
+  // Marquer comme révoqué au lieu de supprimer pour garder l'historique
+  await db.collection("shareLinks").doc(linkId).update({
+    isRevoked: true,
+    revokedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
 
   revalidatePath(`/dashboard`);
+  revalidatePath(`/dashboard/sharing`);
+  revalidatePath(`/dashboard/sharing/${linkId}`);
 }
 
 /**
