@@ -1,50 +1,72 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Script de déploiement SIMPLIFIÉ
-set -e
+APP_DIR="/var/www/airlock"
+BRANCH="main"
+PM2_NAME="airlock"
+PORT="3000"
 
-cd /var/www/airlock || exit 1
+log() { echo -e "$1"; }
 
-echo "🚀 Déploiement..."
+cd "$APP_DIR"
 
-# 1. Git pull
-echo "📥 Mise à jour..."
-git pull origin main
+log "🚀 Déploiement..."
 
-# 2. Install
-echo "📦 Installation..."
-npm install
+# 1) Sync code (robuste, aucun blocage par fichiers modifiés localement)
+log "📥 Mise à jour (fetch + reset)..."
+git fetch origin "$BRANCH"
+git reset --hard "origin/$BRANCH"
 
-# 3. Build
-echo "🔨 Build..."
+# Nettoyage prudent : ajuste les exclusions si tu as des fichiers/dossiers persistants
+# (ex: .env.local, uploads/, storage/, logs/, etc.)
+log "🧹 Nettoyage..."
+git clean -fd \
+  -e ".env" \
+  -e ".env.*" \
+  -e "uploads/" \
+  -e "storage/" \
+  -e "logs/"
+
+# 2) Dépendances (déterministe)
+log "📦 Installation (npm ci)..."
+if [ -f package-lock.json ]; then
+  npm ci
+else
+  npm install
+fi
+
+# 3) Build
+log "🔨 Build..."
 rm -rf .next
 npm run build
 
-# 4. KILL PORT 3000 - FORCER
-echo "🔪 Libération du port 3000..."
-./kill-port.sh || true
-sleep 3
-
-# Vérifier que le port est libre
-if command -v ss &> /dev/null && ss -tlnp 2>/dev/null | grep -q ":3000"; then
-    echo "❌ ERREUR: Le port 3000 est toujours occupé!"
-    echo "Exécutez manuellement: ./kill-port.sh"
-    exit 1
+# 4) Redémarrage PM2 propre
+log "♻️ Redémarrage PM2..."
+if pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
+  pm2 restart "$PM2_NAME" --update-env
+else
+  pm2 start npm --name "$PM2_NAME" -- start
 fi
-
-# 5. Démarrer
-echo "🚀 Démarrage..."
-pm2 start npm --name "airlock" -- start
 pm2 save
 
-# 6. Vérifier
-sleep 5
-if pm2 jlist 2>/dev/null | grep -q '"status":"online"'; then
-    echo "✅ Démarré!"
-    pm2 status
+# 5) Vérification
+log "🔎 Vérification..."
+sleep 3
+
+if pm2 jlist 2>/dev/null | grep -q "\"name\":\"$PM2_NAME\".*\"status\":\"online\""; then
+  log "✅ Déployé et en ligne."
+  pm2 status "$PM2_NAME"
 else
-    echo "❌ Erreur au démarrage"
-    pm2 logs airlock --lines 10 --nostream
-    exit 1
+  log "❌ Erreur au démarrage"
+  pm2 logs "$PM2_NAME" --lines 50 --nostream || true
+  exit 1
 fi
 
+# 6) (Optionnel) Vérifier que le port écoute bien
+if command -v ss >/dev/null 2>&1; then
+  if ss -tln 2>/dev/null | grep -q ":$PORT"; then
+    log "✅ Port $PORT à l'écoute."
+  else
+    log "⚠️ Port $PORT non détecté en écoute (à vérifier)."
+  fi
+fi
