@@ -53,6 +53,41 @@ export async function GET(req: NextRequest) {
 
   const file = fileDoc.data()!;
 
+  // 2.5. Vérifier le blocage VPN/Datacenter si activé
+  if (link.blockVpn === true) {
+    try {
+      const clientIP = getClientIP(req);
+      if (clientIP !== 'unknown') {
+        const geolocation = await getGeolocationFromIP(clientIP);
+        if (geolocation && (geolocation.isVPN === true || geolocation.isDatacenter === true)) {
+          // Tracker l'accès refusé
+          try {
+            const userAgent = req.headers.get("user-agent") || undefined;
+            const referer = req.headers.get("referer") || undefined;
+            const { generateVisitorId } = await import("@/lib/visitor");
+            const visitorId = generateVisitorId(clientIP, userAgent);
+            
+            await trackEvent({
+              linkId: link.id || link.linkId,
+              eventType: "ACCESS_DENIED",
+              geolocation,
+              visitorId,
+              referer,
+              userAgent,
+            });
+          } catch (e) {
+            console.error("Error tracking ACCESS_DENIED:", e);
+          }
+          
+          return NextResponse.json({ error: "L'accès via VPN ou datacenter est bloqué" }, { status: 403 });
+        }
+      }
+    } catch (error) {
+      console.error("Error checking VPN/Datacenter:", error);
+      // En cas d'erreur, on autorise l'accès pour ne pas bloquer les utilisateurs légitimes
+    }
+  }
+
   // 3. Utiliser downloadDefault du lien (pas de règles par fichier)
   const downloadAllowed = link.allowDownload ?? link.downloadDefault ?? true;
 

@@ -299,6 +299,59 @@ export default async function PublicSharePage({
     const files = Array.isArray(link.folder.files) ? link.folder.files : [];
     const children = Array.isArray(link.folder.children) ? link.folder.children : [];
 
+    // Vérifier le blocage VPN/Datacenter si activé
+    if (link.blockVpn === true) {
+      try {
+        const headersList = await headers();
+        const clientIP = 
+          headersList.get("x-forwarded-for")?.split(",")[0].trim() ||
+          headersList.get("x-real-ip") ||
+          headersList.get("cf-connecting-ip") ||
+          "unknown";
+        
+        if (clientIP !== 'unknown') {
+          const geolocation = await getGeolocationFromIP(clientIP);
+          if (geolocation && (geolocation.isVPN === true || geolocation.isDatacenter === true)) {
+            // Tracker l'accès refusé
+            try {
+              const userAgent = headersList.get("user-agent") || undefined;
+              const referer = headersList.get("referer") || undefined;
+              const { generateVisitorId } = await import("@/lib/visitor");
+              const visitorId = generateVisitorId(clientIP, userAgent);
+              
+              await trackEvent({
+                linkId: link.id,
+                eventType: "ACCESS_DENIED",
+                geolocation,
+                visitorId,
+                referer,
+                userAgent,
+              });
+            } catch (e) {
+              console.error("Error tracking ACCESS_DENIED:", e);
+            }
+            
+            return (
+              <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
+                <div className="apple-card p-12 text-center max-w-md shadow-2xl">
+                  <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <Lock className="w-8 h-8" />
+                  </div>
+                  <h1 className="text-2xl font-bold mb-2 tracking-tight">Accès refusé</h1>
+                  <p className="text-apple-secondary font-medium">
+                    L'accès via VPN ou datacenter est bloqué pour ce lien.
+                  </p>
+                </div>
+              </div>
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Error checking VPN/Datacenter:", error);
+        // En cas d'erreur, on autorise l'accès pour ne pas bloquer les utilisateurs légitimes
+      }
+    }
+
     // Tracker l'ouverture du lien côté serveur (important pour mobile et tous devices)
     (async () => {
       try {

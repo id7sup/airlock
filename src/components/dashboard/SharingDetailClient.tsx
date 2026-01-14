@@ -54,6 +54,11 @@ interface ExtendedStats {
   recipientCount: number;
   reshares: number;
   topFiles: Array<{ fileId: string; fileName: string; count: number }>;
+  funnel?: {
+    viewToDownload: number;
+    viewToViewFile: number;
+    viewToOpenFolder: number;
+  };
 }
 
 const tabs = ["Vue globale", "Logs", "Sécurité"];
@@ -133,9 +138,10 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
     const fetchExtendedStats = async () => {
       setLoadingStats(true);
       try {
-        const response = await fetch(`/api/analytics/stats?days=30&linkId=${link.id}`);
+        const response = await fetch(`/api/analytics/stats?days=9999&linkId=${link.id}&period=Max`);
         if (!response.ok) throw new Error("stats");
         const data = await response.json();
+        const analyticsStats = data.stats;
 
         const geoResponse = await fetch(`/api/analytics/geolocation?days=30&linkId=${link.id}`);
         const geoData = geoResponse.ok ? await geoResponse.json() : { analytics: [] };
@@ -169,6 +175,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
             .map(([fileId, data]) => ({ fileId, fileName: data.fileName, count: data.count }))
             .sort((a, b) => b.count - a.count)
             .slice(0, 10),
+          funnel: analyticsStats?.funnel,
         });
       } catch (error) {
         console.error("Erreur lors du chargement des stats:", error);
@@ -709,6 +716,35 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                       <p className="text-[11px] font-semibold text-black/60 uppercase tracking-wide">Changements IP/Appareil</p>
                       <p className="text-2xl font-semibold text-black tabular-nums mt-1">{stats.ipChanges + stats.deviceChanges}</p>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {stats && stats.funnel && (
+                <div className="p-4 rounded-2xl border border-black/[0.06] bg-white shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-semibold text-black">Funnel d'engagement</h3>
+                    <span className="text-[11px] text-black/40 uppercase tracking-[0.18em]">Conversion</span>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { label: "Vue → Téléchargement", value: stats.funnel.viewToDownload },
+                      { label: "Vue → Fichier consulté", value: stats.funnel.viewToViewFile },
+                      { label: "Vue → Dossier ouvert", value: stats.funnel.viewToOpenFolder },
+                    ].map((item) => (
+                      <div key={item.label} className="bg-black/[0.02] border border-black/[0.04] rounded-xl px-4 py-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-medium text-black">{item.label}</p>
+                          <span className="text-sm font-semibold text-black tabular-nums">{item.value.toFixed(1)}%</span>
+                        </div>
+                        <div className="mt-2 h-2 rounded-full bg-black/[0.04] overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-brand-primary to-brand-secondary transition-all"
+                            style={{ width: `${Math.min(item.value, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

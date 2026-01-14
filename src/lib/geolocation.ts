@@ -76,17 +76,24 @@ export async function getGeolocationFromIP(ip: string): Promise<GeolocationResul
         const isp = data.org || undefined;
         const asn = data.asn ? `AS${data.asn} - ${data.org || ''}`.trim() : undefined;
         const { isDatacenter, isVPN } = detectDatacenterOrVPN(isp, asn);
+        
+        // ipapi.co fournit aussi org_type qui peut indiquer "hosting" ou "business"
+        const orgType = data.org_type?.toLowerCase() || '';
+        const isDatacenterFromOrgType = orgType === 'hosting' || orgType === 'datacenter';
+        const finalIsDatacenter = isDatacenter || isDatacenterFromOrgType;
 
+        // Si c'est un datacenter/VPN, ne pas utiliser les coordonnées (elles pointent vers le datacenter)
+        // On retourne quand même les infos mais sans coordonnées précises
         return {
           ip: data.ip || ip,
           country: data.country_name || data.country || undefined,
-          city: data.city || undefined,
-          region: data.region || data.region_code || undefined,
-          latitude: data.latitude || undefined,
-          longitude: data.longitude || undefined,
+          city: (finalIsDatacenter || isVPN) ? undefined : (data.city || undefined), // Pas de ville pour datacenter/VPN
+          region: (finalIsDatacenter || isVPN) ? undefined : (data.region || data.region_code || undefined),
+          latitude: (finalIsDatacenter || isVPN) ? undefined : (data.latitude || undefined),
+          longitude: (finalIsDatacenter || isVPN) ? undefined : (data.longitude || undefined),
           isp: isp,
           asn: asn,
-          isDatacenter,
+          isDatacenter: finalIsDatacenter,
           isVPN,
         };
       }

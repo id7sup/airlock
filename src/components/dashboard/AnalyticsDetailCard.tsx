@@ -33,34 +33,53 @@ interface AnalyticsDetailCardProps {
 function parseUserAgent(userAgent: string): { browser: string; device: string; os: string } {
   if (!userAgent) return { browser: "Inconnu", device: "Inconnu", os: "Inconnu" };
   
+  const ua = userAgent.toLowerCase();
   let browser = "Inconnu";
-  let device = "Desktop";
+  let device = "Inconnu";
   let os = "Inconnu";
   
-  if (userAgent.includes("Chrome") && !userAgent.includes("Edg")) {
-    browser = "Chrome";
-  } else if (userAgent.includes("Firefox")) {
-    browser = "Firefox";
-  } else if (userAgent.includes("Safari") && !userAgent.includes("Chrome")) {
-    browser = "Safari";
-  } else if (userAgent.includes("Edg")) {
+  // Détection du navigateur (ordre important)
+  if (ua.includes("edg/") || ua.includes("edgios")) {
     browser = "Edge";
-  } else if (userAgent.includes("Opera") || userAgent.includes("OPR")) {
+  } else if (ua.includes("opr/") || ua.includes("opera")) {
     browser = "Opera";
+  } else if (ua.includes("chrome") && !ua.includes("edg")) {
+    browser = "Chrome";
+  } else if (ua.includes("firefox") || ua.includes("fxios")) {
+    browser = "Firefox";
+  } else if (ua.includes("safari") && !ua.includes("chrome")) {
+    browser = "Safari";
   }
   
-  if (userAgent.includes("Windows")) {
-    os = "Windows";
-  } else if (userAgent.includes("Mac OS X") || userAgent.includes("macOS")) {
-    os = "macOS";
-  } else if (userAgent.includes("Linux")) {
-    os = "Linux";
-  } else if (userAgent.includes("Android")) {
-    os = "Android";
+  // Détection de l'appareil (mobile/tablette en premier)
+  if (ua.includes("mobile") || ua.includes("android") || ua.includes("iphone") || ua.includes("ipod")) {
     device = "Mobile";
-  } else if (userAgent.includes("iOS") || userAgent.includes("iPhone") || userAgent.includes("iPad")) {
+  } else if (ua.includes("ipad") || ua.includes("tablet")) {
+    device = "Tablette";
+  } else if (ua.includes("windows") || ua.includes("mac") || ua.includes("linux") || ua.includes("x11")) {
+    device = "Desktop";
+  }
+  
+  // Détection de l'OS (ordre important)
+  if (ua.includes("windows phone")) {
+    os = "Windows Phone";
+  } else if (ua.includes("windows")) {
+    os = "Windows";
+  } else if (ua.includes("android")) {
+    os = "Android";
+    if (device === "Inconnu") device = "Mobile";
+  } else if (ua.includes("iphone") || ua.includes("ipod")) {
     os = "iOS";
-    device = userAgent.includes("iPad") ? "Tablette" : "Mobile";
+    if (device === "Inconnu") device = "Mobile";
+  } else if (ua.includes("ipad")) {
+    os = "iOS";
+    if (device === "Inconnu") device = "Tablette";
+  } else if (ua.includes("mac os x") || ua.includes("macintosh")) {
+    os = "macOS";
+    if (device === "Inconnu") device = "Desktop";
+  } else if (ua.includes("linux")) {
+    os = "Linux";
+    if (device === "Inconnu") device = "Desktop";
   }
   
   return { browser, device, os };

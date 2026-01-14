@@ -332,38 +332,8 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
         </div>
       )}
 
-      {/* Funnel + Sources */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        {/* Funnel d'engagement */}
-        <div className="bg-white border border-black/[0.05] rounded-2xl shadow-sm p-6 space-y-4 xl:col-span-7">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-black">Funnel d'engagement</h2>
-            <span className="text-[11px] text-black/40 uppercase tracking-[0.18em]">Conversion</span>
-          </div>
-          <div className="space-y-3">
-            {[
-              { label: "Vue → Téléchargement", value: stats.funnel.viewToDownload },
-              { label: "Vue → Fichier consulté", value: stats.funnel.viewToViewFile },
-              { label: "Vue → Dossier ouvert", value: stats.funnel.viewToOpenFolder },
-            ].map((item) => (
-              <div key={item.label} className="bg-black/[0.02] border border-black/[0.04] rounded-xl px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-black">{item.label}</p>
-                  <span className="text-sm font-semibold text-black tabular-nums">{item.value.toFixed(1)}%</span>
-                </div>
-                <div className="mt-2 h-2 rounded-full bg-black/[0.04] overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-brand-primary to-brand-secondary transition-all"
-                    style={{ width: `${Math.min(item.value, 100)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Sources de trafic */}
-        <div className="bg-white border border-black/[0.05] rounded-2xl shadow-sm p-6 space-y-4 xl:col-span-5">
+      {/* Sources de trafic - Pleine largeur */}
+      <div className="bg-white border border-black/[0.05] rounded-2xl shadow-sm p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-black">Sources de trafic</h2>
             <span className="text-[11px] text-black/40 uppercase tracking-[0.18em]">Top</span>
@@ -390,7 +360,6 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
               ))}
             </div>
           )}
-        </div>
       </div>
     </div>
   );

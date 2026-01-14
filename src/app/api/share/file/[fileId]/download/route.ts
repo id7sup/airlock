@@ -69,10 +69,44 @@ export async function POST(
       return NextResponse.json({ error: "Fichier non autorisé" }, { status: 403 });
     }
 
-    // 3. Utiliser downloadDefault du lien (pas de règles par fichier)
+    // 3. Vérifier le blocage VPN/Datacenter si activé
+    if (link.blockVpn === true) {
+      try {
+        const clientIP = getClientIP(req);
+        if (clientIP !== 'unknown') {
+          const geolocation = await getGeolocationFromIP(clientIP);
+          if (geolocation && (geolocation.isVPN === true || geolocation.isDatacenter === true)) {
+            // Tracker l'accès refusé
+            try {
+              const userAgent = req.headers.get("user-agent") || undefined;
+              const referer = req.headers.get("referer") || undefined;
+              const visitorId = generateVisitorId(clientIP, userAgent);
+              
+              await trackEvent({
+                linkId: link.id || link.linkId,
+                eventType: "ACCESS_DENIED",
+                geolocation,
+                visitorId,
+                referer,
+                userAgent,
+              });
+            } catch (e) {
+              console.error("Error tracking ACCESS_DENIED:", e);
+            }
+            
+            return NextResponse.json({ error: "L'accès via VPN ou datacenter est bloqué" }, { status: 403 });
+          }
+        }
+      } catch (error) {
+        console.error("Error checking VPN/Datacenter:", error);
+        // En cas d'erreur, on autorise l'accès pour ne pas bloquer les utilisateurs légitimes
+      }
+    }
+
+    // 4. Utiliser downloadDefault du lien (pas de règles par fichier)
     const downloadAllowed = link.allowDownload ?? link.downloadDefault ?? true;
 
-    // 4. Vérifier si le téléchargement est autorisé
+    // 5. Vérifier si le téléchargement est autorisé
     if (!downloadAllowed) {
       try {
         await trackEvent({
@@ -89,7 +123,7 @@ export async function POST(
       );
     }
 
-    // 5. Tracker le téléchargement côté serveur (important pour mobile)
+    // 6. Tracker le téléchargement côté serveur (important pour mobile)
     try {
       const clientIP = getClientIP(req);
       const userAgent = req.headers.get("user-agent") || undefined;
@@ -128,7 +162,7 @@ export async function POST(
       // Ne pas bloquer le téléchargement si le tracking échoue
     }
 
-    // 6. Générer une URL présignée vers l'original
+    // 7. Générer une URL présignée vers l'original
     const downloadUrl = await getDownloadUrl(file.s3Key, file.name);
 
     return NextResponse.json({
