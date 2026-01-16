@@ -4,11 +4,12 @@ import { checkIfFolderIsChild } from "@/services/folders";
 import { FolderOpen, Info, ChevronLeft, Lock } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import { FileList } from "@/components/shared/FileList";
-// TrackEvent supprimé - le tracking est fait côté serveur pour éviter le double comptage
+import { TrackEvent } from "@/components/shared/TrackEvent";
 import Link from "next/link";
-import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
+import { getClientIP, getGeolocationFromIP, getCloudflareLocationHeaders } from "@/lib/geolocation";
 import { headers } from "next/headers";
 import { trackEvent } from "@/services/analytics";
+import { isPreviewBot } from "@/lib/visitor";
 
 /**
  * Page publique pour afficher un sous-dossier partagé
@@ -281,15 +282,11 @@ export default async function PublicShareFolderPage({
       }
     }
 
-    // Tracker l'ouverture du dossier côté serveur (important pour mobile et tous devices)
+    // Tracker la prévisualisation (bot) côté serveur
     (async () => {
       try {
         const headersList = await headers();
-        const clientIP = 
-          headersList.get("x-forwarded-for")?.split(",")[0].trim() ||
-          headersList.get("x-real-ip") ||
-          headersList.get("cf-connecting-ip") ||
-          "unknown";
+        const clientIP = getClientIP(headersList);
         const userAgent = headersList.get("user-agent") || undefined;
         const referer = headersList.get("referer") || undefined;
         
@@ -299,7 +296,9 @@ export default async function PublicShareFolderPage({
         let geolocation;
         try {
           if (clientIP !== 'unknown') {
-            geolocation = await getGeolocationFromIP(clientIP);
+            // Utiliser les headers Cloudflare si disponibles
+            const cfHeaders = getCloudflareLocationHeaders(headersList);
+            geolocation = await getGeolocationFromIP(clientIP, cfHeaders);
             if (geolocation) {
               geolocation = Object.fromEntries(
                 Object.entries(geolocation).filter(([_, v]) => v !== undefined)
@@ -307,12 +306,15 @@ export default async function PublicShareFolderPage({
             }
           }
         } catch (error) {
-          console.error("Error getting geolocation for OPEN_FOLDER:", error);
+          console.error("Error getting geolocation:", error);
         }
+
+        // Détecter si c'est un bot de prévisualisation
+        const isBot = isPreviewBot(userAgent, referer, geolocation?.isDatacenter);
 
         await trackEvent({
           linkId: link.id,
-          eventType: "OPEN_FOLDER",
+          eventType: "LINK_PREVIEW",
           geolocation,
           visitorId,
           referer,
@@ -320,13 +322,15 @@ export default async function PublicShareFolderPage({
           folderId: folderId,
         });
       } catch (error) {
-        console.error("Error tracking OPEN_FOLDER:", error);
+        console.error("Error tracking LINK_PREVIEW:", error);
       }
     })().catch(() => {});
 
-    // Note: Le tracking est fait côté serveur (ligne 313), pas besoin du composant TrackEvent ici
+    // Note: LINK_PREVIEW est tracké côté serveur, OPEN_FOLDER sera tracké côté client après interaction
     return (
-      <div className="min-h-screen bg-apple-gray py-12 px-6 text-apple-text animate-in fade-in duration-700">
+      <>
+        <TrackEvent linkId={link.id} eventType="OPEN_FOLDER" folderId={folderId} />
+        <div className="min-h-screen bg-apple-gray py-12 px-6 text-apple-text animate-in fade-in duration-700">
         <div className="max-w-4xl mx-auto">
           <header className="flex items-center justify-center mb-12">
             <Logo className="w-20 h-20" />
@@ -379,6 +383,7 @@ export default async function PublicShareFolderPage({
           </div>
         </div>
       </div>
+      </>
     );
   } catch (error: any) {
     console.error("[SHARE_FOLDER] Critical error:", error?.message);

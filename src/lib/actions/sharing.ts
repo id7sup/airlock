@@ -295,6 +295,96 @@ export async function revokeShareLinkAction(linkId: string) {
 }
 
 /**
+ * Réactive un lien de partage révoqué
+ * 
+ * Seul le propriétaire (OWNER) du dossier peut réactiver un lien.
+ * 
+ * @param linkId - ID du lien de partage à réactiver
+ * @throws Error si l'utilisateur n'est pas propriétaire ou si le lien n'existe pas
+ */
+export async function reactivateShareLinkAction(linkId: string) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Non autorisé");
+
+  const linkDoc = await db.collection("shareLinks").doc(linkId).get();
+  if (!linkDoc.exists) throw new Error("Lien non trouvé");
+  const link = linkDoc.data()!;
+
+  const permSnapshot = await db.collection("permissions")
+    .where("folderId", "==", link.folderId)
+    .where("userId", "==", userId)
+    .where("role", "==", "OWNER")
+    .limit(1)
+    .get();
+
+  if (permSnapshot.empty) throw new Error("Non autorisé");
+
+  // Réactiver le lien
+  await db.collection("shareLinks").doc(linkId).update({
+    isRevoked: false,
+    revokedAt: admin.firestore.FieldValue.delete(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  revalidatePath(`/dashboard`);
+  revalidatePath(`/dashboard/sharing`);
+  revalidatePath(`/dashboard/sharing/${linkId}`);
+}
+
+/**
+ * Supprime définitivement un lien de partage
+ * 
+ * Seul le propriétaire (OWNER) du dossier peut supprimer un lien.
+ * Cette action est irréversible et supprime également les analytics associés.
+ * 
+ * @param linkId - ID du lien de partage à supprimer
+ * @throws Error si l'utilisateur n'est pas propriétaire ou si le lien n'existe pas
+ */
+export async function deleteShareLinkAction(linkId: string) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Non autorisé");
+
+  const linkDoc = await db.collection("shareLinks").doc(linkId).get();
+  if (!linkDoc.exists) throw new Error("Lien non trouvé");
+  const link = linkDoc.data()!;
+
+  const permSnapshot = await db.collection("permissions")
+    .where("folderId", "==", link.folderId)
+    .where("userId", "==", userId)
+    .where("role", "==", "OWNER")
+    .limit(1)
+    .get();
+
+  if (permSnapshot.empty) throw new Error("Non autorisé");
+
+  // Supprimer les analytics associés au lien (par lots de 500)
+  const analyticsSnapshot = await db.collection("shareAnalytics")
+    .where("linkId", "==", linkId)
+    .get();
+  
+  // Firestore limite à 500 opérations par batch
+  const MAX_BATCH_SIZE = 500;
+  const analyticsDocs = analyticsSnapshot.docs;
+  
+  for (let i = 0; i < analyticsDocs.length; i += MAX_BATCH_SIZE) {
+    const batch = db.batch();
+    const chunk = analyticsDocs.slice(i, i + MAX_BATCH_SIZE);
+    chunk.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+  }
+
+  // Supprimer le lien
+  await db.collection("shareLinks").doc(linkId).delete();
+
+  // Ne pas revalider le chemin de détail car le lien n'existe plus
+  revalidatePath(`/dashboard`);
+  revalidatePath(`/dashboard/sharing`);
+  // Note: on ne revalide pas `/dashboard/sharing/${linkId}` car le lien est supprimé
+}
+
+/**
  * Vérifie si un dossier est partagé avec d'autres utilisateurs (partage interne)
  * 
  * @param folderId - ID du dossier à vérifier

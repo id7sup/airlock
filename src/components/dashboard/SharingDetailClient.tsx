@@ -20,18 +20,25 @@ import {
   X,
   Calendar,
   File,
-  FileSpreadsheet
+  FileSpreadsheet,
+  LayoutDashboard,
+  FileText,
+  Shield,
+  AlertTriangle,
+  Network,
+  RotateCcw,
+  MoreVertical
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { revokeShareLinkAction } from "@/lib/actions/sharing";
+import { revokeShareLinkAction, reactivateShareLinkAction, deleteShareLinkAction } from "@/lib/actions/sharing";
 import { updateShareLinkAction } from "@/lib/actions/sharing_update";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { ErrorModal } from "@/components/shared/ErrorModal";
 import { AnalyticsDashboard } from "./AnalyticsDashboard";
 import { LogsPageClient } from "@/components/dashboard/LogsPageClient";
-import { getNotificationsAction } from "@/lib/actions/notifications";
+import { getNotificationsAction, getLinkLogsAction } from "@/lib/actions/notifications";
 import type { NotificationType } from "@/services/notifications";
 
 interface SharedLink {
@@ -70,7 +77,7 @@ interface ExtendedStats {
   };
 }
 
-const tabs = ["Vue globale", "Logs", "Sécurité"];
+const tabs = ["Vue globale", "Logs"];
 
 export default function SharingDetailClient({ link }: { link: SharedLink }) {
   const router = useRouter();
@@ -93,12 +100,12 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
   const calendarRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const actionsMenuRef = useRef<HTMLDivElement>(null);
   const [restrictDomain, setRestrictDomain] = useState(link.restrictDomain === true);
   const [blockVpn, setBlockVpn] = useState(link.blockVpn === true);
   const [notifications, setNotifications] = useState<string[]>(link.notifications || []);
   const [fileNameMap, setFileNameMap] = useState<Record<string, string>>({});
-  const [blockedIps, setBlockedIps] = useState<string[]>(link.blockedIps || []);
-  const [blockedDevices, setBlockedDevices] = useState<string[]>(link.blockedDevices || []);
   const [logs, setLogs] = useState<Array<{ id: string; type: NotificationType; metadata?: any; createdAt: string }>>(
     []
   );
@@ -158,11 +165,29 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
     };
   }, [isCalendarOpen]);
 
+  // Fermer le menu actions au clic extérieur
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
+        setShowActionsMenu(false);
+      }
+    };
+
+    if (showActionsMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showActionsMenu]);
+
   useEffect(() => {
     const loadLogs = async () => {
       setLoadingLogs(true);
       try {
-        const data = await getNotificationsAction(200);
+        // Récupérer les logs spécifiques à ce lien via les analytics
+        const data = await getLinkLogsAction(linkData.id, linkData.folderName, 200);
         setLogs(data as any[]);
       } catch (error) {
         console.error("Erreur lors du chargement des logs:", error);
@@ -171,12 +196,10 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
       }
     };
     loadLogs();
-  }, []);
+  }, [linkData.id, linkData.folderName]);
 
   useEffect(() => {
     setNotifications(linkData.notifications || []);
-    setBlockedIps(linkData.blockedIps || []);
-    setBlockedDevices(linkData.blockedDevices || []);
     setRestrictDomain(linkData.restrictDomain === true);
     setBlockVpn(linkData.blockVpn === true);
   }, [linkData.maxViews, linkData.expiresAt]);
@@ -435,17 +458,64 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
     setConfirmModal({
       isOpen: true,
       title: "Révoquer ce lien ?",
-      message: `Le lien de partage "${linkData.folderName}" sera immédiatement désactivé.`,
+      message: `Le lien de partage "${linkData.folderName}" sera immédiatement désactivé. Vous pourrez le réactiver plus tard.`,
       isDestructive: true,
       onConfirm: async () => {
         try {
           await revokeShareLinkAction(linkData.id);
-          router.push("/dashboard/sharing");
+          setLinkData({ ...linkData, isRevoked: true });
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         } catch (error) {
           setErrorModal({
             isOpen: true,
             title: "Erreur",
             message: "Erreur lors de la révocation",
+          });
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        }
+      },
+    });
+  };
+
+  const handleReactivate = async () => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Réactiver ce lien ?",
+      message: `Le lien de partage "${linkData.folderName}" sera réactivé et pourra à nouveau être utilisé.`,
+      isDestructive: false,
+      onConfirm: async () => {
+        try {
+          await reactivateShareLinkAction(linkData.id);
+          setLinkData({ ...linkData, isRevoked: false });
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          setErrorModal({
+            isOpen: true,
+            title: "Erreur",
+            message: "Erreur lors de la réactivation",
+          });
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        }
+      },
+    });
+  };
+
+  const handleDelete = async () => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Supprimer définitivement ce lien ?",
+      message: `Le lien de partage "${linkData.folderName}" sera définitivement supprimé ainsi que toutes ses données d'analytics. Cette action est irréversible.`,
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          await deleteShareLinkAction(linkData.id);
+          // Utiliser window.location pour forcer une navigation complète et éviter le rechargement de la page
+          window.location.href = "/dashboard/sharing";
+        } catch (error) {
+          setErrorModal({
+            isOpen: true,
+            title: "Erreur",
+            message: "Erreur lors de la suppression",
           });
           setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         }
@@ -472,43 +542,6 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
     }
   };
 
-  const handleBlockIp = async () => {
-    const ip = prompt("IP à bannir ?");
-    if (!ip) return;
-    const next = Array.from(new Set([...blockedIps, ip]));
-    setUpdating(true);
-    try {
-      await updateShareLinkAction(linkData.id, { blockedIps: next });
-      setBlockedIps(next);
-    } catch (e) {
-      setErrorModal({
-        isOpen: true,
-        title: "Erreur",
-        message: "Impossible de bannir cette IP",
-      });
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const handleBlockDevice = async () => {
-    const device = prompt("Identifiant appareil à bloquer ?");
-    if (!device) return;
-    const next = Array.from(new Set([...blockedDevices, device]));
-    setUpdating(true);
-    try {
-      await updateShareLinkAction(linkData.id, { blockedDevices: next });
-      setBlockedDevices(next);
-    } catch (e) {
-      setErrorModal({
-        isOpen: true,
-        title: "Erreur",
-        message: "Impossible de bloquer cet appareil",
-      });
-    } finally {
-      setUpdating(false);
-    }
-  };
 
   const handleExport = async (format: "CSV" | "PDF") => {
     setExportingFormat(format);
@@ -595,77 +628,201 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
 
   return (
     <div className="min-h-screen bg-[#f7f7f8]">
-      <div className="max-w-[1700px] mx-auto px-6 lg:px-10 py-8 space-y-6">
-        {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Link href="/dashboard/sharing" className="text-sm text-black/60 hover:text-black flex items-center gap-2">
-              <ChevronLeft className="w-4 h-4" />
-              Retour
-            </Link>
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusBadge.tone}`}>{statusBadge.label}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={copyToClipboard}
-              className="h-10 px-4 rounded-xl bg-black text-white text-sm font-medium hover:bg-black/90 transition-colors flex items-center gap-2"
-            >
-              {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              {copied ? "Copié" : "Copier"}
-            </button>
-            <Link
-              href={`/share/${linkData.token}`}
-              target="_blank"
-              className="h-10 px-4 rounded-xl bg-white border border-black/[0.08] text-sm font-medium hover:bg-black hover:text-white transition-colors flex items-center gap-2"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Ouvrir
-            </Link>
-            <button
-              onClick={handleRevoke}
-              className="h-10 px-4 rounded-xl bg-red-50 text-red-600 border border-red-100 text-sm font-medium hover:bg-red-100 transition-colors flex items-center gap-2"
-            >
-              <Trash2 className="w-4 h-4" />
-              Révoquer
-            </button>
-          </div>
-        </div>
+      <div className="max-w-[1700px] mx-auto px-6 lg:px-10 py-8 space-y-8">
+        {/* Retour */}
+        <Link 
+          href="/dashboard/sharing" 
+          className="inline-flex items-center gap-2 text-sm text-black/50 hover:text-black transition-colors group"
+        >
+          <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span className="font-medium">Mes partages</span>
+        </Link>
 
-        {/* Identity row */}
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 text-brand-primary flex items-center justify-center shadow-sm">
-            <FolderOpen className="w-6 h-6 fill-current" />
+        {/* Carte principale avec identité et actions */}
+        <div className="bg-white rounded-3xl border border-black/[0.05] shadow-sm overflow-hidden">
+          {/* En-tête de la carte */}
+          <div className="p-8">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              {/* Identité */}
+              <div className="flex items-start gap-5 flex-1 min-w-0">
+                <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-brand-primary/20 to-brand-primary/5 text-brand-primary flex items-center justify-center shadow-lg shadow-brand-primary/10 shrink-0">
+                  <FolderOpen className="w-10 h-10 fill-current" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-3 mb-2">
+                    <h1 className="text-4xl font-bold tracking-tight text-black">{linkData.folderName}</h1>
+                    <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shrink-0 ${statusBadge.tone}`}>
+                      {statusBadge.label}
+                    </span>
+                  </div>
+                  <p className="text-sm text-black/40 font-medium">
+                    Créé le{" "}
+                    <span className="text-black/60">
+                      {new Date(linkData.createdAt).toLocaleDateString("fr-FR", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={copyToClipboard}
+                  className="h-10 px-5 rounded-xl bg-black text-white text-sm font-medium hover:bg-black/90 transition-all flex items-center gap-2 active:scale-95"
+                >
+                  {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied ? "Copié" : "Copier"}
+                </button>
+                <Link
+                  href={`/share/${linkData.token}`}
+                  target="_blank"
+                  className="h-10 px-5 rounded-xl bg-white border border-black/[0.08] text-sm font-medium hover:bg-black/[0.02] transition-all flex items-center gap-2 active:scale-95"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Ouvrir
+                </Link>
+                
+                {/* Menu Actions */}
+                <div className="relative" ref={actionsMenuRef}>
+                  <button
+                    onClick={() => setShowActionsMenu(!showActionsMenu)}
+                    className="h-10 px-5 rounded-xl bg-white border border-black/[0.08] text-sm font-medium hover:bg-black/[0.02] transition-all flex items-center gap-2 active:scale-95"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                    Actions
+                  </button>
+                  
+                  <AnimatePresence>
+                    {showActionsMenu && (
+                      <>
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          onClick={() => setShowActionsMenu(false)}
+                          className="fixed inset-0 z-10"
+                        />
+                        <motion.div
+                          initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                          transition={{ duration: 0.2, ease: "easeOut" }}
+                          className="absolute right-0 top-full mt-2 z-20 bg-white rounded-2xl border border-black/[0.08] shadow-xl min-w-[200px] overflow-hidden"
+                        >
+                          {linkData.isRevoked ? (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowActionsMenu(false);
+                                  handleReactivate();
+                                }}
+                                className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                                Réactiver
+                              </button>
+                              <div className="h-px bg-black/[0.05]" />
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowActionsMenu(false);
+                                  handleDelete();
+                                }}
+                                className="w-full text-left px-4 py-3 hover:bg-red-50 transition-colors text-sm font-medium text-red-600 flex items-center gap-2"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Supprimer
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowActionsMenu(false);
+                                  handleRevoke();
+                                }}
+                                className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
+                              >
+                                <Lock className="w-4 h-4" />
+                                Révoquer
+                              </button>
+                              <div className="h-px bg-black/[0.05]" />
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowActionsMenu(false);
+                                  handleDelete();
+                                }}
+                                className="w-full text-left px-4 py-3 hover:bg-red-50 transition-colors text-sm font-medium text-red-600 flex items-center gap-2"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Supprimer
+                              </button>
+                            </>
+                          )}
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="space-y-1">
-            <h1 className="text-3xl font-semibold tracking-tight text-black">{linkData.folderName}</h1>
-            <p className="text-sm text-black/50">
-              Créé le{" "}
-              {new Date(linkData.createdAt).toLocaleDateString("fr-FR", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
+
+          {/* Navigation par onglets - Toggle Apple redesigné */}
+          <div className="px-8 pb-8 flex items-center justify-center">
+            <div className="relative inline-flex items-center py-1 px-2 bg-black/[0.04] rounded-full">
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab;
+                const tabIndex = tabs.indexOf(tab);
+                const tabWidth = 100 / tabs.length;
+                
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`relative z-10 px-6 py-2 text-sm font-medium transition-colors duration-200 ${
+                      isActive ? "text-black" : "text-black/45"
+                    }`}
+                    style={{ width: `${tabWidth}%` }}
+                  >
+                    <span className="block text-center leading-none">{tab}</span>
+                  </button>
+                );
               })}
-            </p>
+              <motion.div
+                layoutId="activeTabBackground"
+                className="absolute top-1 bottom-1 rounded-full bg-white shadow-sm"
+                initial={false}
+                transition={{
+                  type: "spring",
+                  stiffness: 500,
+                  damping: 30
+                }}
+                style={{
+                  width: `calc(${100 / tabs.length}% - 6px)`,
+                  left: `calc(${(tabs.findIndex(t => t === activeTab) / tabs.length) * 100}% + 3px)`,
+                }}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-2 border-b border-black/[0.05] pb-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold ${
-                activeTab === tab ? "bg-black text-white" : "bg-white text-black/70 border border-black/[0.08] hover:text-black"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+        {/* Contenu principal */}
+        <div>
 
         {activeTab === "Vue globale" && (
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
             {/* Colonne gauche : paramètres du lien */}
             <div className="space-y-4">
               <div className="p-4 rounded-2xl border border-black/[0.06] bg-white shadow-sm space-y-3">
@@ -1083,23 +1240,61 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
               )}
 
               {stats && (
-                <div className="p-4 rounded-2xl border border-black/[0.06] bg-white shadow-sm space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-base font-semibold text-black">Sécurité & anomalies</h3>
-                    <span className="text-[11px] uppercase tracking-[0.18em] text-red-600">Surveillance</span>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-black/[0.04] flex items-center justify-center">
+                      <Shield className="w-5 h-5 text-black/60" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold text-black">Sécurité & anomalies</h3>
+                      <p className="text-xs text-black/40">Surveillance des accès</p>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="p-3 rounded-xl bg-red-50 border border-red-100">
-                      <p className="text-[11px] font-semibold text-red-700 uppercase tracking-wide">Tentatives invalides</p>
-                      <p className="text-2xl font-semibold text-red-800 tabular-nums mt-1">{stats.invalidAttempts}</p>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-white border border-black/[0.05] hover:border-black/[0.1] transition-colors group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-black/[0.03] flex items-center justify-center group-hover:bg-black/[0.05] transition-colors">
+                          <AlertTriangle className="w-6 h-6 text-black/50" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-black">Tentatives invalides</p>
+                          <p className="text-xs text-black/40">Accès refusés</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-black tabular-nums">{stats.invalidAttempts}</p>
+                      </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-red-50 border border-red-100">
-                      <p className="text-[11px] font-semibold text-red-700 uppercase tracking-wide">VPN / DC</p>
-                      <p className="text-2xl font-semibold text-red-800 tabular-nums mt-1">{stats.totalVPN + stats.totalDatacenter}</p>
+
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-white border border-black/[0.05] hover:border-black/[0.1] transition-colors group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-black/[0.03] flex items-center justify-center group-hover:bg-black/[0.05] transition-colors">
+                          <Network className="w-6 h-6 text-black/50" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-black">VPN / Datacenter</p>
+                          <p className="text-xs text-black/40">Connexions suspectes</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-black tabular-nums">{stats.totalVPN + stats.totalDatacenter}</p>
+                      </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-black/[0.02] border border-black/[0.05]">
-                      <p className="text-[11px] font-semibold text-black/60 uppercase tracking-wide">Changements IP/Appareil</p>
-                      <p className="text-2xl font-semibold text-black tabular-nums mt-1">{stats.ipChanges + stats.deviceChanges}</p>
+
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-white border border-black/[0.05] hover:border-black/[0.1] transition-colors group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-black/[0.03] flex items-center justify-center group-hover:bg-black/[0.05] transition-colors">
+                          <Lock className="w-6 h-6 text-black/50" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-black">Changements IP/Appareil</p>
+                          <p className="text-xs text-black/40">Variations détectées</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-black tabular-nums">{stats.ipChanges + stats.deviceChanges}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1159,52 +1354,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
             />
           </div>
         )}
-
-        {activeTab === "Sécurité" && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-black">Sécurité</h2>
-            {stats ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {[
-                  { label: "Tentatives invalides", value: stats.invalidAttempts },
-                  { label: "Datacenter / VPN", value: stats.totalVPN + stats.totalDatacenter },
-                  { label: "Changements (IP/Device)", value: stats.ipChanges + stats.deviceChanges },
-                ].map((s) => (
-                  <div key={s.label} className="bg-white border border-black/[0.06] rounded-2xl p-3 shadow-sm">
-                    <p className="text-xs font-semibold text-black/60 uppercase">{s.label}</p>
-                    <p className="text-2xl font-semibold text-black mt-1">{s.value}</p>
-                  </div>
-                ))}
-                <div className="bg-white border border-black/[0.06] rounded-2xl p-3 shadow-sm">
-                  <p className="text-xs font-semibold text-black/60 uppercase">Actions rapides</p>
-                  <div className="flex flex-wrap gap-2 mt-2 text-xs">
-                    <Link
-                      href={`/dashboard/sharing/logs?linkId=${linkData.id}`}
-                      className="px-3 py-2 rounded-lg border border-black/[0.08] hover:bg-black/5"
-                    >
-                      Voir le détail
-                    </Link>
-                    <button onClick={handleBlockDevice} className="px-3 py-2 rounded-lg border border-black/[0.08] hover:bg-black/5">
-                      Bloquer un appareil
-                    </button>
-                    <button onClick={handleBlockIp} className="px-3 py-2 rounded-lg border border-black/[0.08] hover:bg-black/5">
-                      Bannir une IP
-                    </button>
-                  </div>
-                  {(blockedIps.length > 0 || blockedDevices.length > 0) && (
-                    <div className="mt-3 text-xs text-black/60 space-y-1">
-                      {blockedIps.length > 0 && <p>IPs bannies : {blockedIps.join(", ")}</p>}
-                      {blockedDevices.length > 0 && <p>Appareils bloqués : {blockedDevices.join(", ")}</p>}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-black/50">Chargement des données...</p>
-            )}
-          </div>
-        )}
-
+        </div>
       </div>
 
       {updating && (

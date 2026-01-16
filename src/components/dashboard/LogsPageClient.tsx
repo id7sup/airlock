@@ -115,10 +115,7 @@ export function LogsPageClient({ initialLogs, linkContext }: LogsPageClientProps
       if (Number.isNaN(createdAt.getTime()) || createdAt < from) return false;
       if (typeFilter !== "ALL" && log.type !== typeFilter) return false;
 
-      if (linkContext) {
-        const folderId = log.metadata?.folderId || log.metadata?.folderID;
-        if (folderId && folderId !== linkContext.folderId) return false;
-      }
+      // Les logs sont déjà filtrés par linkId côté serveur, pas besoin de filtrer par folderId
 
       if (!term) return true;
       const haystack = [

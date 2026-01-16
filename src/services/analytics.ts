@@ -13,8 +13,9 @@ import { hashIP, generateVisitorId, categorizeReferer } from "@/lib/visitor";
  * Types d'événements trackés
  */
 export type EventType = 
-  | "OPEN_SHARE"      // Ouverture d'un partage
-  | "OPEN_FOLDER"     // Ouverture d'un sous-dossier
+  | "LINK_PREVIEW"    // Prévisualisation par un bot (WhatsApp, iMessage, Slack, etc.)
+  | "OPEN_SHARE"      // Ouverture d'un partage (après interaction utilisateur)
+  | "OPEN_FOLDER"     // Ouverture d'un sous-dossier (après interaction utilisateur)
   | "VIEW_FILE"       // Prévisualisation d'un fichier
   | "DOWNLOAD_FILE"   // Téléchargement d'un fichier
   | "ACCESS_DENIED";  // Accès refusé
@@ -29,10 +30,12 @@ interface GeolocationData {
   latitude?: number;
   longitude?: number;
   region?: string;
+  accuracy_radius_km?: number;
   isp?: string;
   asn?: string;
   isDatacenter?: boolean;
   isVPN?: boolean;
+  location_quality?: "residential_or_mobile" | "hosting_or_datacenter" | "vpn_or_anonymous_proxy" | "unknown";
 }
 
 /**
@@ -56,6 +59,8 @@ interface TrackingData {
   isReshare?: boolean; // Quelqu'un a re-partagé le lien
   previousIP?: string; // IP précédente pour détecter les changements
   previousDevice?: string; // Device précédent pour détecter les changements
+  visitor_confidence?: number; // Score de confiance que c'est un humain (0-100)
+  js_seen?: boolean; // JavaScript exécuté (beacon envoyé)
 }
 
 /**
@@ -105,10 +110,12 @@ export async function trackEvent(data: TrackingData) {
     if (data.geolocation.region !== undefined) analyticsData.region = data.geolocation.region;
     if (data.geolocation.latitude !== undefined) analyticsData.latitude = data.geolocation.latitude;
     if (data.geolocation.longitude !== undefined) analyticsData.longitude = data.geolocation.longitude;
+    if (data.geolocation.accuracy_radius_km !== undefined) analyticsData.accuracy_radius_km = data.geolocation.accuracy_radius_km;
     if (data.geolocation.isp !== undefined) analyticsData.isp = data.geolocation.isp;
     if (data.geolocation.asn !== undefined) analyticsData.asn = data.geolocation.asn;
     if (data.geolocation.isDatacenter !== undefined) analyticsData.isDatacenter = data.geolocation.isDatacenter;
     if (data.geolocation.isVPN !== undefined) analyticsData.isVPN = data.geolocation.isVPN;
+    if (data.geolocation.location_quality !== undefined) analyticsData.location_quality = data.geolocation.location_quality;
   }
 
   // Ajouter les autres champs seulement s'ils ne sont pas undefined
@@ -127,6 +134,8 @@ export async function trackEvent(data: TrackingData) {
   if (data.isReshare !== undefined) analyticsData.isReshare = data.isReshare;
   if (data.previousIP !== undefined) analyticsData.previousIP = data.previousIP;
   if (data.previousDevice !== undefined) analyticsData.previousDevice = data.previousDevice;
+  if (data.visitor_confidence !== undefined) analyticsData.visitor_confidence = data.visitor_confidence;
+  if (data.js_seen !== undefined) analyticsData.js_seen = data.js_seen;
 
   // Enregistrer l'événement complet
   await db.collection("shareAnalytics").add(analyticsData);
@@ -246,6 +255,7 @@ export async function getLinkAnalyticsWithGeolocation(linkId: string, days: numb
           region: data.region || null,
           latitude: data.latitude || null,
           longitude: data.longitude || null,
+          accuracy_radius_km: data.accuracy_radius_km || null,
           ip: data.ip || null,
           visitorId: data.visitorId || null,
           userAgent: data.userAgent || null,
@@ -253,6 +263,7 @@ export async function getLinkAnalyticsWithGeolocation(linkId: string, days: numb
           asn: data.asn || null,
           isDatacenter: data.isDatacenter || false,
           isVPN: data.isVPN || false,
+          location_quality: data.location_quality || null,
           invalidAttempt: data.invalidAttempt || false,
           ipChanged: data.ipChanged || false,
           deviceChanged: data.deviceChanged || false,
@@ -261,6 +272,8 @@ export async function getLinkAnalyticsWithGeolocation(linkId: string, days: numb
           fileId: data.fileId || null,
           fileName: data.fileName || null,
           folderId: data.folderId || null,
+          visitor_confidence: data.visitor_confidence || null,
+          js_seen: data.js_seen || false,
         };
     });
   } catch (error: any) {
@@ -289,11 +302,13 @@ export async function getLinkAnalyticsWithGeolocation(linkId: string, days: numb
             region: data.region || null,
             latitude: data.latitude || null,
             longitude: data.longitude || null,
+            accuracy_radius_km: data.accuracy_radius_km || null,
             ip: data.ip || null,
             isp: data.isp || null,
             asn: data.asn || null,
             isDatacenter: data.isDatacenter || false,
             isVPN: data.isVPN || false,
+            location_quality: data.location_quality || null,
             invalidAttempt: data.invalidAttempt || false,
             ipChanged: data.ipChanged || false,
             deviceChanged: data.deviceChanged || false,
@@ -378,6 +393,7 @@ export async function getAllLinksAnalyticsWithGeolocation(userId: string, days: 
             region: data.region || null,
             latitude: data.latitude || null,
             longitude: data.longitude || null,
+            accuracy_radius_km: data.accuracy_radius_km || null,
             ip: data.ip || null,
             visitorId: data.visitorId || null,
             userAgent: data.userAgent || null,
@@ -385,6 +401,7 @@ export async function getAllLinksAnalyticsWithGeolocation(userId: string, days: 
             asn: data.asn || null,
             isDatacenter: data.isDatacenter || false,
             isVPN: data.isVPN || false,
+            location_quality: data.location_quality || null,
             invalidAttempt: data.invalidAttempt || false,
             ipChanged: data.ipChanged || false,
             deviceChanged: data.deviceChanged || false,

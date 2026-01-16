@@ -40,7 +40,7 @@ interface AnalyticsStats {
   // 6. Hot moments
   hotMoments: {
     activityByHour: Array<{ hour: number; count: number }>;
-    activityByPeriod: Array<{ label: string; count: number; timestamp?: number }>;
+    activityByPeriod: Array<{ label: string; count: number; views: number; downloads: number; timestamp?: number }>;
     peakActivity: { time: string; count: number };
     lastActivity: string | null;
   };
@@ -442,6 +442,8 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
 
   const hourCounts: Record<number, number> = {};
   const periodData: Record<string, number> = {};
+  const periodViewsData: Record<string, number> = {};
+  const periodDownloadsData: Record<string, number> = {};
   let maxCount = 0;
   let peakTime = "";
   let lastActivityDate: Date | null = null;
@@ -518,8 +520,21 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
     
     if (!periodData[periodKey]) {
       periodData[periodKey] = 0;
+      periodViewsData[periodKey] = 0;
+      periodDownloadsData[periodKey] = 0;
     }
     periodData[periodKey]++;
+    
+    // Séparer les vues et les téléchargements
+    const isView = event.eventType === "OPEN_SHARE" || event.eventType === "VIEW_FILE" || event.eventType === "OPEN_FOLDER";
+    const isDownload = event.eventType === "DOWNLOAD_FILE";
+    
+    if (isView) {
+      periodViewsData[periodKey]++;
+    }
+    if (isDownload) {
+      periodDownloadsData[periodKey]++;
+    }
     
     if (periodData[periodKey] > maxCount) {
       maxCount = periodData[periodKey];
@@ -550,7 +565,7 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
   });
 
   // Générer activityByPeriod selon la période
-  let activityByPeriod: Array<{ label: string; count: number; timestamp?: number }> = [];
+  let activityByPeriod: Array<{ label: string; count: number; views: number; downloads: number; timestamp?: number }> = [];
   
   switch (period) {
     case '1J':
@@ -565,6 +580,8 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
         return {
           label,
           count: periodData[label] || 0,
+          views: periodViewsData[label] || 0,
+          downloads: periodDownloadsData[label] || 0,
           timestamp: i, // Index de la tranche (0-23)
         };
       });
@@ -578,6 +595,8 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
         return {
           label: dayLabel,
           count: periodData[dayLabel] || 0,
+          views: periodViewsData[dayLabel] || 0,
+          downloads: periodDownloadsData[dayLabel] || 0,
           timestamp: targetDate.getTime(),
         };
       });
@@ -588,7 +607,7 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
         // Par semaine : utiliser les clés générées dans le forEach (format YYYY-MM-DD)
         const weekKeys = Object.keys(periodData).filter(key => /^\d{4}-\d{2}-\d{2}$/.test(key));
         
-        const weeks: Array<{ label: string; count: number; timestamp: number }> = [];
+        const weeks: Array<{ label: string; count: number; views: number; downloads: number; timestamp: number }> = [];
         
         weekKeys.forEach(key => {
           // Parser la clé YYYY-MM-DD (lundi de la semaine)
@@ -598,6 +617,8 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
           weeks.push({
             label: `Sem. ${weekStart.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`,
             count: periodData[key] || 0,
+            views: periodViewsData[key] || 0,
+            downloads: periodDownloadsData[key] || 0,
             timestamp: weekStart.getTime(),
           });
         });
@@ -624,7 +645,7 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
           const lastDate = new Date(dates[dates.length - 1]);
           lastDate.setHours(23, 59, 59, 999);
           
-          const days: Array<{ label: string; count: number; timestamp: number }> = [];
+          const days: Array<{ label: string; count: number; views: number; downloads: number; timestamp: number }> = [];
           let currentDay = new Date(firstDate);
           
           while (currentDay <= lastDate) {
@@ -634,6 +655,8 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
             days.push({
               label: dayKey,
               count: count,
+              views: periodViewsData[dayKey] || 0,
+              downloads: periodDownloadsData[dayKey] || 0,
               timestamp: currentDay.getTime(),
             });
             
@@ -658,13 +681,15 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
                 return {
                   label: key,
                   count: count,
+                  views: periodViewsData[key] || 0,
+                  downloads: periodDownloadsData[key] || 0,
                   timestamp: new Date(year, monthIndex, 1).getTime(),
                 };
               }
             }
             return null;
           })
-          .filter((item): item is { label: string; count: number; timestamp: number } => item !== null)
+          .filter((item): item is { label: string; count: number; views: number; downloads: number; timestamp: number } => item !== null)
           .sort((a, b) => a.timestamp - b.timestamp);
         activityByPeriod = allMonths;
       }

@@ -1,13 +1,14 @@
 import { db } from "@/lib/firebase";
 import { validateShareLink } from "@/services/sharing";
 import { createNotification } from "@/services/notifications";
-import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
+import { getClientIP, getGeolocationFromIP, getCloudflareLocationHeaders } from "@/lib/geolocation";
 import { headers } from "next/headers";
 import { trackEvent } from "@/services/analytics";
+import { isPreviewBot } from "@/lib/visitor";
 import { FolderOpen, Info, Lock } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import { FileList } from "@/components/shared/FileList";
-// TrackEvent supprimé - le tracking est fait côté serveur pour éviter le double comptage
+import { TrackEvent } from "@/components/shared/TrackEvent";
 import crypto from "crypto";
 
 /**
@@ -352,15 +353,11 @@ export default async function PublicSharePage({
     const files = Array.isArray(link.folder.files) ? link.folder.files : [];
     const children = Array.isArray(link.folder.children) ? link.folder.children : [];
 
-    // Tracker l'ouverture du lien côté serveur (important pour mobile et tous devices)
+    // Tracker la prévisualisation (bot) ou l'ouverture du lien côté serveur
     (async () => {
       try {
         const headersList = await headers();
-        const clientIP = 
-          headersList.get("x-forwarded-for")?.split(",")[0].trim() ||
-          headersList.get("x-real-ip") ||
-          headersList.get("cf-connecting-ip") ||
-          "unknown";
+        const clientIP = getClientIP(headersList);
         const userAgent = headersList.get("user-agent") || undefined;
         const referer = headersList.get("referer") || undefined;
         
@@ -370,7 +367,9 @@ export default async function PublicSharePage({
         let geolocation;
         try {
           if (clientIP !== 'unknown') {
-            geolocation = await getGeolocationFromIP(clientIP);
+            // Utiliser les headers Cloudflare si disponibles
+            const cfHeaders = getCloudflareLocationHeaders(headersList);
+            geolocation = await getGeolocationFromIP(clientIP, cfHeaders);
             if (geolocation) {
               geolocation = Object.fromEntries(
                 Object.entries(geolocation).filter(([_, v]) => v !== undefined)
@@ -378,26 +377,33 @@ export default async function PublicSharePage({
             }
           }
         } catch (error) {
-          console.error("Error getting geolocation for OPEN_SHARE:", error);
+          console.error("Error getting geolocation:", error);
         }
 
+        // Détecter si c'est un bot de prévisualisation
+        const isBot = isPreviewBot(userAgent, referer, geolocation?.isDatacenter);
+
+        // On track toujours LINK_PREVIEW côté serveur (bot ou non)
+        // OPEN_SHARE sera tracké côté client après interaction utilisateur
         await trackEvent({
           linkId: link.id,
-          eventType: "OPEN_SHARE",
+          eventType: "LINK_PREVIEW",
           geolocation,
           visitorId,
           referer,
           userAgent,
         });
       } catch (error) {
-        console.error("Error tracking OPEN_SHARE:", error);
+        console.error("Error tracking LINK_PREVIEW:", error);
       }
     })().catch(() => {});
 
     // Afficher la page de partage
-    // Note: Le tracking est fait côté serveur (ligne 384), pas besoin du composant TrackEvent ici
+    // Note: LINK_PREVIEW est tracké côté serveur, OPEN_SHARE sera tracké côté client après interaction
     return (
-      <div className="min-h-screen bg-apple-gray py-12 px-6 text-apple-text animate-in fade-in duration-700">
+      <>
+        <TrackEvent linkId={link.id} eventType="OPEN_SHARE" />
+        <div className="min-h-screen bg-apple-gray py-12 px-6 text-apple-text animate-in fade-in duration-700">
         <div className="max-w-4xl mx-auto">
           <header className="flex items-center justify-center mb-12">
             <Logo className="w-20 h-20" />
@@ -435,6 +441,7 @@ export default async function PublicSharePage({
           </div>
         </div>
       </div>
+      </>
     );
   } catch (error: any) {
     // Erreur critique - logger et lancer pour error.tsx

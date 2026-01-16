@@ -79,7 +79,7 @@ interface AnalyticsDashboardProps {
 export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
   const [stats, setStats] = useState<AnalyticsStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<'1J' | '1S' | 'Max'>('Max');
+  const [period, setPeriod] = useState<'1J' | '1S' | 'Max'>('1J');
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -241,10 +241,15 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
                 margin={{ top: 10, right: 30, left: 0, bottom: period === 'Max' ? 60 : 0 }}
               >
                 <defs>
-                  <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#96A982" stopOpacity={0.3}/>
                     <stop offset="50%" stopColor="#96A982" stopOpacity={0.15}/>
                     <stop offset="95%" stopColor="#96A982" stopOpacity={0.02}/>
+                  </linearGradient>
+                  <linearGradient id="colorDownloads" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#FEE68A" stopOpacity={0.3}/>
+                    <stop offset="50%" stopColor="#FEE68A" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#FEE68A" stopOpacity={0.02}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
@@ -266,16 +271,26 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
                 <Tooltip 
                   content={({ active, payload, label }) => {
                     if (active && payload && payload.length && label !== undefined) {
+                      const views = payload.find(p => p.dataKey === 'views')?.value || 0;
+                      const downloads = payload.find(p => p.dataKey === 'downloads')?.value || 0;
                       return (
                         <div className="bg-white/95 backdrop-blur-xl border border-black/[0.08] p-4 rounded-2xl shadow-xl">
-                          <p className="text-xs font-bold text-black/30 uppercase tracking-wider mb-2">
+                          <p className="text-xs font-bold text-black/30 uppercase tracking-wider mb-3">
                             {label}
                           </p>
-                          <div className="flex items-center gap-3">
-                            <div className="w-3 h-3 rounded-full bg-brand-primary" />
-                            <p className="text-base font-semibold text-black">
-                              {payload[0].value} événements
-                            </p>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <div className="w-3 h-3 rounded-full bg-brand-primary" />
+                              <p className="text-sm font-semibold text-black">
+                                {views} {views === 1 ? 'vue' : 'vues'}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#FEE68A' }} />
+                              <p className="text-sm font-semibold text-black">
+                                {downloads} {downloads === 1 ? 'téléchargement' : 'téléchargements'}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       );
@@ -286,13 +301,27 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
                 />
                 <Area 
                   type="monotone" 
-                  dataKey="count" 
+                  dataKey="views" 
+                  name="Vues"
                   stroke="#96A982" 
                   strokeWidth={3}
                   fillOpacity={1} 
-                  fill="url(#colorActivity)"
+                  fill="url(#colorViews)"
                   activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff', fill: '#96A982' }}
                   dot={{ r: 4, fill: '#96A982', strokeWidth: 2, stroke: '#fff' }}
+                  isAnimationActive={true}
+                  animationDuration={1500}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="downloads" 
+                  name="Téléchargements"
+                  stroke="#FEE68A" 
+                  strokeWidth={3}
+                  fillOpacity={1} 
+                  fill="url(#colorDownloads)"
+                  activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff', fill: '#FEE68A' }}
+                  dot={{ r: 4, fill: '#FEE68A', strokeWidth: 2, stroke: '#fff' }}
                   isAnimationActive={true}
                   animationDuration={1500}
                 />
@@ -302,35 +331,6 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
         </div>
 
       </div>
-
-      {/* Top Pays - Ultra minimaliste */}
-      {stats.topCountries.length > 0 && (
-        <div className="space-y-8">
-          <div className="flex items-center justify-between border-b border-black/[0.02] pb-6">
-            <h2 className="text-3xl font-light tracking-tight text-black">Top Pays</h2>
-            <p className="text-xs text-black/30 font-medium">{stats.topCountries.length} pays</p>
-          </div>
-          <div className="space-y-0.5">
-            {stats.topCountries.slice(0, 10).map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between py-4 border-b border-black/[0.02] hover:bg-black/[0.01] transition-colors group">
-                <div className="flex items-center gap-6 flex-1 min-w-0">
-                  <span className="text-[10px] font-bold text-black/15 tabular-nums w-4 text-right shrink-0">{idx + 1}</span>
-                  <span className="text-lg font-light text-black truncate">{item.country}</span>
-                  </div>
-                <div className="flex items-center gap-8 shrink-0">
-                  <div className="w-40 h-0.5 bg-black/[0.03] rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-brand-primary rounded-full transition-all duration-700 ease-out"
-                      style={{ width: `${item.percentage}%` }}
-                    />
-                  </div>
-                  <span className="text-lg font-light text-black tabular-nums w-16 text-right">{item.count}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Sources de trafic - Pleine largeur */}
       <div className="bg-white border border-black/[0.05] rounded-2xl shadow-sm p-6 space-y-4">

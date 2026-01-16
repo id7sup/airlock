@@ -16,8 +16,6 @@ export async function updateShareLinkAction(linkId: string, data: {
   maxViews?: number | null;
   status?: "ACTIVE" | "REVOKED";
   notifications?: string[];
-  blockedIps?: string[];
-  blockedDevices?: string[];
 }) {
   const { userId } = await auth();
   if (!userId) throw new Error("Non autorisé");
@@ -55,8 +53,6 @@ export async function updateShareLinkAction(linkId: string, data: {
   if (data.maxViews !== undefined) updateData.maxViews = data.maxViews;
   if (data.status) updateData.isRevoked = data.status === "REVOKED";
   if (Array.isArray(data.notifications)) updateData.notifications = data.notifications;
-  if (Array.isArray(data.blockedIps)) updateData.blockedIps = data.blockedIps;
-  if (Array.isArray(data.blockedDevices)) updateData.blockedDevices = data.blockedDevices;
 
   await db.collection("shareLinks").doc(linkId).update(updateData);
 

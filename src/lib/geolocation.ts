@@ -5,17 +5,21 @@
  * la localisation géographique à partir d'une adresse IP.
  */
 
+export type LocationQuality = "residential_or_mobile" | "hosting_or_datacenter" | "vpn_or_anonymous_proxy" | "unknown";
+
 export interface GeolocationResult {
   country?: string;
   city?: string;
   region?: string;
   latitude?: number;
   longitude?: number;
+  accuracy_radius_km?: number; // Rayon d'incertitude en km
   ip?: string;
   isp?: string;
   asn?: string;
   isDatacenter?: boolean;
   isVPN?: boolean;
+  location_quality?: LocationQuality; // Qualité de la localisation
 }
 
 /**
@@ -25,29 +29,35 @@ export interface GeolocationResult {
  * @returns Données de géolocalisation ou objet avec seulement l'IP en cas d'erreur
  */
 /**
- * Détecte si une IP provient d'un datacenter ou VPN
- * Basé sur des patterns connus d'ISP et ASN
+ * Détecte la qualité de localisation basée sur ISP et ASN
+ * Utilise des patterns connus pour classifier le type de réseau
  */
-function detectDatacenterOrVPN(isp?: string, asn?: string): { isDatacenter: boolean; isVPN: boolean } {
+function detectLocationQuality(isp?: string, asn?: string): { 
+  isDatacenter: boolean; 
+  isVPN: boolean; 
+  location_quality: LocationQuality;
+} {
   if (!isp && !asn) {
-    return { isDatacenter: false, isVPN: false };
+    return { isDatacenter: false, isVPN: false, location_quality: "unknown" };
   }
 
   const ispLower = (isp || '').toLowerCase();
   const asnLower = (asn || '').toLowerCase();
 
-  // Patterns pour datacenters
+  // Patterns pour datacenters/hosting
   const datacenterPatterns = [
     'datacenter', 'data center', 'hosting', 'server', 'cloud',
     'amazon', 'aws', 'google cloud', 'azure', 'digitalocean',
-    'linode', 'vultr', 'ovh', 'hetzner', 'contabo', 'scaleway'
+    'linode', 'vultr', 'ovh', 'hetzner', 'contabo', 'scaleway',
+    'rackspace', 'softlayer', 'ibm cloud', 'oracle cloud'
   ];
 
-  // Patterns pour VPN
+  // Patterns pour VPN/proxy anonyme
   const vpnPatterns = [
     'vpn', 'proxy', 'tor', 'anonymizer', 'nordvpn', 'expressvpn',
     'surfshark', 'cyberghost', 'private internet access', 'mullvad',
-    'windscribe', 'protonvpn', 'hide.me', 'tunnelbear'
+    'windscribe', 'protonvpn', 'hide.me', 'tunnelbear', 'vyprvpn',
+    'ipvanish', 'hotspot shield', 'purevpn'
   ];
 
   const isDatacenter = datacenterPatterns.some(pattern => 
@@ -58,10 +68,69 @@ function detectDatacenterOrVPN(isp?: string, asn?: string): { isDatacenter: bool
     ispLower.includes(pattern) || asnLower.includes(pattern)
   );
 
-  return { isDatacenter, isVPN };
+  let location_quality: LocationQuality = "residential_or_mobile";
+  if (isDatacenter) {
+    location_quality = "hosting_or_datacenter";
+  } else if (isVPN) {
+    location_quality = "vpn_or_anonymous_proxy";
+  }
+
+  return { isDatacenter, isVPN, location_quality };
 }
 
-export async function getGeolocationFromIP(ip: string): Promise<GeolocationResult> {
+// Cache simple en mémoire pour les résultats GeoIP (TTL 24h)
+const geoCache = new Map<string, { result: GeolocationResult; timestamp: number }>();
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 heures en millisecondes
+
+/**
+ * Récupère la géolocalisation depuis une adresse IP
+ * 
+ * Utilise un cache pour éviter les appels répétés à l'API.
+ * Si Cloudflare headers sont disponibles, les utilise en priorité.
+ * 
+ * @param ip - Adresse IP à géolocaliser
+ * @param cloudflareHeaders - Headers Cloudflare optionnels (cf-*)
+ * @returns Données de géolocalisation
+ */
+export async function getGeolocationFromIP(
+  ip: string, 
+  cloudflareHeaders?: { 
+    country?: string;
+    city?: string;
+    latitude?: string;
+    longitude?: string;
+    region?: string;
+  }
+): Promise<GeolocationResult> {
+  // Vérifier le cache
+  const cached = geoCache.get(ip);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.result;
+  }
+
+  // Si Cloudflare headers sont disponibles, les utiliser en priorité
+  if (cloudflareHeaders) {
+    const { country, city, latitude, longitude, region } = cloudflareHeaders;
+    
+    if (country) {
+      const result: GeolocationResult = {
+        ip,
+        country,
+        city: city || undefined,
+        region: region || undefined,
+        latitude: latitude ? parseFloat(latitude) : undefined,
+        longitude: longitude ? parseFloat(longitude) : undefined,
+        accuracy_radius_km: 5, // Cloudflare donne généralement une bonne précision
+        location_quality: "residential_or_mobile", // Par défaut, on assume que c'est un utilisateur réel
+        isDatacenter: false,
+        isVPN: false,
+      };
+      
+      // Mettre en cache
+      geoCache.set(ip, { result, timestamp: Date.now() });
+      return result;
+    }
+  }
   try {
     // Essayer d'abord ipapi.co (plus précis, gratuit jusqu'à 1000 req/jour)
     try {
@@ -72,30 +141,53 @@ export async function getGeolocationFromIP(ip: string): Promise<GeolocationResul
       });
       const data = await response.json();
 
-      if (!data.error && data.latitude && data.longitude) {
+      if (!data.error) {
         const isp = data.org || undefined;
         const asn = data.asn ? `AS${data.asn} - ${data.org || ''}`.trim() : undefined;
-        const { isDatacenter, isVPN } = detectDatacenterOrVPN(isp, asn);
+        const { isDatacenter, isVPN, location_quality } = detectLocationQuality(isp, asn);
         
         // ipapi.co fournit aussi org_type qui peut indiquer "hosting" ou "business"
         const orgType = data.org_type?.toLowerCase() || '';
         const isDatacenterFromOrgType = orgType === 'hosting' || orgType === 'datacenter';
         const finalIsDatacenter = isDatacenter || isDatacenterFromOrgType;
+        const finalLocationQuality = finalIsDatacenter ? "hosting_or_datacenter" : location_quality;
 
-        // Si c'est un datacenter/VPN, ne pas utiliser les coordonnées (elles pointent vers le datacenter)
+        // Récupérer accuracy_radius si disponible (ipapi.co ne le fournit pas toujours)
+        // Utiliser une estimation basée sur le type de connexion
+        let accuracy_radius_km: number | undefined;
+        if (data.latitude && data.longitude) {
+          // Estimation basée sur la qualité de localisation
+          if (finalLocationQuality === "residential_or_mobile") {
+            accuracy_radius_km = 5; // ~5km pour résidentiel/mobile
+          } else if (finalLocationQuality === "vpn_or_anonymous_proxy") {
+            accuracy_radius_km = 50; // ~50km pour VPN/proxy
+          } else if (finalLocationQuality === "hosting_or_datacenter") {
+            accuracy_radius_km = 100; // ~100km pour datacenter
+          } else {
+            accuracy_radius_km = 25; // ~25km par défaut
+          }
+        }
+
+        // Si c'est un datacenter/VPN, ne pas utiliser les coordonnées précises
         // On retourne quand même les infos mais sans coordonnées précises
-        return {
+        const result: GeolocationResult = {
           ip: data.ip || ip,
           country: data.country_name || data.country || undefined,
-          city: (finalIsDatacenter || isVPN) ? undefined : (data.city || undefined), // Pas de ville pour datacenter/VPN
+          city: (finalIsDatacenter || isVPN) ? undefined : (data.city || undefined),
           region: (finalIsDatacenter || isVPN) ? undefined : (data.region || data.region_code || undefined),
           latitude: (finalIsDatacenter || isVPN) ? undefined : (data.latitude || undefined),
           longitude: (finalIsDatacenter || isVPN) ? undefined : (data.longitude || undefined),
+          accuracy_radius_km: (finalIsDatacenter || isVPN) ? undefined : accuracy_radius_km,
           isp: isp,
           asn: asn,
           isDatacenter: finalIsDatacenter,
           isVPN,
+          location_quality: finalLocationQuality,
         };
+        
+        // Mettre en cache
+        geoCache.set(ip, { result, timestamp: Date.now() });
+        return result;
       }
     } catch (ipapiError) {
       // Fallback sur ip-api.com si ipapi.co échoue
@@ -108,52 +200,141 @@ export async function getGeolocationFromIP(ip: string): Promise<GeolocationResul
     if (data.status === 'success') {
       const isp = data.isp || undefined;
       const asn = data.as ? `${data.as} - ${data.asname || ''}`.trim() : undefined;
-      const { isDatacenter, isVPN } = detectDatacenterOrVPN(isp, asn);
+      const { isDatacenter, isVPN, location_quality } = detectLocationQuality(isp, asn);
 
-      return {
+      // Estimation de l'accuracy radius basée sur la qualité
+      let accuracy_radius_km: number | undefined;
+      if (data.lat && data.lon) {
+        if (location_quality === "residential_or_mobile") {
+          accuracy_radius_km = 5;
+        } else if (location_quality === "vpn_or_anonymous_proxy") {
+          accuracy_radius_km = 50;
+        } else if (location_quality === "hosting_or_datacenter") {
+          accuracy_radius_km = 100;
+        } else {
+          accuracy_radius_km = 25;
+        }
+      }
+      
+      const result: GeolocationResult = {
         ip: data.query || ip,
         country: data.country || undefined,
         city: data.city || undefined,
         region: data.regionName || undefined,
         latitude: data.lat || undefined,
         longitude: data.lon || undefined,
+        accuracy_radius_km: (isDatacenter || isVPN) ? undefined : accuracy_radius_km,
         isp: isp,
         asn: asn,
         isDatacenter,
         isVPN,
+        location_quality,
       };
+      
+      // Mettre en cache
+      geoCache.set(ip, { result, timestamp: Date.now() });
+      return result;
+
     }
   } catch (error: any) {
     // Ignorer les erreurs de géolocalisation (non critique)
     console.error("Geolocation error:", error);
   }
 
-  return { ip };
+  const fallbackResult: GeolocationResult = { ip };
+  geoCache.set(ip, { result: fallbackResult, timestamp: Date.now() });
+  return fallbackResult;
+}
+
+/**
+ * Extrait les headers de localisation Cloudflare si disponibles
+ * 
+ * Cloudflare peut injecter des headers de localisation via "Add visitor location headers"
+ * Ces headers sont plus fiables que les appels API externes
+ * 
+ * @param headers - Headers HTTP (Request ou Headers)
+ * @returns Headers Cloudflare de localisation ou undefined
+ */
+export function getCloudflareLocationHeaders(headers: Request | Headers): {
+  country?: string;
+  city?: string;
+  latitude?: string;
+  longitude?: string;
+  region?: string;
+} | undefined {
+  const getHeader = (name: string): string | null => {
+    if (headers instanceof Headers) {
+      return headers.get(name);
+    }
+    return headers.headers.get(name);
+  };
+
+  const country = getHeader('cf-ipcountry');
+  const city = getHeader('cf-ipcity');
+  const latitude = getHeader('cf-iplatitude');
+  const longitude = getHeader('cf-iplongitude');
+  const region = getHeader('cf-ipregion');
+
+  if (country) {
+    return {
+      country,
+      city: city || undefined,
+      latitude: latitude || undefined,
+      longitude: longitude || undefined,
+      region: region || undefined,
+    };
+  }
+
+  return undefined;
 }
 
 /**
  * Extrait l'adresse IP réelle du client depuis les headers HTTP
  * 
- * Vérifie plusieurs headers pour obtenir l'IP réelle derrière un proxy/load balancer.
+ * Priorise cf-connecting-ip (Cloudflare/Vercel) puis x-forwarded-for
+ * si on est derrière un proxy maîtrisé.
  * 
- * @param request - Objet Request HTTP
+ * @param request - Objet Request HTTP ou Headers
  * @returns Adresse IP ou 'unknown' si non trouvée
  */
-export function getClientIP(request: Request): string {
-  // Essayer différents headers pour obtenir l'IP réelle
-  const forwarded = request.headers.get('x-forwarded-for');
+export function getClientIP(request: Request | Headers): string {
+  const getHeader = (name: string): string | null => {
+    if (request instanceof Headers) {
+      return request.get(name);
+    }
+    return request.headers.get(name);
+  };
+
+  // 1. Prioriser cf-connecting-ip (Cloudflare/Vercel) - source la plus fiable
+  const cfConnectingIP = getHeader('cf-connecting-ip');
+  if (cfConnectingIP) {
+    return cfConnectingIP.trim();
+  }
+
+  // 2. x-forwarded-for peut contenir une chaîne d'IPs (client, proxy1, proxy2...)
+  // On prend la première seulement si on est derrière un proxy maîtrisé (Vercel/Cloudflare)
+  // Vérifier qu'on est bien sur Vercel via la présence de x-vercel-id ou cf-*
+  const vercelId = getHeader('x-vercel-id');
+  const hasCloudflareHeaders = getHeader('cf-ray') !== null;
+  
+  if (vercelId || hasCloudflareHeaders) {
+    const forwarded = getHeader('x-forwarded-for');
+    if (forwarded) {
+      // Prendre la première IP de la chaîne (celle du client réel)
+      return forwarded.split(',')[0].trim();
+    }
+  }
+
+  // 3. x-real-ip (nginx/autres proxies)
+  const realIP = getHeader('x-real-ip');
+  if (realIP) {
+    return realIP.trim();
+  }
+
+  // 4. Fallback sur x-forwarded-for même sans proxy maîtrisé (moins fiable)
+  const forwarded = getHeader('x-forwarded-for');
   if (forwarded) {
     return forwarded.split(',')[0].trim();
-  }
-
-  const realIP = request.headers.get('x-real-ip');
-  if (realIP) {
-    return realIP;
-  }
-
-  const cfConnectingIP = request.headers.get('cf-connecting-ip');
-  if (cfConnectingIP) {
-    return cfConnectingIP;
   }
 
   return 'unknown';

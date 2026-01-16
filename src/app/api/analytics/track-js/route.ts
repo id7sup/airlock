@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { trackEvent } from "@/services/analytics";
 import { getClientIP, getGeolocationFromIP, getCloudflareLocationHeaders } from "@/lib/geolocation";
-import { generateVisitorId } from "@/lib/visitor";
+import { generateVisitorId, calculateVisitorConfidence } from "@/lib/visitor";
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Route pour tracker les événements avec JavaScript exécuté (HIT_CLIENT_JS)
+ * 
+ * Cette route est appelée par un beacon JS côté client pour confirmer
+ * qu'un vrai navigateur a exécuté le JavaScript.
+ * 
+ * Cela permet de distinguer les bots (qui ne font pas tourner JS) des vrais utilisateurs.
+ */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -22,8 +30,22 @@ export async function POST(req: NextRequest) {
     const userAgent = req.headers.get("user-agent") || undefined;
     const referer = req.headers.get("referer") || undefined;
     
+    // Vérifier les headers "browser-like"
+    const secFetchMode = req.headers.get("sec-fetch-mode");
+    const secFetchSite = req.headers.get("sec-fetch-site");
+    const acceptLanguage = req.headers.get("accept-language");
+    const hasBrowserHeaders = !!(secFetchMode || secFetchSite || acceptLanguage);
+    
     // Générer visitorId
     const visitorId = generateVisitorId(clientIP, userAgent);
+    
+    // Calculer le score de confiance
+    const visitor_confidence = calculateVisitorConfidence({
+      js_seen: true, // On est dans cette route = JS exécuté
+      hasBrowserHeaders,
+      userAgent,
+      referer,
+    });
     
     // Capturer la géolocalisation (avec gestion d'erreur)
     let geolocation;
@@ -45,7 +67,7 @@ export async function POST(req: NextRequest) {
       geolocation = undefined;
     }
 
-    // Tracker l'événement (avec gestion d'erreur)
+    // Tracker l'événement avec js_seen = true et visitor_confidence
     try {
       await trackEvent({
         linkId,
@@ -57,6 +79,8 @@ export async function POST(req: NextRequest) {
         fileId,
         folderId,
         fileName,
+        visitor_confidence,
+        js_seen: true,
       });
     } catch (error) {
       console.error("Error tracking event:", error);
@@ -65,11 +89,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Erreur lors du tracking:", error);
+    console.error("Erreur lors du tracking JS:", error);
     return NextResponse.json(
       { error: "Erreur lors du tracking" },
       { status: 500 }
     );
   }
 }
-

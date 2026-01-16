@@ -29,8 +29,24 @@ export default async function SharingDetailPage({
 
     const linkData = linkDoc.data();
     
-    // Vérifier que l'utilisateur est le propriétaire
-    if (linkData?.creatorId !== userId) {
+    if (!linkData || !linkData.folderId) {
+      redirect("/dashboard/sharing");
+    }
+    
+    // Vérifier que l'utilisateur est le propriétaire (soit creatorId, soit OWNER du dossier)
+    const isCreator = linkData.creatorId === userId;
+    
+    // Vérifier aussi les permissions OWNER du dossier (pour les anciens liens)
+    const permSnapshot = await db.collection("permissions")
+      .where("folderId", "==", linkData.folderId)
+      .where("userId", "==", userId)
+      .where("role", "==", "OWNER")
+      .limit(1)
+      .get();
+    
+    const isOwner = !permSnapshot.empty;
+    
+    if (!isCreator && !isOwner) {
       redirect("/dashboard/sharing");
     }
 

@@ -18,13 +18,15 @@ import {
   X as CloseIcon,
   CircleDot,
   Globe,
-  ChevronDown
+  ChevronDown,
+  RotateCcw,
+  MoreVertical
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SharingAnalyticsChart } from "./SharingAnalyticsChart";
 import { MapboxGlobe } from "./MapboxGlobe";
 import { AnalyticsDashboard } from "./AnalyticsDashboard";
-import { revokeShareLinkAction } from "@/lib/actions/sharing";
+import { revokeShareLinkAction, reactivateShareLinkAction, deleteShareLinkAction } from "@/lib/actions/sharing";
 import { updateShareLinkAction } from "@/lib/actions/sharing_update";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { ErrorModal } from "@/components/shared/ErrorModal";
@@ -42,6 +44,7 @@ interface SharedLink {
   expiresAt: string | null;
   createdAt: string;
   analytics: any[];
+  isRevoked?: boolean;
 }
 
 export default function SharingListClient({ initialLinks }: { initialLinks: SharedLink[] }) {
@@ -174,12 +177,11 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
     setConfirmModal({
       isOpen: true,
       title: "Révoquer ce lien ?",
-      message: `Le lien de partage "${link?.folderName}" sera immédiatement désactivé et ne pourra plus être utilisé.`,
+      message: `Le lien de partage "${link?.folderName}" sera immédiatement désactivé et ne pourra plus être utilisé. Vous pourrez le réactiver plus tard.`,
       isDestructive: true,
       onConfirm: async () => {
         try {
           await revokeShareLinkAction(id);
-          // Mettre à jour le lien pour le marquer comme révoqué au lieu de le supprimer
           setLinks(links.map(l => l.id === id ? { ...l, isRevoked: true } : l));
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
         } catch (error) {
@@ -187,6 +189,54 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
             isOpen: true,
             title: "Erreur",
             message: "Erreur lors de la révocation"
+          });
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
+  };
+
+  const handleReactivate = async (id: string) => {
+    const link = links.find(l => l.id === id);
+    setConfirmModal({
+      isOpen: true,
+      title: "Réactiver ce lien ?",
+      message: `Le lien de partage "${link?.folderName}" sera réactivé et pourra à nouveau être utilisé.`,
+      isDestructive: false,
+      onConfirm: async () => {
+        try {
+          await reactivateShareLinkAction(id);
+          setLinks(links.map(l => l.id === id ? { ...l, isRevoked: false } : l));
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          setErrorModal({
+            isOpen: true,
+            title: "Erreur",
+            message: "Erreur lors de la réactivation"
+          });
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
+  };
+
+  const handleDelete = async (id: string) => {
+    const link = links.find(l => l.id === id);
+    setConfirmModal({
+      isOpen: true,
+      title: "Supprimer définitivement ce lien ?",
+      message: `Le lien de partage "${link?.folderName}" sera définitivement supprimé ainsi que toutes ses données d'analytics. Cette action est irréversible.`,
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          await deleteShareLinkAction(id);
+          setLinks(links.filter(l => l.id !== id));
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          setErrorModal({
+            isOpen: true,
+            title: "Erreur",
+            message: "Erreur lors de la suppression"
           });
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
         }
@@ -291,42 +341,13 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
             </div>
           ) : (
             links.map((link) => (
-              <Link
+              <LinkItem
                 key={link.id}
-                href={`/dashboard/sharing/${link.id}`}
-                className="block bg-white rounded-2xl border border-black/[0.05] p-6 hover:shadow-lg hover:shadow-black/5 transition-all duration-300 group"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform bg-brand-primary/10 text-brand-primary group-hover:bg-brand-primary/20">
-                      <FolderOpen className="w-6 h-6 fill-current" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-lg font-medium tracking-tight truncate text-black group-hover:text-brand-primary transition-colors">
-                        {link.folderName}
-                      </h3>
-                      <p className="text-xs text-black/40 mt-1" suppressHydrationWarning>
-                        Créé le {new Date(link.createdAt).toLocaleDateString('fr-FR', { 
-                          day: 'numeric', 
-                          month: 'long', 
-                          year: 'numeric' 
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-8 ml-6">
-                    <div className="text-right">
-                      <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest mb-1">Vues</p>
-                      <p className="text-2xl font-medium tabular-nums text-black">{link.viewCount || 0}</p>
-                    </div>
-                    <div className="text-right border-l border-black/[0.05] pl-8">
-                      <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest mb-1">Downloads</p>
-                      <p className="text-2xl font-medium tabular-nums text-brand-primary">{link.downloadCount || 0}</p>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-black/20 group-hover:text-black group-hover:translate-x-1 transition-all ml-4" />
-                  </div>
-                </div>
-              </Link>
+                link={link}
+                onRevoke={handleRevoke}
+                onReactivate={handleReactivate}
+                onDelete={handleDelete}
+              />
             ))
           )}
         </div>
@@ -488,6 +509,154 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
         title={errorModal.title}
         message={errorModal.message}
       />
+    </div>
+  );
+}
+
+function LinkItem({ 
+  link, 
+  onRevoke, 
+  onReactivate, 
+  onDelete 
+}: { 
+  link: SharedLink; 
+  onRevoke: (id: string) => void;
+  onReactivate: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [showActions, setShowActions] = useState(false);
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const isRevoked = link.isRevoked === true;
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (actionsRef.current && !actionsRef.current.contains(event.target as Node)) {
+        setShowActions(false);
+      }
+    };
+
+    if (showActions) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showActions]);
+
+  return (
+    <div
+      className="bg-white rounded-2xl border border-black/[0.05] p-6 hover:shadow-lg hover:shadow-black/5 transition-all duration-300 group"
+    >
+      <div className="flex items-center justify-between">
+        <Link
+          href={`/dashboard/sharing/${link.id}`}
+          className="flex items-center gap-4 flex-1 min-w-0"
+        >
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform bg-brand-primary/10 text-brand-primary group-hover:bg-brand-primary/20">
+            <FolderOpen className="w-6 h-6 fill-current" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-medium tracking-tight truncate text-black group-hover:text-brand-primary transition-colors">
+                {link.folderName}
+              </h3>
+              {isRevoked && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50 border border-red-100">
+                  Révoqué
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-black/40 mt-1" suppressHydrationWarning>
+              Créé le {new Date(link.createdAt).toLocaleDateString('fr-FR', { 
+                day: 'numeric', 
+                month: 'long', 
+                year: 'numeric' 
+              })}
+            </p>
+          </div>
+        </Link>
+        <div className="flex items-center gap-6 ml-6">
+          <div className="text-right">
+            <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest mb-1">Vues</p>
+            <p className="text-2xl font-medium tabular-nums text-black">{link.viewCount || 0}</p>
+          </div>
+          <div className="text-right border-l border-black/[0.05] pl-6">
+            <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest mb-1">Downloads</p>
+            <p className="text-2xl font-medium tabular-nums text-brand-primary">{link.downloadCount || 0}</p>
+          </div>
+          <div className="relative" ref={actionsRef}>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowActions(!showActions);
+              }}
+              className="p-2 rounded-xl hover:bg-black/5 transition-colors"
+            >
+              <MoreVertical className="w-5 h-5 text-black/40" />
+            </button>
+            <AnimatePresence>
+              {showActions && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                  className="absolute right-0 top-full mt-2 bg-white rounded-2xl border border-black/[0.08] shadow-xl z-50 min-w-[200px]"
+                >
+                  <Link
+                    href={`/dashboard/sharing/${link.id}`}
+                    className="block px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black"
+                    onClick={() => setShowActions(false)}
+                  >
+                    Voir les détails
+                  </Link>
+                  {isRevoked ? (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowActions(false);
+                        onReactivate(link.id);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Réactiver
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowActions(false);
+                        onRevoke(link.id);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
+                    >
+                      <Lock className="w-4 h-4" />
+                      Révoquer
+                    </button>
+                  )}
+                  <div className="h-px bg-black/[0.05] my-1" />
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowActions(false);
+                      onDelete(link.id);
+                    }}
+                    className="w-full text-left px-4 py-3 hover:bg-red-50 transition-colors text-sm font-medium text-red-600 flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Supprimer
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

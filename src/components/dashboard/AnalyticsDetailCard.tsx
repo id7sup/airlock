@@ -12,6 +12,8 @@ interface AnalyticsDetail {
   country: string;
   city: string;
   region?: string;
+  accuracy_radius_km?: number;
+  location_quality?: "residential_or_mobile" | "hosting_or_datacenter" | "vpn_or_anonymous_proxy" | "unknown";
   timestamp: string;
   visitorId: string;
   userAgent: string;
@@ -263,12 +265,38 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                       <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">Où</h3>
                     </div>
                     <div className="pl-7 space-y-0.5">
-                      <p className="text-sm font-semibold text-black leading-tight">
-                        {currentEvent.city || "Ville inconnue"}
-                      </p>
-                      <p className="text-xs text-black/50">
-                        {[currentEvent.region, currentEvent.country].filter(Boolean).join(", ") || "Localisation inconnue"}
-                      </p>
+                      {currentEvent.city ? (
+                        <>
+                          <p className="text-sm font-semibold text-black leading-tight">
+                            {currentEvent.accuracy_radius_km 
+                              ? `Près de ${currentEvent.city} (± ${currentEvent.accuracy_radius_km} km)`
+                              : currentEvent.city}
+                          </p>
+                          <p className="text-xs text-black/50">
+                            {[currentEvent.region, currentEvent.country].filter(Boolean).join(", ") || "Localisation inconnue"}
+                            {currentEvent.location_quality && (
+                              <span className="ml-2 text-[10px] uppercase tracking-wider">
+                                • {currentEvent.location_quality === "residential_or_mobile" ? "Résidentiel" :
+                                    currentEvent.location_quality === "hosting_or_datacenter" ? "Datacenter" :
+                                    currentEvent.location_quality === "vpn_or_anonymous_proxy" ? "VPN/Proxy" :
+                                    "Inconnu"}
+                              </span>
+                            )}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm font-semibold text-black leading-tight">
+                          {currentEvent.country || "Localisation inconnue"}
+                          {currentEvent.location_quality && (
+                            <span className="ml-2 text-xs text-black/50">
+                              ({currentEvent.location_quality === "residential_or_mobile" ? "Résidentiel" :
+                                  currentEvent.location_quality === "hosting_or_datacenter" ? "Datacenter" :
+                                  currentEvent.location_quality === "vpn_or_anonymous_proxy" ? "VPN/Proxy" :
+                                  "Inconnu"})
+                            </span>
+                          )}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
