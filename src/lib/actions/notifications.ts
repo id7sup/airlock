@@ -100,18 +100,36 @@ export async function getLinkLogsAction(linkId: string, folderName: string, limi
 export async function getVisitorLogsAction(visitorId: string, userId: string, limit = 500) {
   const { getLinkAnalyticsWithGeolocation } = await import("@/services/analytics");
   
-  // Récupérer tous les liens de l'utilisateur (actifs et révoqués pour avoir l'historique complet)
+  // Récupérer tous les liens de l'utilisateur (actifs ET révoqués pour avoir l'historique complet)
+  // IMPORTANT: On inclut les liens révoqués car les logs doivent montrer toute l'activité du visiteur
   const linksSnapshot = await db.collection("shareLinks")
     .where("creatorId", "==", userId)
     .get();
   
-  // Filtrer côté serveur pour ne garder que les liens actifs
-  const activeLinks = linksSnapshot.docs.filter(doc => {
-    const data = doc.data();
-    return data.isRevoked !== true; // Exclure les liens révoqués
-  });
+  // Ne PAS filtrer les liens révoqués - on veut tous les logs historiques
+  // Mais on exclut les liens dont le dossier associé est supprimé
+  // Résoudre toutes les promesses de vérification des dossiers
+  const filteredLinks = await Promise.all(
+    linksSnapshot.docs.map(async (doc) => {
+      const data = doc.data();
+      if (data.folderId) {
+        try {
+          const folderDoc = await db.collection("folders").doc(data.folderId).get();
+          if (!folderDoc.exists || folderDoc.data()?.isDeleted === true) {
+            return null; // Exclure si le dossier est supprimé
+          }
+        } catch (error) {
+          console.error(`[VISITOR_LOGS] Erreur lors de la vérification du dossier ${data.folderId}:`, error);
+          // En cas d'erreur, inclure le lien pour ne pas perdre de données
+        }
+      }
+      return doc; // Inclure tous les autres liens (actifs et révoqués)
+    })
+  );
   
-  const linkIds = activeLinks.map(doc => doc.id);
+  const allLinks = filteredLinks.filter((doc): doc is typeof doc => doc !== null);
+  
+  const linkIds = allLinks.map(doc => doc.id);
   
   if (linkIds.length === 0) {
     return [];
@@ -120,29 +138,61 @@ export async function getVisitorLogsAction(visitorId: string, userId: string, li
   // Récupérer tous les analytics pour ce visiteur sur tous les liens de l'utilisateur
   const allAnalytics: any[] = [];
   
+  // D'abord, collecter tous les analytics pour trouver le visitorIdStable correspondant
+  // si le visitorId passé est un visitorId rotatif
+  let targetVisitorIdStable: string | null = null;
+  const tempAnalytics: any[] = [];
+  
   for (const linkId of linkIds) {
     try {
       const analytics = await getLinkAnalyticsWithGeolocation(linkId, 365); // 1 an de données
-      // Filtrer par visitorId
-      const visitorAnalytics = analytics.filter(a => a.visitorId === visitorId);
-      allAnalytics.push(...visitorAnalytics);
+      tempAnalytics.push(...analytics);
+      
+      // Chercher si le visitorId passé correspond à un visitorIdStable
+      if (!targetVisitorIdStable) {
+        const matchingStable = analytics.find(a => 
+          a.visitorIdStable && String(a.visitorIdStable) === String(visitorId)
+        );
+        if (matchingStable?.visitorIdStable) {
+          targetVisitorIdStable = String(matchingStable.visitorIdStable);
+        }
+      }
     } catch (error) {
       console.error(`[VISITOR_LOGS] Erreur pour le lien ${linkId}:`, error);
     }
   }
   
+  // Si on a trouvé un visitorIdStable correspondant, utiliser celui-ci pour regrouper tous les logs
+  // Sinon, le visitorId passé est peut-être déjà un visitorIdStable ou c'est un visitorId rotatif
+  const searchByStable = targetVisitorIdStable || visitorId;
+  
+  // Filtrer par visitorIdStable (pour regrouper tous les logs même si le sel rotatif change)
+  // Fallback sur visitorId si visitorIdStable n'existe pas (anciens logs)
+  allAnalytics.push(...tempAnalytics.filter(a => {
+    // Priorité à visitorIdStable (nouveau système)
+    if (a.visitorIdStable) {
+      return String(a.visitorIdStable) === String(searchByStable);
+    }
+    // Fallback sur visitorId pour les anciens logs ou si visitorIdStable n'existe pas
+    return a.visitorId && String(a.visitorId) === String(visitorId);
+  }));
+  
+  // Filtrer d'abord les LINK_PREVIEW (avant de limiter)
+  const filteredAnalytics = allAnalytics.filter((event) => event.eventType !== "LINK_PREVIEW");
+  
   // Trier par timestamp décroissant
-  allAnalytics.sort((a, b) => 
+  filteredAnalytics.sort((a, b) => 
     new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
   
-  // Limiter et convertir en format de logs
-  const logs = allAnalytics
-    .slice(0, limit)
-    .filter((event) => event.eventType !== "LINK_PREVIEW") // Exclure les prévisualisations de bots
+  // Limiter APRÈS le filtrage et le tri
+  const limitedAnalytics = filteredAnalytics.slice(0, limit);
+  
+  // Convertir en format de logs
+  const logs = limitedAnalytics
     .map((event) => {
       // Récupérer le nom du dossier depuis le lien
-      const linkDoc = activeLinks.find(doc => doc.id === event.linkId);
+      const linkDoc = allLinks.find(doc => doc.id === event.linkId);
       const folderName = linkDoc?.data()?.folderName || linkDoc?.data()?.folder?.name || "Partage";
       
       // Mapper les eventType vers NotificationType

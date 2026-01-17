@@ -409,16 +409,18 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                               )}
                             </div>
                             {/* Bouton pour voir les logs de ce visiteur spécifique */}
-                            {event.visitorId && (
+                            {(event.visitorId || (event as any).visitorIdStable) && (
                               <div className="mt-3 pt-3 border-t border-black/[0.06]">
                                 <button
                                   onClick={() => {
+                                    // Utiliser visitorIdStable si disponible (pour regrouper tous les logs), sinon visitorId
+                                    const visitorIdToUse = (event as any).visitorIdStable || event.visitorId;
                                     sessionStorage.setItem('returnToGlobe', 'true');
                                     sessionStorage.setItem('globeSelectedDetail', JSON.stringify({
-                                      visitorId: event.visitorId,
+                                      visitorId: visitorIdToUse,
                                       id: event.id,
                                     }));
-                                    router.push(`/dashboard/sharing/logs?visitorId=${encodeURIComponent(event.visitorId)}`);
+                                    router.push(`/dashboard/sharing/logs?visitorId=${encodeURIComponent(visitorIdToUse)}`);
                                     onClose();
                                   }}
                                   className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-black/60 hover:text-black bg-black/[0.02] hover:bg-black/[0.05] rounded-lg transition-colors group-hover:bg-black/[0.08]"
@@ -473,18 +475,20 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                   </div>
                   
                   {/* Bouton pour voir les logs de ce visiteur */}
-                  {currentEvent.visitorId && (
+                  {(currentEvent.visitorId || (currentEvent as any).visitorIdStable) && (
                     <div className="mt-4 pt-4 border-t border-black/[0.06]">
                       <button
                         onClick={() => {
+                          // Utiliser visitorIdStable si disponible (pour regrouper tous les logs), sinon visitorId
+                          const visitorIdToUse = (currentEvent as any).visitorIdStable || currentEvent.visitorId;
                           // Sauvegarder l'état du tiroir dans sessionStorage pour pouvoir y revenir
                           sessionStorage.setItem('returnToGlobe', 'true');
                           sessionStorage.setItem('globeSelectedDetail', JSON.stringify({
-                            visitorId: currentEvent.visitorId,
+                            visitorId: visitorIdToUse,
                             id: currentEvent.id,
                           }));
-                          // Rediriger vers les logs avec le visitorId en paramètre
-                          router.push(`/dashboard/sharing/logs?visitorId=${encodeURIComponent(currentEvent.visitorId)}`);
+                          // Rediriger vers les logs avec le visitorIdStable en paramètre (pour regrouper tous les logs)
+                          router.push(`/dashboard/sharing/logs?visitorId=${encodeURIComponent(visitorIdToUse)}`);
                           onClose();
                         }}
                         className="w-full flex items-center justify-center gap-2.5 px-4 py-3 bg-black/5 hover:bg-black/10 rounded-xl transition-all duration-200 group"

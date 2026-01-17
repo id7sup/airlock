@@ -8,11 +8,57 @@ export function hashIP(ip: string): string {
 }
 
 /**
- * Génère un visitorId unique basé sur l'IP et le user-agent
+ * Génère un sel qui tourne (change périodiquement) pour l'anonymous signature
+ * Le sel change chaque jour pour améliorer la privacy tout en gardant une cohérence relative
+ */
+function getRotatingSalt(): string {
+  // Sel basé sur la date (change chaque jour)
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+  // Utiliser un secret fixe + la date pour générer un sel
+  const secret = process.env.VISITOR_SALT_SECRET || "airlock-default-salt-2024";
+  return crypto.createHash("sha256").update(`${secret}-${dateStr}`).digest("hex").substring(0, 16);
+}
+
+/**
+ * Génère un sel fixe pour l'identification stable des visiteurs
+ * Ce sel ne change jamais, permettant de regrouper les logs d'un même visiteur sur plusieurs jours
+ */
+function getStableSalt(): string {
+  const secret = process.env.VISITOR_SALT_SECRET || "airlock-default-salt-2024";
+  return crypto.createHash("sha256").update(`${secret}-stable`).digest("hex").substring(0, 16);
+}
+
+/**
+ * Génère un visitorId unique basé sur l'IP et le user-agent avec un sel qui tourne
+ * 
+ * Utilise IP + User-Agent + sel (qui change chaque jour) pour produire une
+ * "anonymous signature" (hash SHA-256) afin de compter les visiteurs sans cookies par défaut.
+ * 
+ * @param ip - Adresse IP du visiteur (sera hashée, pas stockée)
+ * @param userAgent - User-Agent du navigateur
+ * @returns Hash SHA-256 anonyme pour identifier le visiteur
  */
 export function generateVisitorId(ip: string, userAgent?: string): string {
-  const combined = `${ip}-${userAgent || ""}`;
-  return crypto.createHash("sha256").update(combined).digest("hex").substring(0, 16);
+  const salt = getRotatingSalt();
+  const combined = `${ip}-${userAgent || ""}-${salt}`;
+  return crypto.createHash("sha256").update(combined).digest("hex");
+}
+
+/**
+ * Génère un visitorId stable basé sur l'IP et le user-agent avec un sel fixe
+ * 
+ * Ce visitorId ne change pas selon les jours, permettant de regrouper tous les logs
+ * d'un même visiteur même s'il visite sur plusieurs jours.
+ * 
+ * @param ip - Adresse IP du visiteur (sera hashée, pas stockée)
+ * @param userAgent - User-Agent du navigateur
+ * @returns Hash SHA-256 anonyme stable pour identifier le visiteur
+ */
+export function generateStableVisitorId(ip: string, userAgent?: string): string {
+  const salt = getStableSalt();
+  const combined = `${ip}-${userAgent || ""}-${salt}`;
+  return crypto.createHash("sha256").update(combined).digest("hex");
 }
 
 /**

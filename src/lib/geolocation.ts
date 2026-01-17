@@ -11,10 +11,11 @@ export interface GeolocationResult {
   country?: string;
   city?: string;
   region?: string;
-  latitude?: number;
-  longitude?: number;
+  geonameId?: number; // GeoNames ID pour la ville (utilisé pour dériver les coordonnées)
+  latitude?: number; // Coordonnées dérivées depuis geonameId (centre de la ville)
+  longitude?: number; // Coordonnées dérivées depuis geonameId (centre de la ville)
   accuracy_radius_km?: number; // Rayon d'incertitude en km
-  ip?: string;
+  // IP n'est PAS stockée dans le résultat final (sauf cas exceptionnels de rate-limiting/sécurité)
   isp?: string;
   asn?: string;
   isDatacenter?: boolean;
@@ -83,14 +84,52 @@ const geoCache = new Map<string, { result: GeolocationResult; timestamp: number 
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 heures en millisecondes
 
 /**
+ * Dérive les coordonnées du centre de ville depuis un geoname ID
+ * 
+ * Utilise l'API GeoNames pour obtenir les coordonnées du centre de la ville.
+ * Tous les visiteurs d'une même ville "tombent" au même point (centre de la ville).
+ * 
+ * @param geonameId - GeoNames ID de la ville
+ * @returns Coordonnées (latitude, longitude) ou undefined si erreur
+ */
+async function getCoordinatesFromGeonameId(geonameId: number): Promise<{ latitude: number; longitude: number } | undefined> {
+  try {
+    // Utiliser l'API GeoNames (gratuite, nécessite un username)
+    // Pour l'instant, on utilise une approche simplifiée : on peut aussi utiliser
+    // un cache local ou une base de données de geoname IDs
+    const username = process.env.GEONAMES_USERNAME || "demo"; // Utiliser "demo" par défaut (limité)
+    const response = await fetch(
+      `http://api.geonames.org/getJSON?geonameId=${geonameId}&username=${username}`,
+      { headers: { 'User-Agent': 'Airlock/1.0' } }
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.lat && data.lng) {
+        return {
+          latitude: parseFloat(data.lat),
+          longitude: parseFloat(data.lng),
+        };
+      }
+    }
+  } catch (error) {
+    console.error(`[GEOLOCATION] Erreur lors de la récupération des coordonnées pour geonameId ${geonameId}:`, error);
+  }
+  return undefined;
+}
+
+/**
  * Récupère la géolocalisation depuis une adresse IP
  * 
- * Utilise un cache pour éviter les appels répétés à l'API.
- * Si Cloudflare headers sont disponibles, les utilise en priorité.
+ * IMPORTANT: L'IP n'est PAS stockée dans le résultat final (sauf cas exceptionnels).
+ * On fait un lookup de localisation approximative à partir de l'IP, puis on jette l'IP.
  * 
- * @param ip - Adresse IP à géolocaliser
+ * On stocke: ville/région/pays + geoname ID
+ * Les coordonnées sont dérivées depuis le geoname ID (centre de la ville).
+ * 
+ * @param ip - Adresse IP à géolocaliser (utilisée uniquement pour le lookup, pas stockée)
  * @param cloudflareHeaders - Headers Cloudflare optionnels (cf-*)
- * @returns Données de géolocalisation
+ * @returns Données de géolocalisation SANS l'IP (sauf cas exceptionnels)
  */
 export async function getGeolocationFromIP(
   ip: string, 
@@ -113,8 +152,10 @@ export async function getGeolocationFromIP(
     const { country, city, latitude, longitude, region } = cloudflareHeaders;
     
     if (country) {
+      // Cloudflare ne fournit pas de geoname ID, on utilise les coordonnées directement
+      // mais on les considère comme centre de ville (approximation)
       const result: GeolocationResult = {
-        ip,
+        // IP n'est PAS stockée dans le résultat final
         country,
         city: city || undefined,
         region: region || undefined,
@@ -126,7 +167,7 @@ export async function getGeolocationFromIP(
         isVPN: false,
       };
       
-      // Mettre en cache
+      // Mettre en cache (utiliser l'IP comme clé pour le cache uniquement)
       geoCache.set(ip, { result, timestamp: Date.now() });
       return result;
     }
@@ -152,11 +193,27 @@ export async function getGeolocationFromIP(
         const finalIsDatacenter = isDatacenter || isDatacenterFromOrgType;
         const finalLocationQuality = finalIsDatacenter ? "hosting_or_datacenter" : location_quality;
 
-        // Récupérer accuracy_radius si disponible (ipapi.co ne le fournit pas toujours)
-        // Utiliser une estimation basée sur le type de connexion
+        // Récupérer le geoname ID depuis ipapi.co (dans location.geoname_id)
+        const geonameId = data.location?.geoname_id || data.geoname_id || undefined;
+        
+        // Si on a un geoname ID et que ce n'est pas un datacenter/VPN, dériver les coordonnées
+        let latitude: number | undefined;
+        let longitude: number | undefined;
+        if (geonameId && !finalIsDatacenter && !isVPN) {
+          const coords = await getCoordinatesFromGeonameId(geonameId);
+          if (coords) {
+            latitude = coords.latitude;
+            longitude = coords.longitude;
+          }
+        } else if (!finalIsDatacenter && !isVPN && data.latitude && data.longitude) {
+          // Fallback: utiliser les coordonnées de l'API si pas de geoname ID
+          latitude = data.latitude;
+          longitude = data.longitude;
+        }
+
+        // Estimation de l'accuracy radius
         let accuracy_radius_km: number | undefined;
-        if (data.latitude && data.longitude) {
-          // Estimation basée sur la qualité de localisation
+        if (latitude && longitude) {
           if (finalLocationQuality === "residential_or_mobile") {
             accuracy_radius_km = 5; // ~5km pour résidentiel/mobile
           } else if (finalLocationQuality === "vpn_or_anonymous_proxy") {
@@ -168,15 +225,15 @@ export async function getGeolocationFromIP(
           }
         }
 
-        // Si c'est un datacenter/VPN, ne pas utiliser les coordonnées précises
-        // On retourne quand même les infos mais sans coordonnées précises
+        // Construire le résultat SANS l'IP (sauf cas exceptionnels)
         const result: GeolocationResult = {
-          ip: data.ip || ip,
+          // IP n'est PAS stockée dans le résultat final
           country: data.country_name || data.country || undefined,
           city: (finalIsDatacenter || isVPN) ? undefined : (data.city || undefined),
           region: (finalIsDatacenter || isVPN) ? undefined : (data.region || data.region_code || undefined),
-          latitude: (finalIsDatacenter || isVPN) ? undefined : (data.latitude || undefined),
-          longitude: (finalIsDatacenter || isVPN) ? undefined : (data.longitude || undefined),
+          geonameId: geonameId ? parseInt(String(geonameId)) : undefined,
+          latitude: (finalIsDatacenter || isVPN) ? undefined : latitude,
+          longitude: (finalIsDatacenter || isVPN) ? undefined : longitude,
           accuracy_radius_km: (finalIsDatacenter || isVPN) ? undefined : accuracy_radius_km,
           isp: isp,
           asn: asn,
@@ -185,7 +242,7 @@ export async function getGeolocationFromIP(
           location_quality: finalLocationQuality,
         };
         
-        // Mettre en cache
+        // Mettre en cache (utiliser l'IP comme clé pour le cache uniquement)
         geoCache.set(ip, { result, timestamp: Date.now() });
         return result;
       }
@@ -216,13 +273,16 @@ export async function getGeolocationFromIP(
         }
       }
       
+      // ip-api.com ne fournit pas de geoname ID, on utilise les coordonnées directement
+      // mais on les considère comme centre de ville (approximation)
       const result: GeolocationResult = {
-        ip: data.query || ip,
+        // IP n'est PAS stockée dans le résultat final
         country: data.country || undefined,
         city: data.city || undefined,
         region: data.regionName || undefined,
-        latitude: data.lat || undefined,
-        longitude: data.lon || undefined,
+        // Pas de geoname ID depuis ip-api.com
+        latitude: (isDatacenter || isVPN) ? undefined : (data.lat || undefined),
+        longitude: (isDatacenter || isVPN) ? undefined : (data.lon || undefined),
         accuracy_radius_km: (isDatacenter || isVPN) ? undefined : accuracy_radius_km,
         isp: isp,
         asn: asn,
@@ -231,7 +291,7 @@ export async function getGeolocationFromIP(
         location_quality,
       };
       
-      // Mettre en cache
+      // Mettre en cache (utiliser l'IP comme clé pour le cache uniquement)
       geoCache.set(ip, { result, timestamp: Date.now() });
       return result;
 
@@ -241,7 +301,8 @@ export async function getGeolocationFromIP(
     console.error("Geolocation error:", error);
   }
 
-  const fallbackResult: GeolocationResult = { ip };
+  // En cas d'erreur, retourner un résultat vide (sans IP)
+  const fallbackResult: GeolocationResult = {};
   geoCache.set(ip, { result: fallbackResult, timestamp: Date.now() });
   return fallbackResult;
 }

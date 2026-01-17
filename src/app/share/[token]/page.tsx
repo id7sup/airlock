@@ -4,7 +4,7 @@ import { createNotification } from "@/services/notifications";
 import { getClientIP, getGeolocationFromIP, getCloudflareLocationHeaders } from "@/lib/geolocation";
 import { headers } from "next/headers";
 import { trackEvent } from "@/services/analytics";
-import { isPreviewBot } from "@/lib/visitor";
+import { isPreviewBot, generateVisitorId, generateStableVisitorId } from "@/lib/visitor";
 import { FolderOpen, Info, Lock } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import { FileList } from "@/components/shared/FileList";
@@ -223,8 +223,8 @@ export default async function PublicSharePage({
             try {
               const userAgent = headersList.get("user-agent") || undefined;
               const referer = headersList.get("referer") || undefined;
-              const { generateVisitorId } = await import("@/lib/visitor");
               const visitorId = generateVisitorId(clientIP, userAgent);
+              const visitorIdStable = generateStableVisitorId(clientIP, userAgent);
               
               await trackEvent({
                 linkId: link.id,
@@ -233,6 +233,8 @@ export default async function PublicSharePage({
                 denialReason: "VPN_BLOCKED",
                 geolocation,
                 visitorId,
+                visitorIdStable,
+                clientIP,
                 referer,
                 userAgent,
               });
@@ -277,8 +279,8 @@ export default async function PublicSharePage({
                 const userAgent = headersList.get("user-agent") || undefined;
                 const referer = headersList.get("referer") || undefined;
                 
-                const { generateVisitorId } = await import("@/lib/visitor");
                 const visitorId = generateVisitorId(clientIP, userAgent);
+                const visitorIdStable = generateStableVisitorId(clientIP, userAgent);
                 
                 let geolocation;
                 try {
@@ -303,6 +305,8 @@ export default async function PublicSharePage({
                   denialReason: "PASSWORD_INCORRECT",
                   geolocation,
                   visitorId,
+                  visitorIdStable,
+                  clientIP,
                   referer,
                   userAgent,
                 }).catch(() => {});
@@ -399,8 +403,8 @@ export default async function PublicSharePage({
         const userAgent = headersList.get("user-agent") || undefined;
         const referer = headersList.get("referer") || undefined;
         
-        const { generateVisitorId } = await import("@/lib/visitor");
         const visitorId = generateVisitorId(clientIP, userAgent);
+        const visitorIdStable = generateStableVisitorId(clientIP, userAgent);
         
         let geolocation;
         try {
@@ -428,6 +432,8 @@ export default async function PublicSharePage({
           eventType: "LINK_PREVIEW",
           geolocation,
           visitorId,
+          visitorIdStable,
+          clientIP,
           referer,
           userAgent,
         });

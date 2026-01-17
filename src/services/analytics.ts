@@ -1,6 +1,6 @@
 import { db } from "@/lib/firebase";
 import * as admin from "firebase-admin";
-import { hashIP, generateVisitorId, categorizeReferer } from "@/lib/visitor";
+import { hashIP, generateVisitorId, generateStableVisitorId, categorizeReferer } from "@/lib/visitor";
 
 /**
  * Service d'analytics pour le suivi des partages
@@ -22,14 +22,18 @@ export type EventType =
 
 /**
  * Données de géolocalisation
+ * 
+ * IMPORTANT: L'IP n'est PAS stockée dans cette interface (sauf cas exceptionnels).
+ * L'IP est utilisée uniquement pour le lookup de géolocalisation, puis jetée.
  */
 interface GeolocationData {
-  ip?: string;
+  // IP n'est PAS stockée (sauf cas exceptionnels de rate-limiting/sécurité)
   country?: string;
   city?: string;
-  latitude?: number;
-  longitude?: number;
   region?: string;
+  geonameId?: number; // GeoNames ID pour la ville (utilisé pour dériver les coordonnées)
+  latitude?: number; // Coordonnées dérivées depuis geonameId (centre de la ville)
+  longitude?: number; // Coordonnées dérivées depuis geonameId (centre de la ville)
   accuracy_radius_km?: number;
   isp?: string;
   asn?: string;
@@ -46,6 +50,8 @@ interface TrackingData {
   eventType: EventType;
   geolocation?: GeolocationData;
   visitorId?: string;
+  visitorIdStable?: string; // VisitorId stable (sel fixe) pour regrouper les logs sur plusieurs jours
+  clientIP?: string; // IP du client (utilisée uniquement pour générer visitorId, pas stockée)
   referer?: string;
   userAgent?: string;
   fileId?: string;
@@ -78,10 +84,16 @@ export async function trackEvent(data: TrackingData) {
   const hourStr = now.getHours().toString().padStart(2, '0');
   const minuteStr = now.getMinutes().toString().padStart(2, '0');
 
-  // Générer visitorId si pas fourni
-  const ip = data.geolocation?.ip || "unknown";
-  const visitorId = data.visitorId || generateVisitorId(ip, data.userAgent);
-  const ipHash = hashIP(ip);
+  // Récupérer l'IP du client (utilisée uniquement pour générer visitorId, pas stockée)
+  const clientIP = data.clientIP || "unknown";
+  
+  // Générer visitorId si pas fourni (avec sel rotatif pour privacy)
+  const visitorId = data.visitorId || generateVisitorId(clientIP, data.userAgent);
+  
+  // Générer visitorIdStable si pas fourni (avec sel fixe pour regrouper les logs)
+  const visitorIdStable = data.visitorIdStable || generateStableVisitorId(clientIP, data.userAgent);
+  
+  const ipHash = hashIP(clientIP);
   
   // Catégoriser le referer
   const refererCategory = categorizeReferer(data.referer);
@@ -96,6 +108,7 @@ export async function trackEvent(data: TrackingData) {
     ownerId: ownerId,
     eventType: data.eventType,
     visitorId: visitorId,
+    visitorIdStable: visitorIdStable, // VisitorId stable pour regrouper les logs sur plusieurs jours
     ipHash: ipHash,
     timestamp: admin.firestore.FieldValue.serverTimestamp(),
     date: dateStr,
@@ -104,11 +117,14 @@ export async function trackEvent(data: TrackingData) {
   };
 
   // Ajouter les données de géolocalisation seulement si elles existent et ne sont pas undefined
+  // IMPORTANT: L'IP n'est PAS stockée (sauf cas exceptionnels de rate-limiting/sécurité)
   if (data.geolocation) {
-    if (data.geolocation.ip !== undefined) analyticsData.ip = data.geolocation.ip;
+    // Ne PAS stocker l'IP dans les analytics (privacy)
+    // L'IP est utilisée uniquement pour le lookup de géolocalisation, puis jetée
     if (data.geolocation.country !== undefined) analyticsData.country = data.geolocation.country;
     if (data.geolocation.city !== undefined) analyticsData.city = data.geolocation.city;
     if (data.geolocation.region !== undefined) analyticsData.region = data.geolocation.region;
+    if (data.geolocation.geonameId !== undefined) analyticsData.geonameId = data.geolocation.geonameId;
     if (data.geolocation.latitude !== undefined) analyticsData.latitude = data.geolocation.latitude;
     if (data.geolocation.longitude !== undefined) analyticsData.longitude = data.geolocation.longitude;
     if (data.geolocation.accuracy_radius_km !== undefined) analyticsData.accuracy_radius_km = data.geolocation.accuracy_radius_km;
@@ -260,6 +276,7 @@ export async function getLinkAnalyticsWithGeolocation(linkId: string, days: numb
           accuracy_radius_km: data.accuracy_radius_km || null,
           ip: data.ip || null,
           visitorId: data.visitorId || null,
+          visitorIdStable: data.visitorIdStable || null,
           userAgent: data.userAgent || null,
           isp: data.isp || null,
           asn: data.asn || null,
@@ -308,6 +325,7 @@ export async function getLinkAnalyticsWithGeolocation(linkId: string, days: numb
             accuracy_radius_km: data.accuracy_radius_km || null,
             ip: data.ip || null,
             visitorId: data.visitorId || null,
+            visitorIdStable: data.visitorIdStable || null,
             userAgent: data.userAgent || null,
             isp: data.isp || null,
             asn: data.asn || null,
@@ -427,6 +445,7 @@ export async function getAllLinksAnalyticsWithGeolocation(userId: string, days: 
             accuracy_radius_km: data.accuracy_radius_km || null,
             ip: data.ip || null,
             visitorId: data.visitorId || null,
+            visitorIdStable: data.visitorIdStable || null,
             userAgent: data.userAgent || null,
             isp: data.isp || null,
             asn: data.asn || null,

@@ -7,6 +7,7 @@ import { createNotification } from "@/services/notifications";
 import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
 import { checkIfFolderIsChild } from "@/services/folders";
 import { trackEvent } from "@/services/analytics";
+import { generateVisitorId, generateStableVisitorId } from "@/lib/visitor";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -22,6 +23,10 @@ export async function GET(req: NextRequest) {
   if (!link || link.error) {
     if (link?.linkId) {
       try {
+        const clientIP = getClientIP(req);
+        const userAgent = req.headers.get("user-agent") || undefined;
+        const visitorId = generateVisitorId(clientIP, userAgent);
+        const visitorIdStable = generateStableVisitorId(clientIP, userAgent);
         // Déterminer la raison du refus depuis link.error
         let denialReason: "EXPIRED" | "REVOKED" | "QUOTA_EXCEEDED" | "OTHER" = "OTHER";
         if (link.error === "EXPIRED") denialReason = "EXPIRED";
@@ -33,6 +38,10 @@ export async function GET(req: NextRequest) {
           eventType: "ACCESS_DENIED",
           invalidAttempt: true,
           denialReason,
+          visitorId,
+          visitorIdStable,
+          clientIP,
+          userAgent,
         });
       } catch (e) {
         // ignorer erreur de tracking
@@ -72,8 +81,8 @@ export async function GET(req: NextRequest) {
           try {
             const userAgent = req.headers.get("user-agent") || undefined;
             const referer = req.headers.get("referer") || undefined;
-            const { generateVisitorId } = await import("@/lib/visitor");
             const visitorId = generateVisitorId(clientIP, userAgent);
+            const visitorIdStable = generateStableVisitorId(clientIP, userAgent);
             
             await trackEvent({
               linkId: link.id || link.linkId,
@@ -82,6 +91,8 @@ export async function GET(req: NextRequest) {
               denialReason: "VPN_BLOCKED",
               geolocation,
               visitorId,
+              visitorIdStable,
+              clientIP,
               referer,
               userAgent,
             });
@@ -104,11 +115,19 @@ export async function GET(req: NextRequest) {
   // 4. Vérifier si le téléchargement est autorisé
   if (!downloadAllowed) {
     try {
+      const clientIP = getClientIP(req);
+      const userAgent = req.headers.get("user-agent") || undefined;
+      const visitorId = generateVisitorId(clientIP, userAgent);
+      const visitorIdStable = generateStableVisitorId(clientIP, userAgent);
       await trackEvent({
         linkId: link.id || link.linkId,
         eventType: "ACCESS_DENIED",
         invalidAttempt: true,
         denialReason: "ACCESS_DISABLED",
+        visitorId,
+        visitorIdStable,
+        clientIP,
+        userAgent,
       });
     } catch (e) {
       // ignorer
@@ -142,9 +161,11 @@ export async function GET(req: NextRequest) {
     const userAgent = req.headers.get("user-agent") || undefined;
     const referer = req.headers.get("referer") || undefined;
     
-    // Générer visitorId
-    const { generateVisitorId } = await import("@/lib/visitor");
+    // Générer visitorId (avec sel rotatif pour privacy)
     const visitorId = generateVisitorId(clientIP, userAgent);
+    
+    // Générer visitorIdStable (avec sel fixe pour regrouper les logs sur plusieurs jours)
+    const visitorIdStable = generateStableVisitorId(clientIP, userAgent);
     
     // Capturer la géolocalisation précise
     let geolocation;
@@ -166,6 +187,8 @@ export async function GET(req: NextRequest) {
       eventType: "DOWNLOAD_FILE",
       geolocation,
       visitorId,
+      visitorIdStable,
+      clientIP,
       referer,
       userAgent,
       fileId: fileId,

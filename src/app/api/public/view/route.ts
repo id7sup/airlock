@@ -5,6 +5,7 @@ import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { checkIfFolderIsChild } from "@/services/folders";
 import { trackEvent } from "@/services/analytics";
 import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
+import { generateVisitorId, generateStableVisitorId } from "@/lib/visitor";
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || "auto",
@@ -34,11 +35,19 @@ export async function GET(req: NextRequest) {
 
   if (link.allowViewOnline === false) {
     try {
+      const clientIP = getClientIP(req);
+      const userAgent = req.headers.get("user-agent") || undefined;
+      const visitorId = generateVisitorId(clientIP, userAgent);
+      const visitorIdStable = generateStableVisitorId(clientIP, userAgent);
       await trackEvent({
         linkId: link.id || link.linkId,
         eventType: "ACCESS_DENIED",
         invalidAttempt: true,
         denialReason: "ACCESS_DISABLED",
+        visitorId,
+        visitorIdStable,
+        clientIP,
+        userAgent,
       });
     } catch (e) {
       // ignore
@@ -76,8 +85,8 @@ export async function GET(req: NextRequest) {
           try {
             const userAgent = req.headers.get("user-agent") || undefined;
             const referer = req.headers.get("referer") || undefined;
-            const { generateVisitorId } = await import("@/lib/visitor");
             const visitorId = generateVisitorId(clientIP, userAgent);
+            const visitorIdStable = generateStableVisitorId(clientIP, userAgent);
             
               await trackEvent({
                 linkId: link.id || link.linkId,
@@ -86,6 +95,8 @@ export async function GET(req: NextRequest) {
                 denialReason: "VPN_BLOCKED",
                 geolocation,
                 visitorId,
+                visitorIdStable,
+                clientIP,
                 referer,
                 userAgent,
               });
@@ -108,8 +119,8 @@ export async function GET(req: NextRequest) {
     const userAgent = req.headers.get("user-agent") || undefined;
     const referer = req.headers.get("referer") || undefined;
     
-    const { generateVisitorId } = await import("@/lib/visitor");
     const visitorId = generateVisitorId(clientIP, userAgent);
+    const visitorIdStable = generateStableVisitorId(clientIP, userAgent);
     
     let geolocation;
     try {
@@ -130,6 +141,8 @@ export async function GET(req: NextRequest) {
       eventType: "VIEW_FILE",
       geolocation,
       visitorId,
+      visitorIdStable,
+      clientIP,
       referer,
       userAgent,
       fileId: fileId,

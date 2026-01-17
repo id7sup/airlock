@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { trackEvent } from "@/services/analytics";
 import { getClientIP, getGeolocationFromIP, getCloudflareLocationHeaders } from "@/lib/geolocation";
-import { generateVisitorId, calculateVisitorConfidence } from "@/lib/visitor";
+import { generateVisitorId, generateStableVisitorId, calculateVisitorConfidence } from "@/lib/visitor";
 
 export const dynamic = 'force-dynamic';
 
@@ -36,8 +36,11 @@ export async function POST(req: NextRequest) {
     const acceptLanguage = req.headers.get("accept-language");
     const hasBrowserHeaders = !!(secFetchMode || secFetchSite || acceptLanguage);
     
-    // Générer visitorId
+    // Générer visitorId (avec sel rotatif pour privacy)
     const visitorId = generateVisitorId(clientIP, userAgent);
+    
+    // Générer visitorIdStable (avec sel fixe pour regrouper les logs sur plusieurs jours)
+    const visitorIdStable = generateStableVisitorId(clientIP, userAgent);
     
     // Calculer le score de confiance
     const visitor_confidence = calculateVisitorConfidence({
@@ -74,6 +77,8 @@ export async function POST(req: NextRequest) {
         eventType,
         geolocation,
         visitorId,
+        visitorIdStable,
+        clientIP,
         referer,
         userAgent,
         fileId,
