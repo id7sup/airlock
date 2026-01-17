@@ -365,13 +365,19 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       });
 
       // Handler pour clic sur POINT
-      const handlePointClick = (feature: any) => {
-        if (isAnimatingRef.current) return;
+      const handlePointClick = (e: any) => {
+        if (isAnimatingRef.current || !map.current) return;
+
+        const feature = e.features?.[0];
+        if (!feature || !feature.properties) return;
 
         const props = feature.properties;
         const eventId = props.eventId;
 
-        if (!eventId) return;
+        if (!eventId) {
+          console.warn("[MAPBOX] Point cliqué sans eventId:", props);
+          return;
+        }
 
         // Vérifier si ce point fait partie d'un groupe de localisation exacte
         const [lng, lat] = (feature.geometry as any).coordinates;
@@ -430,6 +436,25 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
 
       map.current.on("click", "points-hit", handlePointClick);
       map.current.on("click", "points", handlePointClick);
+      
+      // Fallback : clic général sur la carte pour détecter les points
+      map.current.on("click", (e) => {
+        if (isAnimatingRef.current || !map.current) return;
+        
+        // Vérifier d'abord si on a cliqué sur un cluster
+        const clusterFeatures = map.current.queryRenderedFeatures(e.point, {
+          layers: ["clusters"],
+        });
+        if (clusterFeatures.length > 0) return; // Déjà géré par le handler clusters
+        
+        // Chercher les points
+        const pointFeatures = map.current.queryRenderedFeatures(e.point, {
+          layers: ["points-hit", "points"],
+        });
+        if (pointFeatures.length > 0) {
+          handlePointClick({ features: pointFeatures });
+        }
+      });
 
       // Curseur pointer au survol
       map.current.on("mouseenter", "clusters", () => {
@@ -488,10 +513,16 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
 
     // RÈGLE D'OR : Zéro data = zéro features (reset complet)
     if (analytics.length === 0 || geojsonData.features.length === 0) {
+      // Reset complet : vider la source immédiatement
       source.setData({
         type: "FeatureCollection",
         features: [],
       });
+      // Fermer le tiroir si ouvert
+      setIsDrawerOpen(false);
+      setTimeout(() => {
+        setSelectedDetail(null);
+      }, 150);
       return;
     }
 
