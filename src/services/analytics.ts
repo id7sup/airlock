@@ -349,10 +349,28 @@ export async function getAllLinksAnalyticsWithGeolocation(userId: string, days: 
       .get();
 
     // Filtrer pour ne garder que les liens actifs (non révoqués)
-    const activeLinkIds = linksSnapshot.docs
+    const activeLinks = linksSnapshot.docs.filter(doc => {
+      const data = doc.data();
+      return data.isRevoked !== true; // Exclure les liens révoqués
+    });
+
+    // Vérifier que les dossiers associés ne sont pas supprimés
+    const folderIds = activeLinks.map(doc => doc.data().folderId).filter(Boolean);
+    const folderDocs = folderIds.length > 0 
+      ? await Promise.all(folderIds.map(id => db.collection("folders").doc(id).get()))
+      : [];
+    
+    const deletedFolderIds = new Set(
+      folderDocs
+        .filter(doc => doc.exists && doc.data()?.isDeleted === true)
+        .map(doc => doc.id)
+    );
+
+    // Filtrer les liens dont les dossiers sont supprimés
+    const activeLinkIds = activeLinks
       .filter(doc => {
-        const data = doc.data();
-        return data.isRevoked !== true; // Exclure les liens révoqués
+        const folderId = doc.data().folderId;
+        return !deletedFolderIds.has(folderId);
       })
       .map(doc => doc.id);
 

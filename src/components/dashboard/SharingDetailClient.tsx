@@ -212,6 +212,11 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
         if (!response.ok) throw new Error("stats");
         const data = await response.json();
         const analyticsStats = data.stats;
+        
+        // Mettre à jour le viewCount depuis les stats
+        if (analyticsStats?.totalViews !== undefined) {
+          setLinkData(prev => ({ ...prev, viewCount: analyticsStats.totalViews }));
+        }
 
         const geoResponse = await fetch(`/api/analytics/geolocation?days=30&linkId=${link.id}`);
         const geoData = geoResponse.ok ? await geoResponse.json() : { analytics: [] };
@@ -255,6 +260,11 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
     };
 
     fetchExtendedStats();
+    
+    // Rafraîchir les stats toutes les 10 secondes pour mettre à jour le compteur de vues
+    const interval = setInterval(fetchExtendedStats, 10000);
+    
+    return () => clearInterval(interval);
   }, [link.id]);
 
   useEffect(() => {

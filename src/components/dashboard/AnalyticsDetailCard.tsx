@@ -21,6 +21,8 @@ interface AnalyticsDetail {
   ip?: string;
   isDatacenter?: boolean;
   isVPN?: boolean;
+  isp?: string;
+  asn?: string;
 }
 
 interface ClusterDetail {
@@ -272,9 +274,7 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                       {currentEvent.city ? (
                         <>
                           <p className="text-sm font-semibold text-black leading-tight">
-                            {currentEvent.accuracy_radius_km 
-                              ? `Près de ${currentEvent.city} (± ${currentEvent.accuracy_radius_km} km)`
-                              : currentEvent.city}
+                            {currentEvent.city || currentEvent.country || "Localisation inconnue"}
                           </p>
                           <p className="text-xs text-black/50">
                             {[currentEvent.region, currentEvent.country].filter(Boolean).join(", ") || "Localisation inconnue"}
@@ -289,6 +289,33 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                               </span>
                             )}
                           </p>
+                          {/* Explication de la précision */}
+                          {(currentEvent.isDatacenter || currentEvent.isVPN || currentEvent.location_quality === "hosting_or_datacenter" || currentEvent.location_quality === "vpn_or_anonymous_proxy") && (
+                            <div className="mt-2 pl-7 space-y-1">
+                              <p className="text-[10px] text-amber-700/80 leading-relaxed">
+                                {currentEvent.isDatacenter || currentEvent.location_quality === "hosting_or_datacenter" 
+                                  ? "⚠️ La position indiquée correspond au datacenter du serveur, pas à la position réelle de l'utilisateur. La localisation peut être très éloignée (plusieurs centaines de kilomètres)."
+                                  : currentEvent.isVPN || currentEvent.location_quality === "vpn_or_anonymous_proxy"
+                                  ? "⚠️ La position indiquée correspond au serveur VPN/Proxy utilisé, pas à la position réelle de l'utilisateur. La localisation peut être très éloignée (plusieurs centaines de kilomètres)."
+                                  : "⚠️ La position peut être biaisée et ne pas correspondre à la localisation réelle de l'utilisateur."}
+                              </p>
+                              {currentEvent.isp && (
+                                <p className="text-[10px] text-amber-700/60 mt-1">
+                                  ISP: {currentEvent.isp}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          {currentEvent.accuracy_radius_km && !currentEvent.isDatacenter && !currentEvent.isVPN && currentEvent.location_quality === "residential_or_mobile" && (
+                            <p className="text-[10px] text-black/40 mt-1 pl-7">
+                              Précision estimée : ± {currentEvent.accuracy_radius_km} km (localisation résidentielle/mobile)
+                            </p>
+                          )}
+                          {!currentEvent.accuracy_radius_km && !currentEvent.isDatacenter && !currentEvent.isVPN && currentEvent.location_quality !== "residential_or_mobile" && (
+                            <p className="text-[10px] text-black/40 mt-1 pl-7">
+                              Précision non disponible pour cette localisation
+                            </p>
+                          )}
                         </>
                       ) : (
                         <p className="text-sm font-semibold text-black leading-tight">

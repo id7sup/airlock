@@ -25,6 +25,8 @@ interface AnalyticsPoint {
   isVPN?: boolean;
   location_quality?: "residential_or_mobile" | "hosting_or_datacenter" | "vpn_or_anonymous_proxy" | "unknown";
   accuracy_radius_km?: number | null;
+  isp?: string | null;
+  asn?: string | null;
 }
 
 interface MapboxGlobeProps {
@@ -77,6 +79,13 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       p.longitude != null && 
       p.visitorId // Un visiteur doit avoir un visitorId
     );
+
+    // Debug: compter les visiteurs uniques
+    const uniqueVisitorIds = new Set(analytics.map(a => a.visitorId).filter(Boolean));
+    const validVisitorIds = new Set(validEvents.map(e => e.visitorId).filter(Boolean));
+    if (uniqueVisitorIds.size !== validVisitorIds.size) {
+      console.log(`[MAPBOX_GLOBE] ${uniqueVisitorIds.size} visiteurs uniques au total, ${validVisitorIds.size} avec géolocalisation valide`);
+    }
 
     // Grouper par visitorId - UN SEUL POINT PAR PERSONNE
     // Prioriser les événements avec la meilleure qualité de localisation
@@ -231,25 +240,31 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           continue;
         }
         
-        // RÈGLE 2 : À zoom élevé (>= 5), toujours décomposer complètement
-        if (zoom >= 5) {
+        // RÈGLE 2 : À zoom très élevé (>= 6), toujours décomposer complètement
+        if (zoom >= 6) {
           const clusterId = node.properties.cluster_id;
           const leaves = index.getLeaves(clusterId, Infinity);
           result.push(...leaves);
         } 
-        // RÈGLE 3 : À zoom moyen-élevé (3.5-5), décomposer les petits clusters (2-5 points)
-        else if (zoom >= 3.5 && pointCount <= 5) {
+        // RÈGLE 3 : À zoom élevé (4.5-6), décomposer les petits clusters (2-5 points)
+        else if (zoom >= 4.5 && pointCount <= 5) {
           const clusterId = node.properties.cluster_id;
           const leaves = index.getLeaves(clusterId, Infinity);
           result.push(...leaves);
         }
-        // RÈGLE 4 : À zoom moyen (2.5-3.5), décomposer les très petits clusters (2-3 points)
-        else if (zoom >= 2.5 && pointCount <= 3) {
+        // RÈGLE 4 : À zoom moyen-élevé (3.5-4.5), décomposer les très petits clusters (2-3 points)
+        else if (zoom >= 3.5 && pointCount <= 3) {
           const clusterId = node.properties.cluster_id;
           const leaves = index.getLeaves(clusterId, Infinity);
           result.push(...leaves);
         }
-        // RÈGLE 5 : À zoom faible (< 2.5), garder les clusters avec au moins 2 points
+        // RÈGLE 5 : À zoom moyen (2.5-3.5), décomposer uniquement les clusters de 2 points
+        else if (zoom >= 2.5 && pointCount === 2) {
+          const clusterId = node.properties.cluster_id;
+          const leaves = index.getLeaves(clusterId, Infinity);
+          result.push(...leaves);
+        }
+        // RÈGLE 6 : À zoom faible (< 2.5), garder les clusters avec au moins 2 points
         else {
           result.push(node);
         }
@@ -469,6 +484,9 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         if (originalPoint?.properties?.eventId) {
           const recoveredEventId = originalPoint.properties.eventId;
           const finalProps = originalPoint.properties;
+          // Récupérer les données complètes depuis l'analytics original
+          const originalEvent = analytics.find(a => a.id === recoveredEventId);
+          
           setSelectedDetail({
             id: recoveredEventId,
             type: finalProps.type || "VIEW",
@@ -484,6 +502,8 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
             isVPN: finalProps.isVPN || false,
             location_quality: finalProps.location_quality || "unknown",
             accuracy_radius_km: finalProps.accuracy_radius_km || null,
+            isp: originalEvent?.isp || null,
+            asn: originalEvent?.asn || null,
           });
           setIsDrawerOpen(true);
           return;
@@ -501,6 +521,9 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
 
       const finalProps = originalPoint ? originalPoint.properties : feature.properties;
 
+      // Récupérer les données complètes depuis l'analytics original
+      const originalEvent = analytics.find(a => a.id === eventId);
+      
       setSelectedDetail({
         id: eventId,
         type: finalProps.type || "VIEW",
@@ -516,6 +539,8 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         isVPN: finalProps.isVPN || false,
         location_quality: finalProps.location_quality || "unknown",
         accuracy_radius_km: finalProps.accuracy_radius_km || null,
+        isp: originalEvent?.isp || null,
+        asn: originalEvent?.asn || null,
       });
       setIsDrawerOpen(true);
     };

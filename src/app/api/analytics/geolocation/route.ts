@@ -25,6 +25,16 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ analytics: [] });
       }
       
+      // Vérifier que le dossier associé n'est pas supprimé
+      const linkData = linkDoc.data();
+      if (linkData?.folderId) {
+        const folderDoc = await db.collection("folders").doc(linkData.folderId).get();
+        if (!folderDoc.exists || folderDoc.data()?.isDeleted === true) {
+          // Dossier supprimé, retourner un tableau vide
+          return NextResponse.json({ analytics: [] });
+        }
+      }
+      
       // Récupérer les analytics pour un seul lien
       const { getLinkAnalyticsWithGeolocation } = await import("@/services/analytics");
       analytics = await getLinkAnalyticsWithGeolocation(linkId, days);
