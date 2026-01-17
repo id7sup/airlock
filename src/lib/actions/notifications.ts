@@ -127,7 +127,8 @@ export async function getVisitorLogsAction(visitorId: string, userId: string, li
     })
   );
   
-  const allLinks = filteredLinks.filter((doc): doc is typeof doc => doc !== null);
+  // Filtrer les valeurs null avec un type guard explicite
+  const allLinks = filteredLinks.filter((doc): doc is NonNullable<typeof doc> => doc !== null);
   
   const linkIds = allLinks.map(doc => doc.id);
   
