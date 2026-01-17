@@ -343,19 +343,13 @@ export async function getAllLinksAnalyticsWithGeolocation(userId: string, days: 
   startDate.setDate(startDate.getDate() - days);
 
   try {
-    // Récupérer tous les liens actifs de l'utilisateur (non révoqués et non supprimés)
+    // Récupérer tous les liens de l'utilisateur (y compris les révoqués)
     const linksSnapshot = await db.collection("shareLinks")
       .where("creatorId", "==", userId)
       .get();
 
-    // Filtrer pour ne garder que les liens actifs (non révoqués)
-    const activeLinks = linksSnapshot.docs.filter(doc => {
-      const data = doc.data();
-      return data.isRevoked !== true; // Exclure les liens révoqués
-    });
-
-    // Vérifier que les dossiers associés ne sont pas supprimés
-    const folderIds = activeLinks.map(doc => doc.data().folderId).filter(Boolean);
+    // Vérifier que les dossiers associés ne sont pas supprimés (mais on garde les révoqués)
+    const folderIds = linksSnapshot.docs.map(doc => doc.data().folderId).filter(Boolean);
     const folderDocs = folderIds.length > 0 
       ? await Promise.all(folderIds.map(id => db.collection("folders").doc(id).get()))
       : [];
@@ -366,8 +360,8 @@ export async function getAllLinksAnalyticsWithGeolocation(userId: string, days: 
         .map(doc => doc.id)
     );
 
-    // Filtrer les liens dont les dossiers sont supprimés
-    const activeLinkIds = activeLinks
+    // Filtrer uniquement les liens dont les dossiers sont supprimés (garder les révoqués)
+    const activeLinkIds = linksSnapshot.docs
       .filter(doc => {
         const folderId = doc.data().folderId;
         return !deletedFolderIds.has(folderId);

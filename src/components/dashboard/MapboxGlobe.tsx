@@ -221,6 +221,64 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       if (node.properties?.cluster) {
         const pointCount = node.properties.point_count || 0;
         
+        // RÈGLE SPÉCIALE : Les clusters de localisation exacte ne se décomposent JAMAIS
+        if (node.properties.exactLocationCluster === true) {
+          // Ce cluster représente plusieurs visiteurs à la même localisation exacte
+          // On le garde toujours comme cluster, même au zoom maximum
+          result.push(node);
+          continue;
+        }
+        
+        // Détecter si c'est un cluster de localisation exacte (même coordonnées)
+        // En décomposant le cluster, on vérifie si tous les points ont les mêmes coordonnées
+        if (zoom >= 6 || (zoom >= 4.5 && pointCount <= 5)) {
+          const clusterId = node.properties.cluster_id;
+          const leaves = index.getLeaves(clusterId, Infinity);
+          
+          // Vérifier si tous les points ont exactement les mêmes coordonnées
+          if (leaves.length > 1) {
+            const firstCoords = leaves[0].geometry.coordinates;
+            const allSameLocation = leaves.every((leaf: any) => {
+              const coords = leaf.geometry.coordinates;
+              return Math.abs(coords[0] - firstCoords[0]) < 0.000001 && 
+                     Math.abs(coords[1] - firstCoords[1]) < 0.000001;
+            });
+            
+            if (allSameLocation) {
+              // Tous les points sont à la même localisation exacte
+              // Créer un cluster spécial qui ne se décomposera jamais
+              const visitors = leaves.map((leaf: any) => {
+                const props = leaf.properties;
+                return {
+                  visitorId: props.visitorId,
+                  eventId: props.eventId,
+                  timestamp: props.timestamp,
+                  type: props.type,
+                  country: props.country,
+                  city: props.city,
+                  region: props.region,
+                  ip: props.ip,
+                  userAgent: props.userAgent,
+                  isDatacenter: props.isDatacenter,
+                  isVPN: props.isVPN,
+                  location_quality: props.location_quality,
+                  accuracy_radius_km: props.accuracy_radius_km,
+                };
+              });
+              
+              result.push({
+                ...node,
+                properties: {
+                  ...node.properties,
+                  exactLocationCluster: true,
+                  visitors: visitors,
+                },
+              });
+              continue;
+            }
+          }
+        }
+        
         // RÈGLE ABSOLUE : Un seul point ne doit JAMAIS être un cluster
         if (pointCount <= 1) {
           const clusterId = node.properties.cluster_id;
@@ -545,11 +603,41 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       setIsDrawerOpen(true);
     };
 
-    // Clic sur cluster = zoom jusqu'à la vue qui permet de distinguer les points
+    // Clic sur cluster = zoom ou afficher les visiteurs
     map.current.on("click", "clusters", (e) => {
       const feature = e.features?.[0];
-      if (!feature || !feature.properties || !index || isAnimatingRef.current || !map.current) return;
+      if (!feature || !feature.properties || isAnimatingRef.current || !map.current) return;
 
+      // Si c'est un cluster de localisation exacte, afficher tous les visiteurs
+      if (feature.properties.exactLocationCluster === true && feature.properties.visitors) {
+        const visitors = feature.properties.visitors;
+        setSelectedDetail({
+          pointCount: visitors.length,
+          center: (feature.geometry as any).coordinates,
+          points: visitors.map((v: any) => ({
+            id: v.eventId,
+            type: v.type || "VIEW",
+            eventType: v.type || "OPEN_SHARE",
+            country: v.country || "Inconnu",
+            city: v.city || "Inconnu",
+            region: v.region || "",
+            timestamp: v.timestamp || new Date().toISOString(),
+            visitorId: v.visitorId || "",
+            userAgent: v.userAgent || "",
+            ip: v.ip || null,
+            isDatacenter: v.isDatacenter || false,
+            isVPN: v.isVPN || false,
+            location_quality: v.location_quality || "unknown",
+            accuracy_radius_km: v.accuracy_radius_km || null,
+          })),
+        });
+        setIsDrawerOpen(true);
+        return;
+      }
+
+      // Sinon, c'est un cluster normal - zoomer
+      if (!index) return;
+      
       const clusterId = feature.properties.cluster_id;
       const pointCount = feature.properties.point_count || 0;
       

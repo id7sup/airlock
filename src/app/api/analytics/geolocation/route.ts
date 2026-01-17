@@ -18,14 +18,14 @@ export async function GET(req: NextRequest) {
 
     let analytics;
     if (linkId && linkId !== "all") {
-      // Vérifier que le lien existe et n'est pas révoqué
+      // Vérifier que le lien existe (on garde les liens révoqués)
       const linkDoc = await db.collection("shareLinks").doc(linkId).get();
-      if (!linkDoc.exists || linkDoc.data()?.isRevoked === true) {
-        // Lien supprimé ou révoqué, retourner un tableau vide
+      if (!linkDoc.exists) {
+        // Lien supprimé, retourner un tableau vide
         return NextResponse.json({ analytics: [] });
       }
       
-      // Vérifier que le dossier associé n'est pas supprimé
+      // Vérifier que le dossier associé n'est pas supprimé (mais on garde les révoqués)
       const linkData = linkDoc.data();
       if (linkData?.folderId) {
         const folderDoc = await db.collection("folders").doc(linkData.folderId).get();
@@ -35,11 +35,11 @@ export async function GET(req: NextRequest) {
         }
       }
       
-      // Récupérer les analytics pour un seul lien
+      // Récupérer les analytics pour un seul lien (même s'il est révoqué)
       const { getLinkAnalyticsWithGeolocation } = await import("@/services/analytics");
       analytics = await getLinkAnalyticsWithGeolocation(linkId, days);
     } else {
-      // Récupérer les analytics pour tous les liens actifs
+      // Récupérer les analytics pour tous les liens (y compris révoqués, sauf dossiers supprimés)
       analytics = await getAllLinksAnalyticsWithGeolocation(userId, days);
     }
 

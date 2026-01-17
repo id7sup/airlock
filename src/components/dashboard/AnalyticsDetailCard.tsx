@@ -141,6 +141,9 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
     ? (isCluster ? (detail as ClusterDetail).points : [detail as AnalyticsDetail]) 
     : [];
   const currentEvent = events[0];
+  
+  // Vérifier si c'est un cluster de localisation exacte avec plusieurs visiteurs
+  const isExactLocationCluster = detail && "pointCount" in detail && (detail as any).pointCount > 1;
 
   const eventType = currentEvent?.eventType || currentEvent?.type;
   const userInfo = currentEvent ? parseUserAgent(currentEvent.userAgent || "") : null;
@@ -362,25 +365,75 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                 </div>
 
                 {/* Section 3: Identité - Qui */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div className="space-y-2">
-                    <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">Adresse IP</h3>
-                    <div className="p-3.5 bg-black/[0.02] rounded-xl border border-black/[0.06]">
-                      <p className="text-sm font-semibold text-black font-mono break-all">
-                        {currentEvent.ip || "—"}
-                      </p>
+                {isExactLocationCluster && events.length > 1 ? (
+                  <div className="mb-6">
+                    <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40 mb-3">
+                      {events.length} visiteurs uniques à cette localisation
+                    </h3>
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                      {events.map((event, idx) => {
+                        const eventUserInfo = parseUserAgent(event.userAgent || "");
+                        return (
+                          <div key={idx} className="p-4 bg-black/[0.02] rounded-xl border border-black/[0.06]">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs font-semibold text-black">Visiteur #{idx + 1}</p>
+                              <p className="text-[10px] text-black/40">
+                                {new Date(event.timestamp).toLocaleString("fr-FR", {
+                                  day: "numeric",
+                                  month: "short",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            </div>
+                            <div className="space-y-1.5">
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-0.5">ID Visiteur</p>
+                                <p className="text-xs font-mono text-black break-all">{event.visitorId || "—"}</p>
+                              </div>
+                              {event.ip && (
+                                <div>
+                                  <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-0.5">IP</p>
+                                  <p className="text-xs font-mono text-black break-all">{event.ip}</p>
+                                </div>
+                              )}
+                              {eventUserInfo && (
+                                <div>
+                                  <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-0.5">Appareil</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    <span className="text-[10px] px-2 py-0.5 bg-black/5 rounded text-black">{eventUserInfo.device}</span>
+                                    <span className="text-[10px] px-2 py-0.5 bg-black/5 rounded text-black">{eventUserInfo.browser}</span>
+                                    <span className="text-[10px] px-2 py-0.5 bg-black/5 rounded text-black">{eventUserInfo.os}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="space-y-2">
+                      <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">Adresse IP</h3>
+                      <div className="p-3.5 bg-black/[0.02] rounded-xl border border-black/[0.06]">
+                        <p className="text-sm font-semibold text-black font-mono break-all">
+                          {currentEvent.ip || "—"}
+                        </p>
+                      </div>
+                    </div>
 
-                  <div className="space-y-2">
-                    <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">Visiteur</h3>
-                    <div className="p-3.5 bg-black/[0.02] rounded-xl border border-black/[0.06]">
-                      <p className="text-sm font-semibold text-black font-mono break-all">
-                        {currentEvent.visitorId || "—"}
-                      </p>
+                    <div className="space-y-2">
+                      <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">Visiteur</h3>
+                      <div className="p-3.5 bg-black/[0.02] rounded-xl border border-black/[0.06]">
+                        <p className="text-sm font-semibold text-black font-mono break-all">
+                          {currentEvent.visitorId || "—"}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Section 4: Référence */}
                 <div className="pt-4 border-t border-black/[0.06]">

@@ -194,8 +194,14 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
   
   // TOTAL de visiteurs uniques : utiliser TOUS les événements depuis le début
   // Filtrer uniquement les événements qui ont un visitorId valide
+  // IMPORTANT : Exclure LINK_PREVIEW car c'est juste pour les bots de prévisualisation
   // Important : compter les visiteurs uniques basés sur visitorId, pas sur les événements
   const visitorIdsFromAllTime = allTimeExternalEvents
+    .filter(e => {
+      // Exclure LINK_PREVIEW qui est juste pour les bots
+      const eventType = e.eventType || e.type;
+      return eventType !== "LINK_PREVIEW";
+    })
     .map(e => {
       // Extraire visitorId de différentes façons possibles
       const vid = e.visitorId || e.visitor_id || null;
@@ -209,12 +215,13 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
   const allVisitorIds = new Set(visitorIdsFromAllTime);
   
   // Pour les périodes 24h et 7d, on compte aussi TOUS les visiteurs uniques
-  // Cela permet de voir les stats même en développement local
+  // Exclure LINK_PREVIEW pour ne compter que les vrais visiteurs
   const visitorIds24h = new Set(
     events
       .filter(e => {
         const eventDate = e.timestamp?.toDate?.() || new Date(e.timestamp);
-        return eventDate >= last24h;
+        const eventType = e.eventType || e.type;
+        return eventDate >= last24h && eventType !== "LINK_PREVIEW";
       })
       .map(e => {
         // Extraire visitorId de différentes façons possibles
@@ -230,7 +237,8 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
     events
       .filter(e => {
         const eventDate = e.timestamp?.toDate?.() || new Date(e.timestamp);
-        return eventDate >= last7d;
+        const eventType = e.eventType || e.type;
+        return eventDate >= last7d && eventType !== "LINK_PREVIEW";
       })
       .map(e => {
         // Extraire visitorId de différentes façons possibles
