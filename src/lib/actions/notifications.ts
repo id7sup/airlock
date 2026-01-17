@@ -98,13 +98,18 @@ export async function getLinkLogsAction(linkId: string, folderName: string, limi
 export async function getVisitorLogsAction(visitorId: string, userId: string, limit = 500) {
   const { getLinkAnalyticsWithGeolocation } = await import("@/services/analytics");
   
-  // Récupérer tous les liens de l'utilisateur
+  // Récupérer tous les liens de l'utilisateur (actifs et révoqués pour avoir l'historique complet)
   const linksSnapshot = await db.collection("shareLinks")
     .where("creatorId", "==", userId)
-    .where("isRevoked", "!=", true) // Seulement les liens actifs
     .get();
   
-  const linkIds = linksSnapshot.docs.map(doc => doc.id);
+  // Filtrer côté serveur pour ne garder que les liens actifs
+  const activeLinks = linksSnapshot.docs.filter(doc => {
+    const data = doc.data();
+    return data.isRevoked !== true; // Exclure les liens révoqués
+  });
+  
+  const linkIds = activeLinks.map(doc => doc.id);
   
   if (linkIds.length === 0) {
     return [];
@@ -135,7 +140,7 @@ export async function getVisitorLogsAction(visitorId: string, userId: string, li
     .filter((event) => event.eventType !== "LINK_PREVIEW") // Exclure les prévisualisations de bots
     .map((event) => {
       // Récupérer le nom du dossier depuis le lien
-      const linkDoc = linksSnapshot.docs.find(doc => doc.id === event.linkId);
+      const linkDoc = activeLinks.find(doc => doc.id === event.linkId);
       const folderName = linkDoc?.data()?.folderName || linkDoc?.data()?.folder?.name || "Partage";
       
       // Mapper les eventType vers NotificationType

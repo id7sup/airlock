@@ -49,12 +49,35 @@ interface SharedLink {
 
 export default function SharingListClient({ initialLinks }: { initialLinks: SharedLink[] }) {
   const [links, setLinks] = useState(initialLinks);
-  const [activeTab, setActiveTab] = useState<"list" | "live">("list");
+  const [activeTab, setActiveTab] = useState<"list" | "live">(() => {
+    // Vérifier le paramètre tab dans l'URL
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('tab') === 'live' ? 'live' : 'list';
+    }
+    return 'list';
+  });
   const [selectedLinkId, setSelectedLinkId] = useState<string | "all">("all");
   const [geolocationAnalytics, setGeolocationAnalytics] = useState<any[]>([]);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Restaurer le tiroir si nécessaire
+  useEffect(() => {
+    if (activeTab === 'live' && typeof window !== 'undefined') {
+      const savedDetail = sessionStorage.getItem('restoreGlobeDetail');
+      if (savedDetail) {
+        try {
+          const detail = JSON.parse(savedDetail);
+          // Le tiroir sera restauré par MapboxGlobe via les props
+          sessionStorage.removeItem('restoreGlobeDetail');
+        } catch (e) {
+          console.error('Erreur lors de la restauration du détail:', e);
+        }
+      }
+    }
+  }, [activeTab]);
   
   // Fermer le dropdown au clic extérieur
   useEffect(() => {

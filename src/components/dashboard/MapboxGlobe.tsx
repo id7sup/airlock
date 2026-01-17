@@ -152,12 +152,12 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
   }, [analytics]);
 
   // 2. Indexer avec Supercluster
-  // IMPORTANT : radius très réduit pour éviter les clusters qui se touchent
-  // On utilise un radius minimal pour ne clusteriser que les points vraiment superposés
+  // IMPORTANT : radius adaptatif pour grouper les points à la même localisation (datacenter)
+  // On utilise un radius qui permet de grouper les points très proches (même localisation)
   const index = useMemo(() => {
     if (points.length === 0) return null;
     const sc = new Supercluster({
-      radius: 20, // Radius très réduit pour éviter les clusters qui se touchent
+      radius: 40, // Radius qui permet de grouper les points à la même localisation
       maxZoom: 14, // Zoom maximum pour le clustering
       minZoom: 0,
       extent: 512, // Taille de tuile standard
@@ -523,7 +523,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
     // Clic sur cluster = zoom jusqu'à la vue qui permet de distinguer les points
     map.current.on("click", "clusters", (e) => {
       const feature = e.features?.[0];
-      if (!feature || !feature.properties || !index || isAnimatingRef.current) return;
+      if (!feature || !feature.properties || !index || isAnimatingRef.current || !map.current) return;
 
       const clusterId = feature.properties.cluster_id;
       const pointCount = feature.properties.point_count || 0;
@@ -531,18 +531,26 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       // Obtenir le zoom d'expansion recommandé par Supercluster
       const expansionZoom = index.getClusterExpansionZoom(clusterId);
       
-      // Ajuster le zoom pour s'assurer qu'on peut distinguer les points ou sous-clusters
-      // Zoomer jusqu'à ce qu'on puisse voir distinctement les points individuels ou les sous-clusters
+      // Ajuster le zoom de manière modérée - ne pas zoomer trop
+      // On veut juste voir la zone du cluster, pas zoomer au maximum
+      const currentZoom = map.current.getZoom();
       let targetZoom = expansionZoom;
+      
+      // Réduire le zoom pour éviter de zoomer trop
       if (pointCount <= 5) {
-        // Pour les petits clusters, zoomer suffisamment pour voir tous les points distinctement
-        targetZoom = Math.min(expansionZoom + 2, 12);
+        // Pour les petits clusters, zoomer modérément
+        targetZoom = Math.min(currentZoom + 1.5, expansionZoom, 10);
       } else if (pointCount <= 10) {
-        // Pour les clusters moyens, zoomer pour voir les sous-clusters
-        targetZoom = Math.min(expansionZoom + 1, 12);
+        // Pour les clusters moyens, zoomer un peu moins
+        targetZoom = Math.min(currentZoom + 1, expansionZoom, 9);
       } else {
-        // Pour les gros clusters, utiliser le zoom d'expansion recommandé
-        targetZoom = Math.min(expansionZoom, 12);
+        // Pour les gros clusters, zoomer encore moins
+        targetZoom = Math.min(currentZoom + 0.5, expansionZoom, 8);
+      }
+      
+      // S'assurer qu'on ne zoom pas en arrière
+      if (targetZoom < currentZoom) {
+        targetZoom = currentZoom + 0.5;
       }
       
       const [lng, lat] = (feature.geometry as any).coordinates;

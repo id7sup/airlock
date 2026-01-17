@@ -130,24 +130,30 @@ export function TrackEvent({ linkId, eventType, fileId, folderId, fileName }: Tr
       track();
     };
 
-    // Écouter différents types d'interactions
-    const events = ['click', 'scroll', 'touchstart', 'mousemove', 'keydown'];
+    // Écouter différents types d'interactions (plus d'événements pour mobile)
+    const events = ['click', 'scroll', 'touchstart', 'touchend', 'touchmove', 'mousemove', 'keydown', 'pointerdown'];
     events.forEach(event => {
       window.addEventListener(event, handleInteraction, { once: true, passive: true });
     });
 
-    // Timeout de sécurité : tracker après 3 secondes même sans interaction
+    // Écouter aussi sur le document pour capturer tous les événements
+    document.addEventListener('touchstart', handleInteraction, { once: true, passive: true });
+    document.addEventListener('click', handleInteraction, { once: true, passive: true });
+
+    // Timeout de sécurité : tracker après 2 secondes même sans interaction (réduit pour mobile)
     // (pour les cas où l'utilisateur reste sur la page sans bouger)
     const timeout = setTimeout(() => {
       if (!hasTracked.current) {
         handleInteraction();
       }
-    }, 3000);
+    }, 2000);
 
     return () => {
       events.forEach(event => {
         window.removeEventListener(event, handleInteraction);
       });
+      document.removeEventListener('touchstart', handleInteraction);
+      document.removeEventListener('click', handleInteraction);
       clearTimeout(timeout);
     };
   }, [linkId, eventType, fileId, folderId, fileName, hasInteracted, eventKey]);

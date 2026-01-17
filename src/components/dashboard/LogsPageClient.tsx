@@ -124,20 +124,23 @@ export function LogsPageClient({ initialLogs, linkContext, visitorId }: LogsPage
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   
-  // Récupérer visitorId depuis les query params
-  const [visitorIdFilter, setVisitorIdFilter] = useState<string | null>(null);
+  // Utiliser le visitorId passé en prop ou depuis les query params
+  const [visitorIdFilter, setVisitorIdFilter] = useState<string | null>(visitorId || null);
   
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (visitorId) {
+      setVisitorIdFilter(visitorId);
+      // Pré-remplir la recherche avec le visitorId pour faciliter le filtrage
+      setSearch(visitorId);
+    } else if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      const visitorId = params.get('visitorId');
-      if (visitorId) {
-        setVisitorIdFilter(visitorId);
-        // Pré-remplir la recherche avec le visitorId pour faciliter le filtrage
-        setSearch(visitorId);
+      const urlVisitorId = params.get('visitorId');
+      if (urlVisitorId) {
+        setVisitorIdFilter(urlVisitorId);
+        setSearch(urlVisitorId);
       }
     }
-  }, []);
+  }, [visitorId]);
 
   const filtered = useMemo(() => {
     const now = new Date();
@@ -152,11 +155,12 @@ export function LogsPageClient({ initialLogs, linkContext, visitorId }: LogsPage
       if (Number.isNaN(createdAt.getTime()) || createdAt < from) return false;
       if (typeFilter !== "ALL" && log.type !== typeFilter) return false;
 
-      // Filtrer par visitorId si spécifié (via metadata.visitorId ou recherche)
+      // Filtrer par visitorId si spécifié (via metadata.visitorId)
       if (visitorIdFilter) {
-        // Chercher dans les métadonnées ou dans la recherche
+        // Chercher dans les métadonnées
         const logVisitorId = log.metadata?.visitorId || '';
-        if (logVisitorId && logVisitorId !== visitorIdFilter) {
+        // Si le log n'a pas de visitorId dans les métadonnées, l'exclure
+        if (!logVisitorId || logVisitorId !== visitorIdFilter) {
           return false;
         }
       }
@@ -196,7 +200,7 @@ export function LogsPageClient({ initialLogs, linkContext, visitorId }: LogsPage
     });
 
     return result;
-  }, [initialLogs, linkContext, period, search, typeFilter, sortField, sortDirection]);
+  }, [initialLogs, linkContext, period, search, typeFilter, sortField, sortDirection, visitorIdFilter]);
 
   // Pagination
   const totalPages = Math.ceil(filtered.length / rowsPerPage);
@@ -222,7 +226,22 @@ export function LogsPageClient({ initialLogs, linkContext, visitorId }: LogsPage
       {/* En-tête avec bouton retour */}
       <div className="mb-6">
         <button
-          onClick={() => router.back()}
+          onClick={() => {
+            // Vérifier si on doit retourner au globe avec le tiroir ouvert
+            const returnToGlobe = sessionStorage.getItem('returnToGlobe');
+            if (returnToGlobe === 'true') {
+              sessionStorage.removeItem('returnToGlobe');
+              const savedDetail = sessionStorage.getItem('globeSelectedDetail');
+              if (savedDetail) {
+                // Sauvegarder pour restaurer le tiroir
+                sessionStorage.setItem('restoreGlobeDetail', savedDetail);
+              }
+              // Retourner à la page de partage avec l'onglet live actif
+              router.push('/dashboard/sharing?tab=live');
+            } else {
+              router.back();
+            }
+          }}
           className="flex items-center gap-2 text-sm font-medium text-black/60 hover:text-black transition-colors mb-4"
         >
           <ArrowLeft className="w-4 h-4" />

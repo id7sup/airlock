@@ -377,6 +377,12 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                     <div className="mt-4 pt-4 border-t border-black/[0.06]">
                       <button
                         onClick={() => {
+                          // Sauvegarder l'état du tiroir dans sessionStorage pour pouvoir y revenir
+                          sessionStorage.setItem('returnToGlobe', 'true');
+                          sessionStorage.setItem('globeSelectedDetail', JSON.stringify({
+                            visitorId: currentEvent.visitorId,
+                            id: currentEvent.id,
+                          }));
                           // Rediriger vers les logs avec le visitorId en paramètre
                           router.push(`/dashboard/sharing/logs?visitorId=${encodeURIComponent(currentEvent.visitorId)}`);
                           onClose();
