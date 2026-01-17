@@ -252,6 +252,8 @@ export default async function PublicShareFolderPage({
               await trackEvent({
                 linkId: link.id,
                 eventType: "ACCESS_DENIED",
+                invalidAttempt: true,
+                denialReason: "VPN_BLOCKED",
                 geolocation,
                 visitorId,
                 referer,

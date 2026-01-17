@@ -229,6 +229,8 @@ export default async function PublicSharePage({
               await trackEvent({
                 linkId: link.id,
                 eventType: "ACCESS_DENIED",
+                invalidAttempt: true,
+                denialReason: "VPN_BLOCKED",
                 geolocation,
                 visitorId,
                 referer,
@@ -266,10 +268,46 @@ export default async function PublicSharePage({
         const isPasswordCorrect = inputHash === link.passwordHash;
 
         if (!pwd || !isPasswordCorrect) {
-          // Notifier en cas de mot de passe saisi mais incorrect
+          // Tracker l'accès refusé avec la raison
           if (pwd) {
             (async () => {
               try {
+                const headersList = await headers();
+                const clientIP = getClientIP(headersList);
+                const userAgent = headersList.get("user-agent") || undefined;
+                const referer = headersList.get("referer") || undefined;
+                
+                const { generateVisitorId } = await import("@/lib/visitor");
+                const visitorId = generateVisitorId(clientIP, userAgent);
+                
+                let geolocation;
+                try {
+                  if (clientIP !== 'unknown') {
+                    const cfHeaders = getCloudflareLocationHeaders(headersList);
+                    geolocation = await getGeolocationFromIP(clientIP, cfHeaders);
+                    if (geolocation) {
+                      geolocation = Object.fromEntries(
+                        Object.entries(geolocation).filter(([_, v]) => v !== undefined)
+                      ) as any;
+                    }
+                  }
+                } catch (error) {
+                  console.error("Error getting geolocation:", error);
+                }
+                
+                // Tracker l'événement ACCESS_DENIED avec la raison
+                await trackEvent({
+                  linkId: link.id,
+                  eventType: "ACCESS_DENIED",
+                  invalidAttempt: true,
+                  denialReason: "PASSWORD_INCORRECT",
+                  geolocation,
+                  visitorId,
+                  referer,
+                  userAgent,
+                }).catch(() => {});
+                
+                // Notifier aussi via le système de notifications
                 const ownerPerm = await db.collection("permissions")
                   .where("folderId", "==", link.folderId)
                   .where("role", "==", "OWNER")

@@ -53,6 +53,7 @@ interface TrackingData {
   fileName?: string;
   // Nouvelles données de tracking
   invalidAttempt?: boolean; // Tentative invalide (mauvais mot de passe/token expiré)
+  denialReason?: "EXPIRED" | "REVOKED" | "QUOTA_EXCEEDED" | "PASSWORD_INCORRECT" | "VPN_BLOCKED" | "ACCESS_DISABLED" | "NOT_FOUND" | "OTHER"; // Raison du refus d'accès
   ipChanged?: boolean; // Changement d'IP brutal dans la même session
   deviceChanged?: boolean; // Changement de device brutal dans la même session
   recipientCount?: number; // Nombre de destinataires (si partage par email)
@@ -128,6 +129,7 @@ export async function trackEvent(data: TrackingData) {
   
   // Nouvelles données de tracking
   if (data.invalidAttempt !== undefined) analyticsData.invalidAttempt = data.invalidAttempt;
+  if (data.denialReason !== undefined) analyticsData.denialReason = data.denialReason;
   if (data.ipChanged !== undefined) analyticsData.ipChanged = data.ipChanged;
   if (data.deviceChanged !== undefined) analyticsData.deviceChanged = data.deviceChanged;
   if (data.recipientCount !== undefined) analyticsData.recipientCount = data.recipientCount;
@@ -265,6 +267,7 @@ export async function getLinkAnalyticsWithGeolocation(linkId: string, days: numb
           isVPN: data.isVPN || false,
           location_quality: data.location_quality || null,
           invalidAttempt: data.invalidAttempt || false,
+          denialReason: data.denialReason || null,
           ipChanged: data.ipChanged || false,
           deviceChanged: data.deviceChanged || false,
           recipientCount: data.recipientCount || 0,
@@ -311,17 +314,18 @@ export async function getLinkAnalyticsWithGeolocation(linkId: string, days: numb
             isDatacenter: data.isDatacenter || false,
             isVPN: data.isVPN || false,
             location_quality: data.location_quality || null,
-            invalidAttempt: data.invalidAttempt || false,
-            ipChanged: data.ipChanged || false,
-            deviceChanged: data.deviceChanged || false,
-            recipientCount: data.recipientCount || 0,
-            isReshare: data.isReshare || false,
-            fileId: data.fileId || null,
-            fileName: data.fileName || null,
-            folderId: data.folderId || null,
-            visitor_confidence: data.visitor_confidence || null,
-            js_seen: data.js_seen || false,
-          };
+          invalidAttempt: data.invalidAttempt || false,
+          denialReason: data.denialReason || null,
+          ipChanged: data.ipChanged || false,
+          deviceChanged: data.deviceChanged || false,
+          recipientCount: data.recipientCount || 0,
+          isReshare: data.isReshare || false,
+          fileId: data.fileId || null,
+          fileName: data.fileName || null,
+          folderId: data.folderId || null,
+          visitor_confidence: data.visitor_confidence || null,
+          js_seen: data.js_seen || false,
+        };
         });
 
         // Trier manuellement par timestamp

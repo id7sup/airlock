@@ -66,6 +66,7 @@ const typeConfig: Record<NotificationType, { label: string; icon: ReactElement; 
 function formatMessage(log: LogEntry) {
   const folder = log.metadata?.folderName || "Dossier partagé";
   const file = log.metadata?.fileName;
+  const denialReason = log.metadata?.denialReason;
 
   switch (log.type) {
     case "VIEW":
@@ -75,7 +76,29 @@ function formatMessage(log: LogEntry) {
     case "PASSWORD_ACCESS":
       return `Accès accordé via mot de passe (${folder})`;
     case "PASSWORD_DENIED":
-      return `Mot de passe incorrect pour ${folder}`;
+      // Afficher la vraie raison du refus
+      if (denialReason) {
+        switch (denialReason) {
+          case "PASSWORD_INCORRECT":
+            return `Mot de passe incorrect pour ${folder}`;
+          case "EXPIRED":
+            return `Lien expiré pour ${folder}`;
+          case "REVOKED":
+            return `Lien révoqué pour ${folder}`;
+          case "QUOTA_EXCEEDED":
+            return `Quota de vues dépassé pour ${folder}`;
+          case "VPN_BLOCKED":
+            return `Accès refusé (VPN/Datacenter bloqué) pour ${folder}`;
+          case "ACCESS_DISABLED":
+            return `Accès désactivé pour ${folder}`;
+          case "NOT_FOUND":
+            return `Lien ou dossier introuvable pour ${folder}`;
+          default:
+            return `Accès refusé pour ${folder}`;
+        }
+      }
+      // Fallback si pas de raison spécifiée
+      return `Accès refusé pour ${folder}`;
     case "EXPIRATION":
       return `Lien expiré pour ${folder}`;
     default:

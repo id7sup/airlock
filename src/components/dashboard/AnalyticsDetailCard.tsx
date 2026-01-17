@@ -374,7 +374,7 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                       {events.map((event, idx) => {
                         const eventUserInfo = parseUserAgent(event.userAgent || "");
                         return (
-                          <div key={idx} className="p-4 bg-black/[0.02] rounded-xl border border-black/[0.06]">
+                          <div key={idx} className="p-4 bg-black/[0.02] rounded-xl border border-black/[0.06] hover:border-black/[0.1] transition-colors cursor-pointer group">
                             <div className="flex items-center justify-between mb-2">
                               <p className="text-xs font-semibold text-black">Visiteur #{idx + 1}</p>
                               <p className="text-[10px] text-black/40">
@@ -408,6 +408,26 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                                 </div>
                               )}
                             </div>
+                            {/* Bouton pour voir les logs de ce visiteur spécifique */}
+                            {event.visitorId && (
+                              <div className="mt-3 pt-3 border-t border-black/[0.06]">
+                                <button
+                                  onClick={() => {
+                                    sessionStorage.setItem('returnToGlobe', 'true');
+                                    sessionStorage.setItem('globeSelectedDetail', JSON.stringify({
+                                      visitorId: event.visitorId,
+                                      id: event.id,
+                                    }));
+                                    router.push(`/dashboard/sharing/logs?visitorId=${encodeURIComponent(event.visitorId)}`);
+                                    onClose();
+                                  }}
+                                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-black/60 hover:text-black bg-black/[0.02] hover:bg-black/[0.05] rounded-lg transition-colors group-hover:bg-black/[0.08]"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  Voir tous les logs de ce visiteur
+                                </button>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -445,7 +465,7 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                     {currentEvent.userAgent && (
                       <div className="flex-1 ml-6">
                         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40 mb-1">User Agent</p>
-                        <p className="text-[10px] text-black/40 font-mono leading-relaxed break-all line-clamp-1">
+                        <p className="text-[10px] text-black/40 font-mono leading-relaxed break-all">
                           {currentEvent.userAgent}
                         </p>
                       </div>

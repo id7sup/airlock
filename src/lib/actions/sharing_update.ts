@@ -16,6 +16,7 @@ export async function updateShareLinkAction(linkId: string, data: {
   maxViews?: number | null;
   status?: "ACTIVE" | "REVOKED";
   notifications?: string[];
+  password?: string | null;
 }) {
   const { userId } = await auth();
   if (!userId) throw new Error("Non autorisé");
@@ -53,6 +54,18 @@ export async function updateShareLinkAction(linkId: string, data: {
   if (data.maxViews !== undefined) updateData.maxViews = data.maxViews;
   if (data.status) updateData.isRevoked = data.status === "REVOKED";
   if (Array.isArray(data.notifications)) updateData.notifications = data.notifications;
+  
+  // Gérer le mot de passe
+  if (data.password !== undefined) {
+    if (data.password === null || data.password === "") {
+      // Supprimer le mot de passe
+      updateData.passwordHash = null;
+    } else {
+      // Hasher le nouveau mot de passe
+      const crypto = await import("crypto");
+      updateData.passwordHash = crypto.createHash("sha256").update(data.password).digest("hex");
+    }
+  }
 
   await db.collection("shareLinks").doc(linkId).update(updateData);
 

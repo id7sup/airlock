@@ -92,7 +92,15 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
-          setStats(data.stats);
+          if (data.stats) {
+            setStats(data.stats);
+          } else {
+            console.error("[STATS] Pas de stats dans la réponse:", data);
+          }
+        } else {
+          console.error("[STATS] Erreur HTTP:", response.status, response.statusText);
+          const errorData = await response.json().catch(() => ({}));
+          console.error("[STATS] Détails de l'erreur:", errorData);
         }
       } catch (error) {
         console.error("Erreur lors du chargement des stats:", error);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getLinkAnalyticsStats } from "@/services/analytics-stats";
+import { getLinkAnalyticsStats, getEmptyStats } from "@/services/analytics-stats";
 
 export const dynamic = 'force-dynamic';
 
@@ -16,18 +16,29 @@ export async function GET(req: NextRequest) {
     const linkId = searchParams.get("linkId");
     const period = (searchParams.get("period") || "1J") as '1J' | '1S' | 'Max';
 
-    const stats = await getLinkAnalyticsStats(
-      linkId || null,
-      userId,
-      days,
-      period
-    );
+    try {
+      const stats = await getLinkAnalyticsStats(
+        linkId || null,
+        userId,
+        days,
+        period
+      );
 
-    return NextResponse.json({ stats });
-  } catch (error) {
+      return NextResponse.json({ stats });
+    } catch (statsError: any) {
+      console.error("Erreur lors du calcul des stats:", statsError);
+      // Retourner des stats vides plutôt qu'une erreur pour éviter de casser l'UI
+      const emptyStats = getEmptyStats();
+      return NextResponse.json({ stats: emptyStats });
+    }
+  } catch (error: any) {
     console.error("Erreur lors de la récupération des stats:", error);
+    // Toujours retourner une réponse valide, même en cas d'erreur
     return NextResponse.json(
-      { error: "Erreur lors de la récupération des stats" },
+      { 
+        error: "Erreur lors de la récupération des stats",
+        stats: null 
+      },
       { status: 500 }
     );
   }

@@ -77,6 +77,8 @@ export async function getLinkLogsAction(linkId: string, folderName: string, limi
           visitorId: event.visitorId,
           // Event type original
           eventType: event.eventType,
+          // Raison du refus (pour ACCESS_DENIED)
+          denialReason: event.denialReason || null,
         },
         createdAt: event.timestamp,
         isRead: false,
@@ -184,6 +186,7 @@ export async function getVisitorLogsAction(visitorId: string, userId: string, li
           userAgent: event.userAgent,
           visitorId: event.visitorId,
           eventType: event.eventType,
+          denialReason: event.denialReason || null,
         },
         createdAt: event.timestamp,
         isRead: false,

@@ -810,7 +810,7 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
   };
 }
 
-function getEmptyStats(): AnalyticsStats {
+export function getEmptyStats(): AnalyticsStats {
   return {
     totals: {
       openShare: 0,

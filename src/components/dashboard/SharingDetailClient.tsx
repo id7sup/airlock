@@ -41,6 +41,157 @@ import { LogsPageClient } from "@/components/dashboard/LogsPageClient";
 import { getNotificationsAction, getLinkLogsAction } from "@/lib/actions/notifications";
 import type { NotificationType } from "@/services/notifications";
 
+// Composant pour gérer le mot de passe
+function PasswordManagerCard({ linkId, currentPasswordHash, onUpdate }: { 
+  linkId: string; 
+  currentPasswordHash?: string | null;
+  onUpdate: (hasPassword: boolean) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSave = async () => {
+    if (password && password !== confirmPassword) {
+      setError("Les mots de passe ne correspondent pas");
+      return;
+    }
+
+    if (password && password.length < 4) {
+      setError("Le mot de passe doit contenir au moins 4 caractères");
+      return;
+    }
+
+    setIsUpdating(true);
+    setError("");
+
+    try {
+      await updateShareLinkAction(linkId, {
+        password: password || null,
+      });
+      onUpdate(!!password);
+      setIsEditing(false);
+      setPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de la mise à jour du mot de passe");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    setIsUpdating(true);
+    setError("");
+
+    try {
+      await updateShareLinkAction(linkId, {
+        password: null,
+      });
+      onUpdate(false);
+      setIsEditing(false);
+      setPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de la suppression du mot de passe");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  return (
+    <div className="p-4 rounded-2xl bg-white border border-black/[0.05]">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-12 h-12 rounded-xl bg-black/[0.03] flex items-center justify-center">
+          <Lock className="w-6 h-6 text-black/50" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-black">Protection par mot de passe</p>
+          <p className="text-xs text-black/40">
+            {currentPasswordHash ? "Mot de passe actif" : "Aucun mot de passe défini"}
+          </p>
+        </div>
+        {!isEditing && (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="px-3 py-1.5 text-xs font-medium text-black/60 hover:text-black bg-black/[0.03] hover:bg-black/[0.05] rounded-lg transition-colors"
+          >
+            {currentPasswordHash ? "Modifier" : "Définir"}
+          </button>
+        )}
+      </div>
+
+      {isEditing && (
+        <div className="space-y-3 mt-4 pt-4 border-t border-black/[0.06]">
+          <div>
+            <label className="block text-xs font-medium text-black/60 mb-1.5">
+              Nouveau mot de passe
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Laissez vide pour supprimer"
+              className="w-full px-3 py-2 text-sm border border-black/[0.1] rounded-lg focus:outline-none focus:ring-2 focus:ring-black/10"
+              disabled={isUpdating}
+            />
+          </div>
+          {password && (
+            <div>
+              <label className="block text-xs font-medium text-black/60 mb-1.5">
+                Confirmer le mot de passe
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirmez le mot de passe"
+                className="w-full px-3 py-2 text-sm border border-black/[0.1] rounded-lg focus:outline-none focus:ring-2 focus:ring-black/10"
+                disabled={isUpdating}
+              />
+            </div>
+          )}
+          {error && (
+            <p className="text-xs text-red-600">{error}</p>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={handleSave}
+              disabled={isUpdating}
+              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-black hover:bg-black/90 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isUpdating ? "Enregistrement..." : "Enregistrer"}
+            </button>
+            <button
+              onClick={() => {
+                setIsEditing(false);
+                setPassword("");
+                setConfirmPassword("");
+                setError("");
+              }}
+              disabled={isUpdating}
+              className="px-4 py-2 text-sm font-medium text-black/60 hover:text-black bg-black/[0.03] hover:bg-black/[0.05] rounded-lg transition-colors disabled:opacity-50"
+            >
+              Annuler
+            </button>
+            {currentPasswordHash && (
+              <button
+                onClick={handleRemove}
+                disabled={isUpdating}
+                className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Supprimer
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface SharedLink {
   id: string;
   token: string;
@@ -59,6 +210,7 @@ interface SharedLink {
   notifications?: string[];
   blockedIps?: string[];
   blockedDevices?: string[];
+  passwordHash?: string | null;
 }
 
 interface ExtendedStats {
@@ -209,8 +361,15 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
       setLoadingStats(true);
       try {
         const response = await fetch(`/api/analytics/stats?days=9999&linkId=${link.id}&period=Max`);
-        if (!response.ok) throw new Error("stats");
+        if (!response.ok) {
+          console.error("[STATS] Erreur HTTP:", response.status, response.statusText);
+          throw new Error(`Stats failed: ${response.status}`);
+        }
         const data = await response.json();
+        if (!data.stats) {
+          console.error("[STATS] Pas de stats dans la réponse:", data);
+          throw new Error("Stats data missing");
+        }
         const analyticsStats = data.stats;
         
         // Mettre à jour le viewCount depuis les stats
@@ -222,7 +381,8 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
         const geoData = geoResponse.ok ? await geoResponse.json() : { analytics: [] };
         const analytics = geoData.analytics || [];
 
-        const invalidAttempts = analytics.filter((a: any) => a.invalidAttempt === true).length;
+        // Compter TOUS les ACCESS_DENIED (toutes les tentatives invalides)
+        const invalidAttempts = analytics.filter((a: any) => a.eventType === "ACCESS_DENIED").length;
         const totalVPN = analytics.filter((a: any) => a.isVPN === true).length;
         const totalDatacenter = analytics.filter((a: any) => a.isDatacenter === true).length;
         const ipChanges = analytics.filter((a: any) => a.ipChanged === true).length;
@@ -1310,6 +1470,11 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                         <p className="text-2xl font-bold text-black tabular-nums">{stats.ipChanges + stats.deviceChanges}</p>
                       </div>
                     </div>
+
+                    {/* Carte pour définir/modifier le mot de passe */}
+                    <PasswordManagerCard linkId={linkData.id} currentPasswordHash={linkData.passwordHash} onUpdate={(hasPassword) => {
+                      setLinkData(prev => ({ ...prev, passwordHash: hasPassword ? "***" : null }));
+                    }} />
                   </div>
                 </div>
               )}

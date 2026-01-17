@@ -34,10 +34,17 @@ export async function POST(
     if (linkResult.error) {
       if (linkResult.linkId) {
         try {
+          // Déterminer la raison du refus depuis linkResult.error
+          let denialReason: "EXPIRED" | "REVOKED" | "QUOTA_EXCEEDED" | "OTHER" = "OTHER";
+          if (linkResult.error === "EXPIRED") denialReason = "EXPIRED";
+          else if (linkResult.error === "REVOKED") denialReason = "REVOKED";
+          else if (linkResult.error === "QUOTA_EXCEEDED") denialReason = "QUOTA_EXCEEDED";
+          
           await trackEvent({
             linkId: linkResult.linkId,
             eventType: "ACCESS_DENIED",
             invalidAttempt: true,
+            denialReason,
           });
         } catch (e) {
           // ignore
@@ -113,6 +120,7 @@ export async function POST(
           linkId: link.id || link.linkId,
           eventType: "ACCESS_DENIED",
           invalidAttempt: true,
+          denialReason: "ACCESS_DISABLED",
         });
       } catch (e) {
         // ignore

@@ -155,27 +155,27 @@ export async function validateShareLink(token: string) {
     if (linkData.expiresAt) {
       const expiresAt = linkData.expiresAt?.toDate ? linkData.expiresAt.toDate() : new Date(linkData.expiresAt);
       if (expiresAt < new Date()) {
-        // tracer l'accès refusé
-        await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true }).catch(() => {});
+        // tracer l'accès refusé avec la raison
+        await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true, denialReason: "EXPIRED" }).catch(() => {});
         return { error: "EXPIRED", linkId: linkDoc.id, folderId: linkData.folderId };
       }
     }
 
     // Vérifier quota de vues
     if (linkData.maxViews && (linkData.viewCount || 0) >= linkData.maxViews) {
-      await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true }).catch(() => {});
+      await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true, denialReason: "QUOTA_EXCEEDED" }).catch(() => {});
       return { error: "QUOTA_EXCEEDED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
     // Vérifier révocation
     if (linkData.isRevoked === true) {
-      await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true }).catch(() => {});
+      await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true, denialReason: "REVOKED" }).catch(() => {});
       return { error: "REVOKED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
     // Vérifier accès au dossier
     if (linkData.allowFolderAccess === false) {
-      await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true }).catch(() => {});
+      await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true, denialReason: "ACCESS_DISABLED" }).catch(() => {});
       return { error: "ACCESS_DISABLED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
@@ -193,7 +193,7 @@ export async function validateShareLink(token: string) {
       } catch (e) {
         // Ignorer les erreurs de révocation
       }
-      await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true }).catch(() => {});
+      await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true, denialReason: "NOT_FOUND" }).catch(() => {});
       return { error: "NOT_FOUND", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 
@@ -211,7 +211,7 @@ export async function validateShareLink(token: string) {
       } catch (e) {
         // Ignorer les erreurs de révocation
       }
-      await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true }).catch(() => {});
+      await trackEvent({ linkId: linkDoc.id, eventType: "ACCESS_DENIED", invalidAttempt: true, denialReason: "REVOKED" }).catch(() => {});
       return { error: "REVOKED", linkId: linkDoc.id, folderId: linkData.folderId };
     }
 

@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
         linkId: link.id || link.linkId,
         eventType: "ACCESS_DENIED",
         invalidAttempt: true,
+        denialReason: "ACCESS_DISABLED",
       });
     } catch (e) {
       // ignore
@@ -78,14 +79,16 @@ export async function GET(req: NextRequest) {
             const { generateVisitorId } = await import("@/lib/visitor");
             const visitorId = generateVisitorId(clientIP, userAgent);
             
-            await trackEvent({
-              linkId: link.id || link.linkId,
-              eventType: "ACCESS_DENIED",
-              geolocation,
-              visitorId,
-              referer,
-              userAgent,
-            });
+              await trackEvent({
+                linkId: link.id || link.linkId,
+                eventType: "ACCESS_DENIED",
+                invalidAttempt: true,
+                denialReason: "VPN_BLOCKED",
+                geolocation,
+                visitorId,
+                referer,
+                userAgent,
+              });
           } catch (e) {
             console.error("Error tracking ACCESS_DENIED:", e);
           }

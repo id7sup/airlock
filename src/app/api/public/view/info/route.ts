@@ -37,6 +37,8 @@ export async function GET(req: NextRequest) {
             await trackEvent({
               linkId: link.id || link.linkId,
               eventType: "ACCESS_DENIED",
+              invalidAttempt: true,
+              denialReason: "VPN_BLOCKED",
               geolocation,
               visitorId,
               referer,

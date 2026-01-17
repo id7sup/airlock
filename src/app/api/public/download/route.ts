@@ -22,9 +22,17 @@ export async function GET(req: NextRequest) {
   if (!link || link.error) {
     if (link?.linkId) {
       try {
+        // Déterminer la raison du refus depuis link.error
+        let denialReason: "EXPIRED" | "REVOKED" | "QUOTA_EXCEEDED" | "OTHER" = "OTHER";
+        if (link.error === "EXPIRED") denialReason = "EXPIRED";
+        else if (link.error === "REVOKED") denialReason = "REVOKED";
+        else if (link.error === "QUOTA_EXCEEDED") denialReason = "QUOTA_EXCEEDED";
+        
         await trackEvent({
           linkId: link.linkId,
           eventType: "ACCESS_DENIED",
+          invalidAttempt: true,
+          denialReason,
         });
       } catch (e) {
         // ignorer erreur de tracking
@@ -70,6 +78,8 @@ export async function GET(req: NextRequest) {
             await trackEvent({
               linkId: link.id || link.linkId,
               eventType: "ACCESS_DENIED",
+              invalidAttempt: true,
+              denialReason: "VPN_BLOCKED",
               geolocation,
               visitorId,
               referer,
@@ -98,6 +108,7 @@ export async function GET(req: NextRequest) {
         linkId: link.id || link.linkId,
         eventType: "ACCESS_DENIED",
         invalidAttempt: true,
+        denialReason: "ACCESS_DISABLED",
       });
     } catch (e) {
       // ignorer
