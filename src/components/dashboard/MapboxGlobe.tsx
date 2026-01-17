@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import Supercluster from "supercluster";
 import { Globe } from "lucide-react";
 import { AnalyticsDetailCard } from "./AnalyticsDetailCard";
 
@@ -53,6 +52,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
   const [selectedDetail, setSelectedDetail] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const isAnimatingRef = useRef<boolean>(false);
+  const spiderRef = useRef<any>(null); // Pour stocker les points superposés (mêmes coordonnées)
 
   // Synchroniser isDrawerOpen avec selectedDetail
   useEffect(() => {
@@ -61,31 +61,29 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
     }
   }, [selectedDetail]);
 
-  // Gérer la fermeture du drawer
   const handleClose = () => {
     setIsDrawerOpen(false);
-    // Attendre la fin de l'animation avant de retirer selectedDetail
     setTimeout(() => {
       setSelectedDetail(null);
     }, 150); // Durée de l'animation
   };
 
   // 1. Préparer les points GeoJSON - UN SEUL POINT PAR VISITEUR
-  const points = useMemo(() => {
+  const geojsonData = useMemo(() => {
+    // RÈGLE D'OR : Zéro data = zéro features
+    if (analytics.length === 0) {
+      return {
+        type: "FeatureCollection" as const,
+        features: [],
+      };
+    }
+
     // Filtrer les événements avec géolocalisation valide
-    // Prioriser les positions résidentielles/mobiles (meilleure précision)
     const validEvents = analytics.filter(p => 
       p.latitude != null && 
       p.longitude != null && 
       p.visitorId // Un visiteur doit avoir un visitorId
     );
-
-    // Debug: compter les visiteurs uniques
-    const uniqueVisitorIds = new Set(analytics.map(a => a.visitorId).filter(Boolean));
-    const validVisitorIds = new Set(validEvents.map(e => e.visitorId).filter(Boolean));
-    if (uniqueVisitorIds.size !== validVisitorIds.size) {
-      console.log(`[MAPBOX_GLOBE] ${uniqueVisitorIds.size} visiteurs uniques au total, ${validVisitorIds.size} avec géolocalisation valide`);
-    }
 
     // Grouper par visitorId - UN SEUL POINT PAR PERSONNE
     // Prioriser les événements avec la meilleure qualité de localisation
@@ -93,11 +91,10 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
     
     validEvents.forEach(ev => {
       const visitorId = ev.visitorId || '';
-      if (!visitorId) return; // Ignorer les événements sans visitorId
+      if (!visitorId) return;
       
       const existing = visitorMap.get(visitorId);
       
-      // Si pas encore de point pour ce visiteur, l'ajouter
       if (!existing) {
         visitorMap.set(visitorId, ev);
       } else {
@@ -105,7 +102,6 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         const existingQuality = existing.location_quality || "unknown";
         const currentQuality = ev.location_quality || "unknown";
         
-        // Ordre de priorité : residential_or_mobile > unknown > vpn_or_anonymous_proxy > hosting_or_datacenter
         const qualityOrder: Record<string, number> = {
           "residential_or_mobile": 4,
           "unknown": 3,
@@ -116,12 +112,9 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         const existingPriority = qualityOrder[existingQuality] || 0;
         const currentPriority = qualityOrder[currentQuality] || 0;
         
-        // Si la qualité actuelle est meilleure, la garder
         if (currentPriority > existingPriority) {
           visitorMap.set(visitorId, ev);
-        } 
-        // Si même qualité, garder le plus récent
-        else if (currentPriority === existingPriority) {
+        } else if (currentPriority === existingPriority) {
           const existingTime = new Date(existing.timestamp).getTime();
           const currentTime = new Date(ev.timestamp).getTime();
           
@@ -132,12 +125,11 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       }
     });
 
-    // Convertir en points GeoJSON - UN SEUL POINT PAR VISITEUR
-    return Array.from(visitorMap.values()).map(ev => ({
+    // Convertir en points GeoJSON
+    const features = Array.from(visitorMap.values()).map(ev => ({
       type: "Feature" as const,
       properties: {
-        cluster: false,
-        eventId: ev.id, // ID du dernier événement de ce visiteur
+        eventId: ev.id,
         type: ev.eventType || ev.type || "VIEW",
         timestamp: ev.timestamp,
         linkId: ev.linkId,
@@ -151,631 +143,56 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         isVPN: ev.isVPN || false,
         location_quality: ev.location_quality || "unknown",
         accuracy_radius_km: ev.accuracy_radius_km || null,
-        pointColor: getColorFromId(ev.visitorId || ev.id), // Couleur basée sur visitorId pour cohérence
+        isp: ev.isp || null,
+        asn: ev.asn || null,
+        pointColor: getColorFromId(ev.visitorId || ev.id),
       },
       geometry: {
         type: "Point" as const,
         coordinates: [ev.longitude!, ev.latitude!] as [number, number],
       },
     }));
+
+    return {
+      type: "FeatureCollection" as const,
+      features,
+    };
   }, [analytics]);
 
-  // 2. Indexer avec Supercluster
-  // IMPORTANT : radius adaptatif pour grouper les points à la même localisation (datacenter)
-  // On utilise un radius qui permet de grouper les points très proches (même localisation)
-  const index = useMemo(() => {
-    if (points.length === 0) return null;
-    const sc = new Supercluster({
-      radius: 40, // Radius qui permet de grouper les points à la même localisation
-      maxZoom: 14, // Zoom maximum pour le clustering
-      minZoom: 0,
-      extent: 512, // Taille de tuile standard
-      minPoints: 2, // Minimum 2 points pour créer un cluster
-    });
-    sc.load(points);
-    return sc;
-  }, [points]);
+  // 2. Détecter les points superposés (mêmes coordonnées exactes)
+  const exactLocationGroups = useMemo(() => {
+    const groups = new Map<string, typeof geojsonData.features>();
+    const EPSILON = 0.000001; // ~10cm de précision
 
-  // 3. Obtenir les nodes (clusters ou points) selon le zoom
-  // Logique Snap Map-like : basée sur la séparation visuelle en pixels, pas sur des seuils de zoom
-  const getNodes = (zoom: number, bbox: [number, number, number, number]) => {
-    if (!index || !map.current) return [];
-    
-    // Seuil de séparation visuelle en pixels (Snap Map-like)
-    // Si deux points sont à plus de 40px l'un de l'autre, on peut les distinguer
-    const MIN_PIXEL_SEPARATION = 40;
-    
-    // Convertir le zoom Mapbox en zoom Supercluster (approximation pour obtenir les clusters initiaux)
-    let superclusterZoom: number;
-    if (zoom < 1.5) {
-      superclusterZoom = Math.floor(zoom * 3);
-    } else if (zoom < 3) {
-      superclusterZoom = Math.floor(zoom * 2.5);
-    } else if (zoom < 5) {
-      superclusterZoom = Math.floor(zoom * 2);
-    } else {
-      superclusterZoom = 14; // Décomposition complète pour Supercluster
-    }
-    superclusterZoom = Math.min(Math.max(superclusterZoom, 0), 14);
-    
-    // Obtenir les clusters/points depuis Supercluster
-    const raw = index.getClusters(bbox, superclusterZoom);
-    
-    // Traiter les résultats selon la séparation visuelle en pixels
-    const result: any[] = [];
-    
-    for (const node of raw) {
-      if (node.properties?.cluster) {
-        const pointCount = node.properties.point_count || 0;
-        
-        // RÈGLE ABSOLUE : Un seul point ne doit JAMAIS être un cluster
-        if (pointCount <= 1) {
-          const clusterId = node.properties.cluster_id;
-          const leaves = index.getLeaves(clusterId, Infinity);
-          if (leaves.length > 0) {
-            result.push(...leaves);
-          }
-          continue;
-        }
-        
-        // Obtenir toutes les feuilles (points) de ce cluster
-        const clusterId = node.properties.cluster_id;
-        const leaves = index.getLeaves(clusterId, Infinity);
-        
-        // Vérifier si tous les points ont exactement les mêmes coordonnées (localisation exacte)
-        if (leaves.length > 1) {
-          const firstCoords = leaves[0].geometry.coordinates;
-          const EPSILON = 0.000001; // ~10cm de précision
-          const allSameLocation = leaves.every((leaf: any) => {
-            const coords = leaf.geometry.coordinates;
-            return Math.abs(coords[0] - firstCoords[0]) < EPSILON && 
-                   Math.abs(coords[1] - firstCoords[1]) < EPSILON;
-          });
-          
-          // CAS SPÉCIAL : Localisation exacte (mêmes coordonnées) - cluster persistant
-          if (allSameLocation) {
-            // Ce cluster ne se décompose JAMAIS, même au zoom maximum
-            // Il représente plusieurs visiteurs à la même localisation exacte
-            const visitors = leaves.map((leaf: any) => {
-              const props = leaf.properties;
-              // Récupérer les propriétés depuis le point original
-              const [lng, lat] = leaf.geometry.coordinates;
-              const originalPoint = points.find(p => {
-                const [pLng, pLat] = p.geometry.coordinates;
-                return Math.abs(pLng - lng) < 0.0001 && Math.abs(pLat - lat) < 0.0001;
-              });
-              
-              if (originalPoint) {
-                return {
-                  visitorId: originalPoint.properties.visitorId,
-                  eventId: originalPoint.properties.eventId,
-                  timestamp: originalPoint.properties.timestamp,
-                  type: originalPoint.properties.type,
-                  country: originalPoint.properties.country,
-                  city: originalPoint.properties.city,
-                  region: originalPoint.properties.region,
-                  ip: originalPoint.properties.ip,
-                  userAgent: originalPoint.properties.userAgent,
-                  isDatacenter: originalPoint.properties.isDatacenter,
-                  isVPN: originalPoint.properties.isVPN,
-                  location_quality: originalPoint.properties.location_quality,
-                  accuracy_radius_km: originalPoint.properties.accuracy_radius_km,
-                };
-              }
-              
-              return {
-                visitorId: props.visitorId || "",
-                eventId: props.eventId || "",
-                timestamp: props.timestamp || new Date().toISOString(),
-                type: props.type || "VIEW",
-                country: props.country || "Inconnu",
-                city: props.city || "Inconnu",
-                region: props.region || "",
-                ip: props.ip || null,
-                userAgent: props.userAgent || "",
-                isDatacenter: props.isDatacenter || false,
-                isVPN: props.isVPN || false,
-                location_quality: props.location_quality || "unknown",
-                accuracy_radius_km: props.accuracy_radius_km || null,
-              };
-            });
-            
-            result.push({
-              ...node,
-              properties: {
-                ...node.properties,
-                exactLocationCluster: true, // Marqueur pour cluster persistant
-                visitors: visitors, // Liste des visiteurs pour l'affichage
-              } as any,
-            });
-            continue;
-          }
-        }
-        
-        // CAS NORMAL : Vérifier la séparation visuelle en pixels (logique Snap Map)
-        // Si les points peuvent être distingués à l'écran, on décompose le cluster
-        if (leaves.length > 1 && map.current) {
-          // Projeter les coordonnées des feuilles en pixels
-          const pixelPositions = leaves.map((leaf: any) => {
-            const [lng, lat] = leaf.geometry.coordinates;
-            return map.current!.project([lng, lat]);
-          });
-          
-          // Calculer la distance minimale entre deux points en pixels
-          let minPixelDistance = Infinity;
-          for (let i = 0; i < pixelPositions.length; i++) {
-            for (let j = i + 1; j < pixelPositions.length; j++) {
-              const dx = pixelPositions[i].x - pixelPositions[j].x;
-              const dy = pixelPositions[i].y - pixelPositions[j].y;
-              const distance = Math.sqrt(dx * dx + dy * dy);
-              minPixelDistance = Math.min(minPixelDistance, distance);
-            }
-          }
-          
-          // RÈGLE SNAP MAP : Si les points sont séparables visuellement (> 40px), on décompose
-          if (minPixelDistance > MIN_PIXEL_SEPARATION) {
-            // Les points sont suffisamment séparés, on les affiche individuellement
-            result.push(...leaves);
-          } else {
-            // Les points sont trop proches, on garde le cluster
-            result.push(node);
-          }
-        } else {
-          // Pas assez de feuilles ou map non disponible, garder le cluster
-          result.push(node);
-        }
-      } else {
-        // Point individuel - toujours l'afficher
-        result.push(node);
-      }
-    }
-    
-    // SÉCURITÉ FINALE : Vérifier qu'on n'a pas de clusters avec 1 seul point
-    const finalResult: any[] = [];
-    for (const node of result) {
-      if (node.properties?.cluster && (node.properties.point_count || 0) <= 1) {
-        const clusterId = node.properties.cluster_id;
-        const leaves = index.getLeaves(clusterId, Infinity);
-        if (leaves.length > 0) {
-          finalResult.push(...leaves);
-        } else {
-          continue;
-        }
-      } else {
-        finalResult.push(node);
-      }
-    }
-    
-    return finalResult;
-  };
-
-  // 4. Mettre à jour la carte avec les nodes
-  const updateMap = () => {
-    if (!map.current || !index || !map.current.loaded()) return;
-
-    // RÈGLE D'OR : Zéro data = zéro features (reset complet)
-    if (analytics.length === 0 || points.length === 0) {
-      const source = map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource;
-      if (source) {
-        source.setData({
-          type: "FeatureCollection",
-          features: [],
-        });
-      }
-      return;
-    }
-
-    const zoom = map.current.getZoom();
-    const bounds = map.current.getBounds();
-    
-    // Gérer le cas où bounds est null
-    if (!bounds) {
-      return;
-    }
-    
-    const bbox: [number, number, number, number] = [
-      bounds.getWest(),
-      bounds.getSouth(),
-      bounds.getEast(),
-      bounds.getNorth(),
-    ];
-
-    const nodes = getNodes(zoom, bbox);
-
-    // Créer le GeoJSON
-    const geojsonData = {
-      type: "FeatureCollection" as const,
-      features: nodes.map(node => {
-        // Pour les leafs, récupérer les propriétés originales
-        if (!node.properties.cluster) {
-          const [lng, lat] = node.geometry.coordinates;
-          const originalPoint = points.find(p => {
-            const [pLng, pLat] = p.geometry.coordinates;
-            return Math.abs(pLng - lng) < 0.0001 && Math.abs(pLat - lat) < 0.0001;
-          });
-          if (originalPoint) {
-            return {
-              ...node,
-              properties: {
-                ...originalPoint.properties,
-                cluster: false,
-              },
-            };
-          }
-        }
-        return node;
-      }),
-    };
-
-    // Mettre à jour la source
-    const source = map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource;
-    if (source) {
-      source.setData(geojsonData);
-    } else {
-      map.current.addSource("analytics-points", {
-        type: "geojson",
-        data: geojsonData,
-        cluster: false, // On gère le clustering avec Supercluster
-      });
-    }
-
-    // Créer les layers s'ils n'existent pas
-    if (!map.current.getLayer("clusters")) {
-      // Layer pour les clusters
-      map.current.addLayer({
-        id: "clusters",
-        type: "circle",
-        source: "analytics-points",
-        filter: ["==", ["get", "cluster"], true],
-        paint: {
-          "circle-color": [
-            "interpolate",
-            ["linear"],
-            ["%", ["get", "cluster_id"], 12],
-            0, POINT_COLORS[0],
-            1, POINT_COLORS[1],
-            2, POINT_COLORS[2],
-            3, POINT_COLORS[3],
-            4, POINT_COLORS[4],
-            5, POINT_COLORS[5],
-            6, POINT_COLORS[6],
-            7, POINT_COLORS[7],
-            8, POINT_COLORS[8],
-            9, POINT_COLORS[9],
-            10, POINT_COLORS[10],
-            11, POINT_COLORS[11],
-            12, POINT_COLORS[0],
-          ],
-          "circle-radius": [
-            "interpolate",
-            ["linear"],
-            ["sqrt", ["get", "point_count"]],
-            0, 16,
-            3, 20,
-            5, 24,
-            7, 28,
-            10, 32,
-            15, 36,
-          ],
-          "circle-opacity": 0.8,
-          "circle-stroke-width": 2.5,
-          "circle-stroke-color": "#ffffff",
-          "circle-stroke-opacity": 0.95,
-        },
-      });
-    }
-
-    if (!map.current.getLayer("points")) {
-      // Layer pour les points individuels (visuels)
-      map.current.addLayer({
-        id: "points",
-        type: "circle",
-        source: "analytics-points",
-        filter: ["!", ["has", "point_count"]],
-        paint: {
-          "circle-color": [
-            "case",
-            ["has", "pointColor"],
-            ["get", "pointColor"],
-            POINT_COLORS[0],
-          ],
-          "circle-radius": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            0, 6,
-            3, 7,
-            6, 8,
-            10, 9,
-            12, 9,
-          ],
-          "circle-opacity": 0.9,
-          "circle-stroke-width": 2.5,
-          "circle-stroke-color": "#ffffff",
-          "circle-stroke-opacity": 1,
-        },
-      });
-
-      // COUCHE HIT INVISIBLE MAIS CLIQUABLE (solution au problème de clic)
-      map.current.addLayer({
-        id: "points-hit",
-        type: "circle",
-        source: "analytics-points",
-        filter: ["!", ["has", "point_count"]],
-        paint: {
-          "circle-radius": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            0, 12,  // Plus grand que le point visible pour faciliter les clics
-            3, 14,
-            6, 16,
-            10, 18,
-            12, 18,
-          ],
-          "circle-color": "#000000",
-          "circle-opacity": 0.01, // Quasi invisible mais cliquable
-          "circle-stroke-width": 0,
-        },
-      });
-    }
-
-    // Gérer les clics - retirer les handlers précédents
-    try {
-      map.current.off("click", "clusters" as any);
-      map.current.off("click", "points" as any);
-      map.current.off("click", "points-hit" as any);
-    } catch (e) {
-      // Ignorer si les layers n'existent pas encore
-    }
-
-    // Handler pour ouvrir le détail d'un point
-    const handlePointClick = (feature: any) => {
-      if (isAnimatingRef.current) {
-        return;
-      }
-
-      // Vérifier que c'est bien un point (pas un cluster)
-      if (feature.properties?.cluster || feature.properties?.point_count) {
-        return;
-      }
-
-      const eventId = feature.properties?.eventId;
-      if (!eventId) {
-        // Dernière tentative : récupérer depuis les coordonnées
-        const [lng, lat] = (feature.geometry as any).coordinates;
-        const originalPoint = points.find(p => {
-          const [pLng, pLat] = p.geometry.coordinates;
-          return Math.abs(pLng - lng) < 0.0001 && Math.abs(pLat - lat) < 0.0001;
-        });
-        
-        if (originalPoint?.properties?.eventId) {
-          const recoveredEventId = originalPoint.properties.eventId;
-          const finalProps = originalPoint.properties;
-          // Récupérer les données complètes depuis l'analytics original
-          const originalEvent = analytics.find(a => a.id === recoveredEventId);
-          
-          setSelectedDetail({
-            id: recoveredEventId,
-            type: finalProps.type || "VIEW",
-            eventType: finalProps.type || "OPEN_SHARE",
-            country: finalProps.country || "Inconnu",
-            city: finalProps.city || "Inconnu",
-            region: finalProps.region || "",
-            timestamp: finalProps.timestamp || new Date().toISOString(),
-            visitorId: finalProps.visitorId || "",
-            userAgent: finalProps.userAgent || "",
-            ip: finalProps.ip || null,
-            isDatacenter: finalProps.isDatacenter || false,
-            isVPN: finalProps.isVPN || false,
-            location_quality: finalProps.location_quality || "unknown",
-            accuracy_radius_km: finalProps.accuracy_radius_km || null,
-            isp: originalEvent?.isp || null,
-            asn: originalEvent?.asn || null,
-          });
-          setIsDrawerOpen(true);
-          return;
-        }
-        
-        return;
-      }
-
-      // Récupérer les propriétés complètes
-      const [lng, lat] = (feature.geometry as any).coordinates;
-      const originalPoint = points.find(p => {
-        const [pLng, pLat] = p.geometry.coordinates;
-        return Math.abs(pLng - lng) < 0.0001 && Math.abs(pLat - lat) < 0.0001;
-      });
-
-      const finalProps = originalPoint ? originalPoint.properties : feature.properties;
-
-      // Récupérer les données complètes depuis l'analytics original
-      const originalEvent = analytics.find(a => a.id === eventId);
+    geojsonData.features.forEach(feature => {
+      const [lng, lat] = feature.geometry.coordinates;
+      // Clé basée sur les coordonnées arrondies
+      const locationKey = `${lng.toFixed(6)},${lat.toFixed(6)}`;
       
-      setSelectedDetail({
-        id: eventId,
-        type: finalProps.type || "VIEW",
-        eventType: finalProps.type || "OPEN_SHARE",
-        country: finalProps.country || "Inconnu",
-        city: finalProps.city || "Inconnu",
-        region: finalProps.region || "",
-        timestamp: finalProps.timestamp || new Date().toISOString(),
-        visitorId: finalProps.visitorId || "",
-        userAgent: finalProps.userAgent || "",
-        ip: finalProps.ip || null,
-        isDatacenter: finalProps.isDatacenter || false,
-        isVPN: finalProps.isVPN || false,
-        location_quality: finalProps.location_quality || "unknown",
-        accuracy_radius_km: finalProps.accuracy_radius_km || null,
-        isp: originalEvent?.isp || null,
-        asn: originalEvent?.asn || null,
-      });
-      setIsDrawerOpen(true);
-    };
-
-    // Clic sur cluster = zoom modéré ou afficher les visiteurs (logique Snap Map)
-    map.current.on("click", "clusters", (e) => {
-      const feature = e.features?.[0];
-      if (!feature || !feature.properties || isAnimatingRef.current || !map.current) return;
-
-      // CAS SPÉCIAL : Cluster de localisation exacte (mêmes coordonnées)
-      // On ouvre directement le tiroir avec la liste des visiteurs, pas de zoom
-      if (feature.properties.exactLocationCluster === true && feature.properties.visitors) {
-        const visitors = feature.properties.visitors;
-        setSelectedDetail({
-          pointCount: visitors.length,
-          center: (feature.geometry as any).coordinates,
-          points: visitors.map((v: any) => ({
-            id: v.eventId,
-            type: v.type || "VIEW",
-            eventType: v.type || "OPEN_SHARE",
-            country: v.country || "Inconnu",
-            city: v.city || "Inconnu",
-            region: v.region || "",
-            timestamp: v.timestamp || new Date().toISOString(),
-            visitorId: v.visitorId || "",
-            userAgent: v.userAgent || "",
-            ip: v.ip || null,
-            isDatacenter: v.isDatacenter || false,
-            isVPN: v.isVPN || false,
-            location_quality: v.location_quality || "unknown",
-            accuracy_radius_km: v.accuracy_radius_km || null,
-          })),
-        });
-        setIsDrawerOpen(true);
-        return;
+      if (!groups.has(locationKey)) {
+        groups.set(locationKey, []);
       }
-
-      // CAS NORMAL : Cluster standard - zoom modéré et progressif (Snap Map-like)
-      if (!index) return;
-      
-      const clusterId = feature.properties.cluster_id;
-      const pointCount = feature.properties.point_count || 0;
-      
-      // Obtenir le zoom d'expansion recommandé par Supercluster
-      const expansionZoom = index.getClusterExpansionZoom(clusterId);
-      
-      // ZOOM MODÉRÉ : Snap Map ne zoom pas de manière agressive
-      // On zoom juste assez pour comprendre la zone (1 à 1.5 niveaux max)
-      const currentZoom = map.current.getZoom();
-      let targetZoom = Math.min(currentZoom + 1.5, expansionZoom);
-      
-      // Pour les très gros clusters, zoomer encore moins
-      if (pointCount > 20) {
-        targetZoom = Math.min(currentZoom + 1, expansionZoom);
-      } else if (pointCount > 10) {
-        targetZoom = Math.min(currentZoom + 1.2, expansionZoom);
-      }
-      
-      // Ne jamais zoomer en arrière
-      if (targetZoom < currentZoom) {
-        targetZoom = currentZoom + 0.5;
-      }
-      
-      // Limiter le zoom maximum pour éviter les jumps trop agressifs
-      targetZoom = Math.min(targetZoom, 12);
-      
-      const [lng, lat] = (feature.geometry as any).coordinates;
-
-      setIsDrawerOpen(false);
-      setTimeout(() => {
-        setSelectedDetail(null); // Fermer le détail après l'animation
-      }, 150);
-      isAnimatingRef.current = true;
-
-      // Animation fluide avec easing doux (Snap Map-like)
-      map.current!.flyTo({
-        center: [lng, lat],
-        zoom: targetZoom,
-        duration: 600, // Animation plus rapide et fluide
-        easing: (t: number) => {
-          // Easing personnalisé pour un effet plus doux
-          return t * (2 - t);
-        },
-      });
-
-      setTimeout(() => {
-        updateMap();
-        isAnimatingRef.current = false;
-      }, 650);
+      groups.get(locationKey)!.push(feature);
     });
 
-    // Clic sur point via la couche hit (PRIORITAIRE)
-    map.current.on("click", "points-hit", (e) => {
-      const feature = e.features?.[0];
-      if (!feature) return;
-      handlePointClick(feature);
-    });
-
-    // Clic sur point via la couche visuelle (fallback)
-    map.current.on("click", "points", (e) => {
-      const feature = e.features?.[0];
-      if (!feature) return;
-      handlePointClick(feature);
-    });
-
-    // SOLUTION ALTERNATIVE : queryRenderedFeatures sur clic général (si les layers ne fonctionnent pas)
-    map.current.on("click", (e) => {
-      // Ne traiter que si on n'a pas cliqué sur un cluster
-      const clusterFeatures = map.current!.queryRenderedFeatures(e.point, {
-        layers: ["clusters"],
-      });
-      
-      if (clusterFeatures.length > 0) {
-        // C'est un cluster, déjà géré par le handler "clusters"
-        return;
-      }
-
-      // Chercher les points à cette position
-      const pointFeatures = map.current!.queryRenderedFeatures(e.point, {
-        layers: ["points-hit", "points"],
-      });
-
-      if (pointFeatures.length > 0) {
-        const feature = pointFeatures[0];
-        handlePointClick(feature);
+    // Filtrer pour ne garder que les groupes avec plusieurs points
+    const result = new Map<string, typeof geojsonData.features>();
+    groups.forEach((features, key) => {
+      if (features.length > 1) {
+        result.set(key, features);
       }
     });
 
-    // Curseur pointer au survol - retirer les handlers précédents
-    try {
-      map.current.off("mouseenter", "clusters" as any);
-      map.current.off("mouseleave", "clusters" as any);
-      map.current.off("mouseenter", "points" as any);
-      map.current.off("mouseleave", "points" as any);
-      map.current.off("mouseenter", "points-hit" as any);
-      map.current.off("mouseleave", "points-hit" as any);
-    } catch (e) {
-      // Ignorer si les layers n'existent pas encore
-    }
+    return result;
+  }, [geojsonData]);
 
-    map.current.on("mouseenter", "clusters", () => {
-      if (map.current) map.current.getCanvas().style.cursor = "pointer";
-    });
-    map.current.on("mouseleave", "clusters", () => {
-      if (map.current) map.current.getCanvas().style.cursor = "";
-    });
-    map.current.on("mouseenter", "points", () => {
-      if (map.current) map.current.getCanvas().style.cursor = "pointer";
-    });
-    map.current.on("mouseleave", "points", () => {
-      if (map.current) map.current.getCanvas().style.cursor = "";
-    });
-    map.current.on("mouseenter", "points-hit", () => {
-      if (map.current) map.current.getCanvas().style.cursor = "pointer";
-    });
-    map.current.on("mouseleave", "points-hit", () => {
-      if (map.current) map.current.getCanvas().style.cursor = "";
-    });
-  };
-
-  // Initialisation de la carte
+  // 3. Initialisation de la carte
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
     const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
     if (!mapboxToken) {
-      console.error("Mapbox token manquant - Veuillez définir NEXT_PUBLIC_MAPBOX_TOKEN dans vos variables d'environnement");
+      console.error("Mapbox token manquant");
       return;
     }
 
@@ -785,124 +202,265 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       container: mapContainer.current,
       style: "mapbox://styles/mapbox/light-v11",
       projection: "globe",
+      center: [0, 20],
       zoom: 1.5,
-      center: [0, 0],
-      pitch: 0,
-      bearing: 0,
-      attributionControl: false, // Désactiver l'attribution
-      scrollZoom: false,
-      antialias: true,
+      minZoom: 0.5,
+      maxZoom: 18,
     });
-    
-    // S'assurer que l'attribution est bien désactivée et cachée
-    if (map.current.getContainer) {
-      const container = map.current.getContainer();
-      // Cacher tous les éléments d'attribution Mapbox
-      const attributionElements = container.querySelectorAll('.mapboxgl-ctrl-attrib');
-      attributionElements.forEach((el: any) => {
-        el.style.display = 'none';
-      });
-    }
 
-    map.current.doubleClickZoom.disable();
-    map.current.touchZoomRotate.disable();
-    map.current.boxZoom.disable();
-    map.current.dragRotate.enable();
-    map.current.dragPan.enable();
-    map.current.setRenderWorldCopies(false);
-    
-    // Fonction pour cacher l'attribution Mapbox
-    const hideAttribution = () => {
-      if (!map.current) return;
-      const container = map.current.getContainer();
-      const attributionElements = container.querySelectorAll('.mapboxgl-ctrl-attrib, .mapboxgl-ctrl-logo');
-      attributionElements.forEach((el: any) => {
-        el.style.display = 'none';
-        el.style.visibility = 'hidden';
-        el.style.opacity = '0';
-      });
-    };
-    
-    // Cacher l'attribution immédiatement et après le chargement
-    hideAttribution();
-    
-    // Zoom avec Cmd + molette
     map.current.on("load", () => {
       if (!map.current) return;
-      
-      // Cacher l'attribution après le chargement
-      hideAttribution();
 
-      const handleWheel = (e: WheelEvent) => {
-        if (e.metaKey || e.ctrlKey) {
-          e.preventDefault();
-          e.stopPropagation();
-          if (!map.current) return;
+      // Créer la source GeoJSON avec clustering natif Mapbox
+      map.current.addSource("analytics-points", {
+        type: "geojson",
+        data: geojsonData,
+        cluster: true, // Activer le clustering natif
+        clusterRadius: 50, // Rayon en pixels pour créer des clusters
+        clusterMaxZoom: 14, // Zoom maximum où le clustering est actif
+        clusterMinPoints: 2, // Minimum 2 points pour créer un cluster
+      });
 
-          const currentZoom = map.current.getZoom();
-          const delta = -e.deltaY;
-          const zoomSpeed = 0.15;
-          const normalizedDelta = delta / 100;
-          const zoomChange = normalizedDelta * zoomSpeed;
-          const zoomMultiplier = Math.pow(2, zoomChange);
-          const newZoom = currentZoom * zoomMultiplier;
-          const clampedZoom = Math.max(0.5, Math.min(10, newZoom));
+      // Layer pour les CLUSTERS (filtre strict : uniquement les clusters)
+      map.current.addLayer({
+        id: "clusters",
+        type: "circle",
+        source: "analytics-points",
+        filter: ["has", "point_count"], // FILTRE STRICT : uniquement les clusters
+        paint: {
+          "circle-color": [
+            "step",
+            ["get", "point_count"],
+            "#B8D4E8",
+            10,
+            "#C8E6D4",
+            50,
+            "#E0D4F0",
+          ],
+          "circle-radius": [
+            "step",
+            ["get", "point_count"],
+            20,
+            10,
+            25,
+            50,
+            30,
+          ],
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#fff",
+        },
+      });
 
-          map.current.setZoom(clampedZoom);
-          setTimeout(() => updateMap(), 100);
+      // Layer pour les POINTS (filtre strict : uniquement les points non-clusterisés)
+      map.current.addLayer({
+        id: "points",
+        type: "circle",
+        source: "analytics-points",
+        filter: ["!", ["has", "point_count"]], // FILTRE STRICT : exclut les clusters
+        paint: {
+          "circle-color": ["get", "pointColor", ["get", "properties"]],
+          "circle-radius": 8,
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#fff",
+        },
+      });
+
+      // Layer de hit pour les clics sur les points
+      map.current.addLayer({
+        id: "points-hit",
+        type: "circle",
+        source: "analytics-points",
+        filter: ["!", ["has", "point_count"]],
+        paint: {
+          "circle-radius": 20, // Zone de clic plus large
+          "circle-opacity": 0, // Invisible mais cliquable
+        },
+      });
+
+      // Handler pour clic sur CLUSTER
+      map.current.on("click", "clusters", (e) => {
+        if (!map.current || isAnimatingRef.current) return;
+
+        const feature = e.features?.[0];
+        if (!feature || !feature.properties) return;
+
+        const clusterId = feature.properties.cluster_id;
+        const pointCount = feature.properties.point_count || 0;
+
+        // Vérifier si c'est un groupe de localisation exacte
+        const [lng, lat] = (feature.geometry as any).coordinates;
+        const locationKey = `${lng.toFixed(6)},${lat.toFixed(6)}`;
+        const exactLocationGroup = exactLocationGroups.get(locationKey);
+
+        if (exactLocationGroup && exactLocationGroup.length > 1) {
+          // Localisation exacte : ouvrir directement le tiroir avec tous les visiteurs
+          const visitors = exactLocationGroup.map(f => ({
+            id: f.properties.eventId,
+            type: f.properties.type || "VIEW",
+            eventType: f.properties.type || "OPEN_SHARE",
+            country: f.properties.country || "Inconnu",
+            city: f.properties.city || "Inconnu",
+            region: f.properties.region || "",
+            timestamp: f.properties.timestamp || new Date().toISOString(),
+            visitorId: f.properties.visitorId || "",
+            userAgent: f.properties.userAgent || "",
+            ip: f.properties.ip || null,
+            isDatacenter: f.properties.isDatacenter || false,
+            isVPN: f.properties.isVPN || false,
+            location_quality: f.properties.location_quality || "unknown",
+            accuracy_radius_km: f.properties.accuracy_radius_km || null,
+          }));
+
+          setSelectedDetail({
+            pointCount: visitors.length,
+            center: [lng, lat],
+            points: visitors,
+          });
+          setIsDrawerOpen(true);
+          return;
         }
+
+        // Cluster normal : zoom modéré avec getClusterExpansionZoom
+        const source = map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource;
+        const expansionZoom = source.getClusterExpansionZoom(clusterId);
+        
+        const currentZoom = map.current.getZoom();
+        // Zoom modéré : +1 à +1.5 niveaux max (Snap Map-like)
+        let targetZoom = Math.min(currentZoom + 1.5, expansionZoom);
+        
+        // Pour les très gros clusters, zoomer encore moins
+        if (pointCount > 20) {
+          targetZoom = Math.min(currentZoom + 1, expansionZoom);
+        }
+        
+        // Ne jamais zoomer en arrière
+        if (targetZoom < currentZoom) {
+          targetZoom = currentZoom + 0.5;
+        }
+        
+        // Limiter le zoom maximum
+        targetZoom = Math.min(targetZoom, 12);
+
+        setIsDrawerOpen(false);
+        setTimeout(() => {
+          setSelectedDetail(null);
+        }, 150);
+        
+        isAnimatingRef.current = true;
+
+        map.current.flyTo({
+          center: [lng, lat],
+          zoom: targetZoom,
+          duration: 600,
+          easing: (t: number) => t * (2 - t), // Easing doux
+        });
+
+        setTimeout(() => {
+          isAnimatingRef.current = false;
+        }, 650);
+      });
+
+      // Handler pour clic sur POINT
+      const handlePointClick = (feature: any) => {
+        if (isAnimatingRef.current) return;
+
+        const props = feature.properties;
+        const eventId = props.eventId;
+
+        if (!eventId) return;
+
+        // Vérifier si ce point fait partie d'un groupe de localisation exacte
+        const [lng, lat] = (feature.geometry as any).coordinates;
+        const locationKey = `${lng.toFixed(6)},${lat.toFixed(6)}`;
+        const exactLocationGroup = exactLocationGroups.get(locationKey);
+
+        if (exactLocationGroup && exactLocationGroup.length > 1) {
+          // Localisation exacte : ouvrir le tiroir avec tous les visiteurs
+          const visitors = exactLocationGroup.map(f => ({
+            id: f.properties.eventId,
+            type: f.properties.type || "VIEW",
+            eventType: f.properties.type || "OPEN_SHARE",
+            country: f.properties.country || "Inconnu",
+            city: f.properties.city || "Inconnu",
+            region: f.properties.region || "",
+            timestamp: f.properties.timestamp || new Date().toISOString(),
+            visitorId: f.properties.visitorId || "",
+            userAgent: f.properties.userAgent || "",
+            ip: f.properties.ip || null,
+            isDatacenter: f.properties.isDatacenter || false,
+            isVPN: f.properties.isVPN || false,
+            location_quality: f.properties.location_quality || "unknown",
+            accuracy_radius_km: f.properties.accuracy_radius_km || null,
+          }));
+
+          setSelectedDetail({
+            pointCount: visitors.length,
+            center: [lng, lat],
+            points: visitors,
+          });
+          setIsDrawerOpen(true);
+          return;
+        }
+
+        // Point individuel : afficher le détail normal
+        setSelectedDetail({
+          id: eventId,
+          type: props.type || "VIEW",
+          eventType: props.type || "OPEN_SHARE",
+          country: props.country || "Inconnu",
+          city: props.city || "Inconnu",
+          region: props.region || "",
+          timestamp: props.timestamp || new Date().toISOString(),
+          visitorId: props.visitorId || "",
+          userAgent: props.userAgent || "",
+          ip: props.ip || null,
+          isDatacenter: props.isDatacenter || false,
+          isVPN: props.isVPN || false,
+          location_quality: props.location_quality || "unknown",
+          accuracy_radius_km: props.accuracy_radius_km || null,
+          isp: props.isp || null,
+          asn: props.asn || null,
+        });
+        setIsDrawerOpen(true);
       };
 
-      const container = map.current.getContainer();
-      container.addEventListener('wheel', handleWheel, { passive: false });
+      map.current.on("click", "points-hit", handlePointClick);
+      map.current.on("click", "points", handlePointClick);
+
+      // Curseur pointer au survol
+      map.current.on("mouseenter", "clusters", () => {
+        if (map.current) map.current.getCanvas().style.cursor = "pointer";
+      });
+      map.current.on("mouseleave", "clusters", () => {
+        if (map.current) map.current.getCanvas().style.cursor = "";
+      });
+      map.current.on("mouseenter", "points", () => {
+        if (map.current) map.current.getCanvas().style.cursor = "pointer";
+      });
+      map.current.on("mouseleave", "points", () => {
+        if (map.current) map.current.getCanvas().style.cursor = "";
+      });
 
       // Style minimaliste
-      map.current.on("style.load", () => {
-        if (!map.current) return;
       const layers = map.current.getStyle().layers;
       if (layers) {
         layers.forEach((layer: any) => {
-            if (layer.type === "symbol" || layer.id?.includes("label") || layer.id?.includes("text")) {
+          if (layer.type === "symbol" || layer.id?.includes("label") || layer.id?.includes("text")) {
             try {
               map.current!.setLayoutProperty(layer.id, "visibility", "none");
-              } catch (e) {}
-            }
+            } catch (e) {}
+          }
           if (layer.type === "fill") {
             try {
-                if (layer.id?.includes("water") || layer.id?.includes("ocean")) {
+              if (layer.id?.includes("water") || layer.id?.includes("ocean")) {
                 map.current!.setPaintProperty(layer.id, "fill-color", "#e5e5e5");
-                } else if (layer.id?.includes("land")) {
+              } else if (layer.id?.includes("land")) {
                 map.current!.setPaintProperty(layer.id, "fill-color", "#ffffff");
               }
-              } catch (e) {}
+            } catch (e) {}
           }
         });
       }
-      try {
-        map.current.setFog({
-          color: "rgba(255, 255, 255, 0.1)",
-          "high-color": "rgba(255, 255, 255, 0.1)",
-          "space-color": "rgba(255, 255, 255, 0.1)",
-            "star-intensity": 0,
-          });
-        } catch (e) {}
-      });
-
-      // Mettre à jour lors des mouvements
-      map.current.on("moveend", updateMap);
-      map.current.on("zoomend", updateMap);
-
-      // Mise à jour initiale
-      map.current.once("load", () => {
-        setTimeout(updateMap, 500);
-      });
-
-      return () => {
-        if (map.current) {
-          const container = map.current.getContainer();
-          container.removeEventListener('wheel', handleWheel);
-        }
-      };
     });
 
     return () => {
@@ -915,14 +473,27 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         map.current = null;
       }
     };
-  }, []);
+  }, []); // Initialisation une seule fois
 
-  // Mettre à jour quand les analytics changent
+  // 4. Mettre à jour la source quand les données changent
   useEffect(() => {
-    if (map.current && map.current.loaded() && index) {
-      setTimeout(updateMap, 100);
+    if (!map.current || !map.current.loaded()) return;
+
+    const source = map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource;
+    if (!source) return;
+
+    // RÈGLE D'OR : Zéro data = zéro features (reset complet)
+    if (analytics.length === 0 || geojsonData.features.length === 0) {
+      source.setData({
+        type: "FeatureCollection",
+        features: [],
+      });
+      return;
     }
-  }, [analytics, index]);
+
+    // Mettre à jour les données
+    source.setData(geojsonData);
+  }, [analytics, geojsonData]);
 
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -943,7 +514,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
     );
   }
 
-  // Cacher l'attribution Mapbox avec un useEffect
+  // Cacher l'attribution Mapbox
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
