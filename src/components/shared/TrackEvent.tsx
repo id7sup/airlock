@@ -26,6 +26,28 @@ export function TrackEvent({ linkId, eventType, fileId, folderId, fileName }: Tr
   const hasTracked = useRef(false);
   const [hasInteracted, setHasInteracted] = useState(false);
 
+  // Créer une clé unique pour cet événement
+  const eventKey = `${linkId}-${eventType}-${fileId || ''}-${folderId || ''}-${fileName || ''}`;
+
+  // Vérifier et marquer l'événement comme tracké de manière atomique
+  // Retourne true si l'événement a déjà été tracké, false sinon (et le marque comme tracké)
+  const checkAndMarkAsTracked = (): boolean => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const key = `tracked:${eventKey}`;
+      const alreadyTracked = sessionStorage.getItem(key) === 'true';
+      if (!alreadyTracked) {
+        // Marquer immédiatement pour éviter les doublons même si le composant est monté deux fois
+        sessionStorage.setItem(key, 'true');
+      }
+      return alreadyTracked;
+    } catch {
+      // En cas d'erreur (mode privé, etc.), on ne peut pas utiliser sessionStorage
+      // On se fie uniquement au ref local
+      return false;
+    }
+  };
+
   useEffect(() => {
     // Pour les événements qui nécessitent une interaction (OPEN_SHARE, OPEN_FOLDER)
     const needsInteraction = eventType === "OPEN_SHARE" || eventType === "OPEN_FOLDER";
@@ -33,7 +55,8 @@ export function TrackEvent({ linkId, eventType, fileId, folderId, fileName }: Tr
     if (!needsInteraction) {
       // Pour les autres événements (VIEW_FILE, DOWNLOAD_FILE, ACCESS_DENIED), tracker immédiatement
       const track = async () => {
-        if (hasTracked.current) return;
+        // Vérifier de manière atomique si déjà tracké
+        if (hasTracked.current || checkAndMarkAsTracked()) return;
         hasTracked.current = true;
         
         try {
@@ -71,7 +94,8 @@ export function TrackEvent({ linkId, eventType, fileId, folderId, fileName }: Tr
 
     // Pour OPEN_SHARE et OPEN_FOLDER, attendre une interaction
     const handleInteraction = () => {
-      if (hasInteracted || hasTracked.current) return;
+      // Vérifier de manière atomique si déjà tracké
+      if (hasInteracted || hasTracked.current || checkAndMarkAsTracked()) return;
       setHasInteracted(true);
       hasTracked.current = true;
 
@@ -126,7 +150,7 @@ export function TrackEvent({ linkId, eventType, fileId, folderId, fileName }: Tr
       });
       clearTimeout(timeout);
     };
-  }, [linkId, eventType, fileId, folderId, fileName, hasInteracted]);
+  }, [linkId, eventType, fileId, folderId, fileName, hasInteracted, eventKey]);
 
   return null;
 }

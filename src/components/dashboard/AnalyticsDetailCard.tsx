@@ -1,9 +1,10 @@
 "use client";
 
-import { X, Eye, Download, Lock, MapPin, Clock, Monitor } from "lucide-react";
+import { X, Eye, Download, Lock, MapPin, Clock, Monitor, FileText, AlertCircle } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 interface AnalyticsDetail {
   id: string;
@@ -18,6 +19,8 @@ interface AnalyticsDetail {
   visitorId: string;
   userAgent: string;
   ip?: string;
+  isDatacenter?: boolean;
+  isVPN?: boolean;
 }
 
 interface ClusterDetail {
@@ -103,6 +106,7 @@ function getTimeAgo(date: Date): string {
 
 export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetailCardProps) {
   const [mounted, setMounted] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
@@ -274,12 +278,14 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                           </p>
                           <p className="text-xs text-black/50">
                             {[currentEvent.region, currentEvent.country].filter(Boolean).join(", ") || "Localisation inconnue"}
-                            {currentEvent.location_quality && (
-                              <span className="ml-2 text-[10px] uppercase tracking-wider">
-                                • {currentEvent.location_quality === "residential_or_mobile" ? "Résidentiel" :
-                                    currentEvent.location_quality === "hosting_or_datacenter" ? "Datacenter" :
-                                    currentEvent.location_quality === "vpn_or_anonymous_proxy" ? "VPN/Proxy" :
-                                    "Inconnu"}
+                            {(currentEvent.isDatacenter || currentEvent.isVPN || currentEvent.location_quality) && (
+                              <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-medium uppercase tracking-wider">
+                                <AlertCircle className="w-3 h-3" />
+                                {currentEvent.isDatacenter ? "Datacenter" :
+                                 currentEvent.isVPN ? "VPN/Proxy" :
+                                 currentEvent.location_quality === "hosting_or_datacenter" ? "Datacenter" :
+                                 currentEvent.location_quality === "vpn_or_anonymous_proxy" ? "VPN/Proxy" :
+                                 "Position biaisée"}
                               </span>
                             )}
                           </p>
@@ -287,12 +293,14 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                       ) : (
                         <p className="text-sm font-semibold text-black leading-tight">
                           {currentEvent.country || "Localisation inconnue"}
-                          {currentEvent.location_quality && (
-                            <span className="ml-2 text-xs text-black/50">
-                              ({currentEvent.location_quality === "residential_or_mobile" ? "Résidentiel" :
-                                  currentEvent.location_quality === "hosting_or_datacenter" ? "Datacenter" :
-                                  currentEvent.location_quality === "vpn_or_anonymous_proxy" ? "VPN/Proxy" :
-                                  "Inconnu"})
+                          {(currentEvent.isDatacenter || currentEvent.isVPN || currentEvent.location_quality) && (
+                            <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-medium uppercase tracking-wider">
+                              <AlertCircle className="w-3 h-3" />
+                              {currentEvent.isDatacenter ? "Datacenter" :
+                               currentEvent.isVPN ? "VPN/Proxy" :
+                               currentEvent.location_quality === "hosting_or_datacenter" ? "Datacenter" :
+                               currentEvent.location_quality === "vpn_or_anonymous_proxy" ? "VPN/Proxy" :
+                               "Position biaisée"}
                             </span>
                           )}
                         </p>
@@ -363,6 +371,25 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                       </div>
                     )}
                   </div>
+                  
+                  {/* Bouton pour voir les logs de ce visiteur */}
+                  {currentEvent.visitorId && (
+                    <div className="mt-4 pt-4 border-t border-black/[0.06]">
+                      <button
+                        onClick={() => {
+                          // Rediriger vers les logs avec le visitorId en paramètre
+                          router.push(`/dashboard/sharing/logs?visitorId=${encodeURIComponent(currentEvent.visitorId)}`);
+                          onClose();
+                        }}
+                        className="w-full flex items-center justify-center gap-2.5 px-4 py-3 bg-black/5 hover:bg-black/10 rounded-xl transition-all duration-200 group"
+                      >
+                        <FileText className="w-4 h-4 text-black/60 group-hover:text-black" />
+                        <span className="text-sm font-medium text-black/70 group-hover:text-black">
+                          Voir tous les logs de ce visiteur
+                        </span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

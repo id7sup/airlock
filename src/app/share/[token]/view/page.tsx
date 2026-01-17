@@ -60,20 +60,7 @@ export default function FileViewerPage() {
           setFileName(data.name || "Fichier");
           setFileType(data.mimeType || "");
           
-          // Track VIEW_FILE event
-          if (data.linkId) {
-            fetch("/api/analytics/track-event", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                linkId: data.linkId,
-                eventType: "VIEW_FILE",
-                fileId: fileId,
-                fileName: data.name,
-              }),
-            }).catch(console.error);
-          }
-          
+          // Note: VIEW_FILE est tracké côté serveur dans /api/public/view
           // Construire l'URL du viewer
           const viewUrl = `/api/public/view?fileId=${fileId}&token=${token}`;
           setViewerUrl(viewUrl);

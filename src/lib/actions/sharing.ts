@@ -345,7 +345,13 @@ export async function deleteShareLinkAction(linkId: string) {
   if (!userId) throw new Error("Non autorisé");
 
   const linkDoc = await db.collection("shareLinks").doc(linkId).get();
-  if (!linkDoc.exists) throw new Error("Lien non trouvé");
+  if (!linkDoc.exists) {
+    // Si le lien n'existe déjà plus, considérer la suppression comme réussie
+    revalidatePath(`/dashboard`);
+    revalidatePath(`/dashboard/sharing`);
+    return;
+  }
+  
   const link = linkDoc.data()!;
 
   const permSnapshot = await db.collection("permissions")
@@ -358,27 +364,51 @@ export async function deleteShareLinkAction(linkId: string) {
   if (permSnapshot.empty) throw new Error("Non autorisé");
 
   // Supprimer les analytics associés au lien (par lots de 500)
-  const analyticsSnapshot = await db.collection("shareAnalytics")
-    .where("linkId", "==", linkId)
-    .get();
-  
-  // Firestore limite à 500 opérations par batch
-  const MAX_BATCH_SIZE = 500;
-  const analyticsDocs = analyticsSnapshot.docs;
-  
-  for (let i = 0; i < analyticsDocs.length; i += MAX_BATCH_SIZE) {
-    const batch = db.batch();
-    const chunk = analyticsDocs.slice(i, i + MAX_BATCH_SIZE);
-    chunk.forEach(doc => {
-      batch.delete(doc.ref);
-    });
-    await batch.commit();
+  // On continue même si la suppression des analytics échoue
+  try {
+    const analyticsSnapshot = await db.collection("shareAnalytics")
+      .where("linkId", "==", linkId)
+      .limit(10000) // Limiter pour éviter les requêtes trop lourdes
+      .get();
+    
+    // Firestore limite à 500 opérations par batch
+    const MAX_BATCH_SIZE = 500;
+    const analyticsDocs = analyticsSnapshot.docs;
+    
+    if (analyticsDocs.length > 0) {
+      for (let i = 0; i < analyticsDocs.length; i += MAX_BATCH_SIZE) {
+        try {
+          const batch = db.batch();
+          const chunk = analyticsDocs.slice(i, i + MAX_BATCH_SIZE);
+          chunk.forEach(doc => {
+            batch.delete(doc.ref);
+          });
+          await batch.commit();
+        } catch (batchError) {
+          // Logger l'erreur mais continuer la suppression du lien
+          console.error(`Erreur lors de la suppression du batch d'analytics ${i}-${i + MAX_BATCH_SIZE}:`, batchError);
+          // Continuer avec le batch suivant
+        }
+      }
+    }
+  } catch (analyticsError) {
+    // Logger l'erreur mais continuer la suppression du lien
+    console.error("Erreur lors de la récupération des analytics:", analyticsError);
+    // On continue quand même pour supprimer le lien
   }
 
-  // Supprimer le lien
-  await db.collection("shareLinks").doc(linkId).delete();
+  // Supprimer le lien (même si la suppression des analytics a échoué)
+  try {
+    await db.collection("shareLinks").doc(linkId).delete();
+  } catch (deleteError) {
+    // Si le lien n'existe plus, c'est OK
+    const linkCheck = await db.collection("shareLinks").doc(linkId).get();
+    if (linkCheck.exists) {
+      throw deleteError;
+    }
+  }
 
-  // Ne pas revalider le chemin de détail car le lien n'existe plus
+  // Revalider les chemins
   revalidatePath(`/dashboard`);
   revalidatePath(`/dashboard/sharing`);
   // Note: on ne revalide pas `/dashboard/sharing/${linkId}` car le lien est supprimé

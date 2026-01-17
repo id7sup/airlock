@@ -86,7 +86,11 @@ export default async function SharingDetailPage({
     };
 
     return <SharingDetailClient link={link} />;
-  } catch (error) {
+  } catch (error: any) {
+    // Ignorer les redirections Next.js (NEXT_REDIRECT) qui sont normales
+    if (error?.digest?.startsWith?.('NEXT_REDIRECT')) {
+      throw error; // Re-lancer pour que Next.js gère la redirection
+    }
     console.error("Error loading sharing detail:", error);
     redirect("/dashboard/sharing");
   }

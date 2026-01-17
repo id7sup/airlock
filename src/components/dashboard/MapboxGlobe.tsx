@@ -21,6 +21,10 @@ interface AnalyticsPoint {
   latitude?: number | null;
   longitude?: number | null;
   ip?: string | null;
+  isDatacenter?: boolean;
+  isVPN?: boolean;
+  location_quality?: "residential_or_mobile" | "hosting_or_datacenter" | "vpn_or_anonymous_proxy" | "unknown";
+  accuracy_radius_km?: number | null;
 }
 
 interface MapboxGlobeProps {
@@ -67,6 +71,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
   // 1. Préparer les points GeoJSON - UN SEUL POINT PAR VISITEUR
   const points = useMemo(() => {
     // Filtrer les événements avec géolocalisation valide
+    // Prioriser les positions résidentielles/mobiles (meilleure précision)
     const validEvents = analytics.filter(p => 
       p.latitude != null && 
       p.longitude != null && 
@@ -74,6 +79,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
     );
 
     // Grouper par visitorId - UN SEUL POINT PAR PERSONNE
+    // Prioriser les événements avec la meilleure qualité de localisation
     const visitorMap = new Map<string, typeof validEvents[0]>();
     
     validEvents.forEach(ev => {
@@ -86,13 +92,33 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       if (!existing) {
         visitorMap.set(visitorId, ev);
       } else {
-        // Si on a déjà un point pour ce visiteur, garder le plus récent
-        const existingTime = new Date(existing.timestamp).getTime();
-        const currentTime = new Date(ev.timestamp).getTime();
+        // Prioriser la meilleure qualité de localisation
+        const existingQuality = existing.location_quality || "unknown";
+        const currentQuality = ev.location_quality || "unknown";
         
-        if (currentTime > existingTime) {
-          // L'événement actuel est plus récent, le garder
+        // Ordre de priorité : residential_or_mobile > unknown > vpn_or_anonymous_proxy > hosting_or_datacenter
+        const qualityOrder: Record<string, number> = {
+          "residential_or_mobile": 4,
+          "unknown": 3,
+          "vpn_or_anonymous_proxy": 2,
+          "hosting_or_datacenter": 1,
+        };
+        
+        const existingPriority = qualityOrder[existingQuality] || 0;
+        const currentPriority = qualityOrder[currentQuality] || 0;
+        
+        // Si la qualité actuelle est meilleure, la garder
+        if (currentPriority > existingPriority) {
           visitorMap.set(visitorId, ev);
+        } 
+        // Si même qualité, garder le plus récent
+        else if (currentPriority === existingPriority) {
+          const existingTime = new Date(existing.timestamp).getTime();
+          const currentTime = new Date(ev.timestamp).getTime();
+          
+          if (currentTime > existingTime) {
+            visitorMap.set(visitorId, ev);
+          }
         }
       }
     });
@@ -112,6 +138,10 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         visitorId: ev.visitorId || "",
         userAgent: ev.userAgent || "",
         ip: ev.ip || null,
+        isDatacenter: ev.isDatacenter || false,
+        isVPN: ev.isVPN || false,
+        location_quality: ev.location_quality || "unknown",
+        accuracy_radius_km: ev.accuracy_radius_km || null,
         pointColor: getColorFromId(ev.visitorId || ev.id), // Couleur basée sur visitorId pour cohérence
       },
       geometry: {
@@ -122,13 +152,12 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
   }, [analytics]);
 
   // 2. Indexer avec Supercluster
-  // IMPORTANT : radius très réduit pour ne clusteriser que les points vraiment proches géographiquement
-  // radius = 50 pixels signifie que seuls les points très proches (même zone) seront clusterisés
-  // Cela évite de créer des clusters pour des points éloignés géographiquement
+  // IMPORTANT : radius adaptatif basé sur la distance visible à l'écran
+  // On utilise un radius plus petit pour éviter les clusters inutiles
   const index = useMemo(() => {
     if (points.length === 0) return null;
     const sc = new Supercluster({
-      radius: 50, // Augmenté pour ne clusteriser que les points dans la même zone géographique
+      radius: 30, // Radius réduit pour ne clusteriser que les points vraiment proches
       maxZoom: 14, // Zoom maximum pour le clustering
       minZoom: 0,
       extent: 512, // Taille de tuile standard
@@ -138,56 +167,57 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
   }, [points]);
 
   // 3. Obtenir les nodes (clusters ou points) selon le zoom
-  // Logique améliorée : 
-  // - Zoom très faible (< 2) : clusters uniquement si plusieurs points dans la même zone
-  // - Zoom faible (2-4) : décomposer les clusters avec 1-2 points
-  // - Zoom moyen (4-6) : décomposer tous les clusters sauf ceux avec beaucoup de points
-  // - Zoom élevé (> 6) : toujours afficher les points individuels
+  // Logique améliorée basée sur la distance visible à l'écran
   const getNodes = (zoom: number, bbox: [number, number, number, number]) => {
-    if (!index) return [];
+    if (!index || !map.current) return [];
+    
+    // Calculer la distance visible à l'écran en degrés
+    const west = bbox[0];
+    const east = bbox[2];
+    const south = bbox[1];
+    const north = bbox[3];
+    
+    // Distance horizontale et verticale en degrés
+    const latRange = north - south;
+    const lngRange = east - west;
+    
+    // Estimer la distance minimale visible entre deux points (en degrés)
+    // À zoom élevé, cette distance est petite, donc on peut distinguer des points proches
+    // À zoom faible, cette distance est grande, donc on clusterise les points proches
+    const minVisibleDistance = Math.min(latRange, lngRange) * 0.02; // 2% de la vue
     
     // Convertir le zoom Mapbox en zoom Supercluster
-    // Plus le zoom est élevé, plus on se rapproche du zoom max (14) = décomposition complète
     let superclusterZoom: number;
     
     if (zoom < 1.5) {
-      // Zoom très faible : permettre les clusters
       superclusterZoom = Math.floor(zoom * 3);
     } else if (zoom < 3) {
-      // Zoom faible : commencer à décomposer
       superclusterZoom = Math.floor(zoom * 2.5);
     } else if (zoom < 5) {
-      // Zoom moyen : décomposer davantage
       superclusterZoom = Math.floor(zoom * 2);
     } else {
-      // Zoom élevé : décomposition complète (zoom max = 14)
-      superclusterZoom = 14;
+      superclusterZoom = 14; // Décomposition complète
     }
     
-    // Limiter le zoom Supercluster entre 0 et 14
     superclusterZoom = Math.min(Math.max(superclusterZoom, 0), 14);
     
     // Obtenir les clusters/points depuis Supercluster
     const raw = index.getClusters(bbox, superclusterZoom);
     
-    // Traiter les résultats selon le zoom actuel
+    // Traiter les résultats selon le zoom et la distance visible
     const result: any[] = [];
     
     for (const node of raw) {
       if (node.properties?.cluster) {
-        // C'est un cluster
         const pointCount = node.properties.point_count || 0;
         
         // RÈGLE ABSOLUE : Un seul point ne doit JAMAIS être un cluster
-        // Décomposer immédiatement, peu importe le zoom
         if (pointCount <= 1) {
           const clusterId = node.properties.cluster_id;
           const leaves = index.getLeaves(clusterId, Infinity);
-          // S'assurer qu'on récupère bien les points individuels
           if (leaves.length > 0) {
             result.push(...leaves);
           } else {
-            // Fallback : si getLeaves ne retourne rien, essayer de récupérer depuis les points originaux
             const [lng, lat] = (node.geometry as any).coordinates;
             const matchingPoint = points.find(p => {
               const [pLng, pLat] = p.geometry.coordinates;
@@ -200,41 +230,37 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           continue;
         }
         
-        // RÈGLE 2 : À zoom élevé (>= 4), toujours décomposer tous les clusters
+        // RÈGLE 2 : À zoom élevé (>= 4), toujours décomposer
         if (zoom >= 4) {
           const clusterId = node.properties.cluster_id;
           const leaves = index.getLeaves(clusterId, Infinity);
           result.push(...leaves);
         } 
-        // RÈGLE 3 : À zoom moyen (2.5-4), décomposer les petits clusters (2-4 points)
-        else if (zoom >= 2.5 && pointCount <= 4) {
+        // RÈGLE 3 : À zoom moyen (2.5-4), décomposer les petits clusters
+        else if (zoom >= 2.5 && pointCount <= 3) {
           const clusterId = node.properties.cluster_id;
           const leaves = index.getLeaves(clusterId, Infinity);
           result.push(...leaves);
         }
-        // RÈGLE 4 : À zoom faible (< 2.5), garder les clusters avec au moins 2 points
-        // (mais on a déjà vérifié qu'il y a au moins 2 points avec la règle 1)
+        // RÈGLE 4 : À zoom faible, garder les clusters avec au moins 2 points
         else {
           result.push(node);
         }
       } else {
-        // C'est déjà un point individuel - toujours l'afficher tel quel
+        // Point individuel - toujours l'afficher
         result.push(node);
       }
     }
     
     // SÉCURITÉ FINALE : Vérifier qu'on n'a pas de clusters avec 1 seul point
-    // (ne devrait jamais arriver, mais on s'assure)
     const finalResult: any[] = [];
     for (const node of result) {
       if (node.properties?.cluster && (node.properties.point_count || 0) <= 1) {
-        // Forcer la décomposition
         const clusterId = node.properties.cluster_id;
         const leaves = index.getLeaves(clusterId, Infinity);
         if (leaves.length > 0) {
           finalResult.push(...leaves);
         } else {
-          // Si on ne peut pas décomposer, ignorer ce cluster invalide
           continue;
         }
       } else {
@@ -447,6 +473,10 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
             visitorId: finalProps.visitorId || "",
             userAgent: finalProps.userAgent || "",
             ip: finalProps.ip || null,
+            isDatacenter: finalProps.isDatacenter || false,
+            isVPN: finalProps.isVPN || false,
+            location_quality: finalProps.location_quality || "unknown",
+            accuracy_radius_km: finalProps.accuracy_radius_km || null,
           });
           setIsDrawerOpen(true);
           return;
@@ -475,18 +505,37 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         visitorId: finalProps.visitorId || "",
         userAgent: finalProps.userAgent || "",
         ip: finalProps.ip || null,
+        isDatacenter: finalProps.isDatacenter || false,
+        isVPN: finalProps.isVPN || false,
+        location_quality: finalProps.location_quality || "unknown",
+        accuracy_radius_km: finalProps.accuracy_radius_km || null,
       });
       setIsDrawerOpen(true);
     };
 
-    // Clic sur cluster = zoom
+    // Clic sur cluster = zoom jusqu'à la vue qui permet de distinguer les points
     map.current.on("click", "clusters", (e) => {
       const feature = e.features?.[0];
       if (!feature || !feature.properties || !index || isAnimatingRef.current) return;
 
       const clusterId = feature.properties.cluster_id;
+      const pointCount = feature.properties.point_count || 0;
+      
+      // Obtenir le zoom d'expansion recommandé par Supercluster
       const expansionZoom = index.getClusterExpansionZoom(clusterId);
-      const targetZoom = Math.min(expansionZoom * 1.8, 12);
+      
+      // Ajuster le zoom pour s'assurer qu'on peut distinguer les points
+      // Si c'est un petit cluster (2-5 points), zoomer un peu plus pour bien les séparer
+      // Si c'est un gros cluster, utiliser le zoom d'expansion tel quel
+      let targetZoom = expansionZoom;
+      if (pointCount <= 5) {
+        // Pour les petits clusters, zoomer un peu plus pour bien distinguer les points
+        targetZoom = Math.min(expansionZoom + 1, 12);
+      } else {
+        // Pour les gros clusters, utiliser le zoom d'expansion recommandé
+        targetZoom = Math.min(expansionZoom, 12);
+      }
+      
       const [lng, lat] = (feature.geometry as any).coordinates;
 
       setIsDrawerOpen(false);

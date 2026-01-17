@@ -228,17 +228,17 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
       message: `Le lien de partage "${link?.folderName}" sera définitivement supprimé ainsi que toutes ses données d'analytics. Cette action est irréversible.`,
       isDestructive: true,
       onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
         try {
           await deleteShareLinkAction(id);
+          // Mettre à jour la liste localement
           setLinks(links.filter(l => l.id !== id));
-          setConfirmModal(prev => ({ ...prev, isOpen: false }));
-        } catch (error) {
+        } catch (error: any) {
           setErrorModal({
             isOpen: true,
             title: "Erreur",
-            message: "Erreur lors de la suppression"
+            message: error?.message || "Erreur lors de la suppression du lien. Veuillez réessayer."
           });
-          setConfirmModal(prev => ({ ...prev, isOpen: false }));
         }
       }
     });

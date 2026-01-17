@@ -304,6 +304,8 @@ export async function getLinkAnalyticsWithGeolocation(linkId: string, days: numb
             longitude: data.longitude || null,
             accuracy_radius_km: data.accuracy_radius_km || null,
             ip: data.ip || null,
+            visitorId: data.visitorId || null,
+            userAgent: data.userAgent || null,
             isp: data.isp || null,
             asn: data.asn || null,
             isDatacenter: data.isDatacenter || false,
@@ -317,6 +319,8 @@ export async function getLinkAnalyticsWithGeolocation(linkId: string, days: numb
             fileId: data.fileId || null,
             fileName: data.fileName || null,
             folderId: data.folderId || null,
+            visitor_confidence: data.visitor_confidence || null,
+            js_seen: data.js_seen || false,
           };
         });
 
@@ -376,15 +380,18 @@ export async function getAllLinksAnalyticsWithGeolocation(userId: string, days: 
     analyticsResults.forEach((result, index) => {
       if (result.status === "fulfilled") {
         const snapshot = result.value;
+        const currentLinkId = linkIds[index]; // Le linkId correspondant à cette requête
         snapshot.docs.forEach(doc => {
           const data = doc.data();
           const eventType = data.eventType || data.type;
           const type = eventType === "OPEN_SHARE" ? "VIEW" : 
                        eventType === "DOWNLOAD_FILE" ? "DOWNLOAD" : 
                        eventType;
+          // Utiliser le linkId du document s'il existe, sinon utiliser celui de la requête
+          const docLinkId = data.linkId || currentLinkId;
           allAnalytics.push({
             id: doc.id,
-            linkId: linkIds[index],
+            linkId: docLinkId, // Utiliser le linkId du document pour garantir la cohérence
             type: type,
             eventType: eventType,
             timestamp: data.timestamp?.toDate?.()?.toISOString() || new Date().toISOString(),
@@ -410,6 +417,8 @@ export async function getAllLinksAnalyticsWithGeolocation(userId: string, days: 
             fileId: data.fileId || null,
             fileName: data.fileName || null,
             folderId: data.folderId || null,
+            visitor_confidence: data.visitor_confidence || null,
+            js_seen: data.js_seen || false,
           });
         });
       }

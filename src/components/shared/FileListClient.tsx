@@ -83,19 +83,6 @@ export function FileListClient({
             {canDownload ? (
               <a 
                 href={`/api/public/download?fileId=${item.id}&token=${token}`}
-                onClick={() => {
-                  // Track download
-                  fetch("/api/analytics/track-event", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      linkId: shareLinkId,
-                      eventType: "DOWNLOAD_FILE",
-                      fileId: item.id,
-                      fileName: item.name,
-                    }),
-                  }).catch(console.error);
-                }}
                 className="p-3.5 bg-apple-primary text-white rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-apple-primary/20"
               >
                 <Download className="w-5 h-5" />

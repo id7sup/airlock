@@ -23,7 +23,9 @@ export async function getLinkLogsAction(linkId: string, folderName: string, limi
   const analytics = await getLinkAnalyticsWithGeolocation(linkId, 365); // 1 an de données
   
   // Convertir les analytics en format de logs compatible avec LogsPageClient
+  // Exclure LINK_PREVIEW car c'est juste pour les bots de prévisualisation, pas pour les vrais utilisateurs
   const logs = analytics
+    .filter((event) => event.eventType !== "LINK_PREVIEW") // Exclure les prévisualisations de bots
     .slice(0, limit)
     .map((event) => {
       // Mapper les eventType vers NotificationType
@@ -42,7 +44,9 @@ export async function getLinkLogsAction(linkId: string, folderName: string, limi
           type = "PASSWORD_DENIED";
           break;
         default:
-          type = "VIEW";
+          // Ne pas mapper les autres types vers VIEW pour éviter les doublons
+          // Si un nouveau type apparaît, il sera ignoré plutôt que d'être compté comme VIEW
+          return null;
       }
       
       return {
@@ -54,11 +58,31 @@ export async function getLinkLogsAction(linkId: string, folderName: string, limi
           fileId: event.fileId,
           fileName: event.fileName,
           linkId: event.linkId,
+          // Données de géolocalisation
+          country: event.country,
+          city: event.city,
+          region: event.region,
+          // Données réseau
+          ip: event.ip,
+          isp: event.isp,
+          asn: event.asn,
+          // Sécurité
+          isVPN: event.isVPN,
+          isDatacenter: event.isDatacenter,
+          visitor_confidence: event.visitor_confidence,
+          js_seen: event.js_seen,
+          // User Agent
+          userAgent: event.userAgent,
+          // Visitor ID pour le filtrage
+          visitorId: event.visitorId,
+          // Event type original
+          eventType: event.eventType,
         },
         createdAt: event.timestamp,
         isRead: false,
       };
-    });
+    })
+    .filter((log): log is NonNullable<typeof log> => log !== null); // Filtrer les null
   
   return logs;
 }

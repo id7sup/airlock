@@ -507,17 +507,21 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
       message: `Le lien de partage "${linkData.folderName}" sera définitivement supprimé ainsi que toutes ses données d'analytics. Cette action est irréversible.`,
       isDestructive: true,
       onConfirm: async () => {
+        setUpdating(true);
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         try {
           await deleteShareLinkAction(linkData.id);
-          // Utiliser window.location pour forcer une navigation complète et éviter le rechargement de la page
+          // Attendre un peu pour que la suppression soit bien propagée
+          await new Promise(resolve => setTimeout(resolve, 500));
+          // Utiliser window.location pour forcer une navigation complète
           window.location.href = "/dashboard/sharing";
-        } catch (error) {
+        } catch (error: any) {
+          setUpdating(false);
           setErrorModal({
             isOpen: true,
             title: "Erreur",
-            message: "Erreur lors de la suppression",
+            message: error?.message || "Erreur lors de la suppression du lien. Veuillez réessayer.",
           });
-          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         }
       },
     });
@@ -1338,16 +1342,13 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
         )}
 
         {activeTab === "Logs" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-black">Logs</h2>
-              {loadingLogs && (
-                <div className="text-xs text-black/50 flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Chargement...
-                </div>
-              )}
-            </div>
+          <div>
+            {loadingLogs && (
+              <div className="mb-4 text-xs text-black/50 flex items-center gap-2 justify-end">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Chargement...
+              </div>
+            )}
             <LogsPageClient
               initialLogs={logs}
               linkContext={{ folderId: linkData.folderId, folderName: linkData.folderName }}
