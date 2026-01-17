@@ -143,7 +143,7 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
   const currentEvent = events[0];
   
   // Vérifier si c'est un cluster de localisation exacte avec plusieurs visiteurs
-  const isExactLocationCluster = detail && "pointCount" in detail && (detail as any).pointCount > 1;
+  const isExactLocationCluster = isCluster && events.length > 1;
 
   const eventType = currentEvent?.eventType || currentEvent?.type;
   const userInfo = currentEvent ? parseUserAgent(currentEvent.userAgent || "") : null;
@@ -365,10 +365,10 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                 </div>
 
                 {/* Section 3: Identité - Qui */}
-                {isExactLocationCluster && events.length > 1 ? (
+                {isExactLocationCluster ? (
                   <div className="mb-6">
                     <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40 mb-3">
-                      {events.length} visiteurs uniques à cette localisation
+                      {events.length} visiteurs uniques à cette localisation exacte
                     </h3>
                     <div className="space-y-2 max-h-[300px] overflow-y-auto">
                       {events.map((event, idx) => {

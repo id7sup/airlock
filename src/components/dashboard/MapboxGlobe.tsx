@@ -177,28 +177,16 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
   }, [points]);
 
   // 3. Obtenir les nodes (clusters ou points) selon le zoom
-  // Logique améliorée basée sur la distance visible à l'écran
+  // Logique Snap Map-like : basée sur la séparation visuelle en pixels, pas sur des seuils de zoom
   const getNodes = (zoom: number, bbox: [number, number, number, number]) => {
     if (!index || !map.current) return [];
     
-    // Calculer la distance visible à l'écran en degrés
-    const west = bbox[0];
-    const east = bbox[2];
-    const south = bbox[1];
-    const north = bbox[3];
+    // Seuil de séparation visuelle en pixels (Snap Map-like)
+    // Si deux points sont à plus de 40px l'un de l'autre, on peut les distinguer
+    const MIN_PIXEL_SEPARATION = 40;
     
-    // Distance horizontale et verticale en degrés
-    const latRange = north - south;
-    const lngRange = east - west;
-    
-    // Estimer la distance minimale visible entre deux points (en degrés)
-    // À zoom élevé, cette distance est petite, donc on peut distinguer des points proches
-    // À zoom faible, cette distance est grande, donc on clusterise les points proches
-    const minVisibleDistance = Math.min(latRange, lngRange) * 0.02; // 2% de la vue
-    
-    // Convertir le zoom Mapbox en zoom Supercluster
+    // Convertir le zoom Mapbox en zoom Supercluster (approximation pour obtenir les clusters initiaux)
     let superclusterZoom: number;
-    
     if (zoom < 1.5) {
       superclusterZoom = Math.floor(zoom * 3);
     } else if (zoom < 3) {
@@ -206,78 +194,19 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
     } else if (zoom < 5) {
       superclusterZoom = Math.floor(zoom * 2);
     } else {
-      superclusterZoom = 14; // Décomposition complète
+      superclusterZoom = 14; // Décomposition complète pour Supercluster
     }
-    
     superclusterZoom = Math.min(Math.max(superclusterZoom, 0), 14);
     
     // Obtenir les clusters/points depuis Supercluster
     const raw = index.getClusters(bbox, superclusterZoom);
     
-    // Traiter les résultats selon le zoom et la distance visible
+    // Traiter les résultats selon la séparation visuelle en pixels
     const result: any[] = [];
     
     for (const node of raw) {
       if (node.properties?.cluster) {
         const pointCount = node.properties.point_count || 0;
-        
-        // RÈGLE SPÉCIALE : Les clusters de localisation exacte ne se décomposent JAMAIS
-        if (node.properties.exactLocationCluster === true) {
-          // Ce cluster représente plusieurs visiteurs à la même localisation exacte
-          // On le garde toujours comme cluster, même au zoom maximum
-          result.push(node);
-          continue;
-        }
-        
-        // Détecter si c'est un cluster de localisation exacte (même coordonnées)
-        // En décomposant le cluster, on vérifie si tous les points ont les mêmes coordonnées
-        if (zoom >= 6 || (zoom >= 4.5 && pointCount <= 5)) {
-          const clusterId = node.properties.cluster_id;
-          const leaves = index.getLeaves(clusterId, Infinity);
-          
-          // Vérifier si tous les points ont exactement les mêmes coordonnées
-          if (leaves.length > 1) {
-            const firstCoords = leaves[0].geometry.coordinates;
-            const allSameLocation = leaves.every((leaf: any) => {
-              const coords = leaf.geometry.coordinates;
-              return Math.abs(coords[0] - firstCoords[0]) < 0.000001 && 
-                     Math.abs(coords[1] - firstCoords[1]) < 0.000001;
-            });
-            
-            if (allSameLocation) {
-              // Tous les points sont à la même localisation exacte
-              // Créer un cluster spécial qui ne se décomposera jamais
-              const visitors = leaves.map((leaf: any) => {
-                const props = leaf.properties;
-                return {
-                  visitorId: props.visitorId,
-                  eventId: props.eventId,
-                  timestamp: props.timestamp,
-                  type: props.type,
-                  country: props.country,
-                  city: props.city,
-                  region: props.region,
-                  ip: props.ip,
-                  userAgent: props.userAgent,
-                  isDatacenter: props.isDatacenter,
-                  isVPN: props.isVPN,
-                  location_quality: props.location_quality,
-                  accuracy_radius_km: props.accuracy_radius_km,
-                };
-              });
-              
-              result.push({
-                ...node,
-                properties: {
-                  ...node.properties,
-                  exactLocationCluster: true,
-                  visitors: visitors,
-                },
-              });
-              continue;
-            }
-          }
-        }
         
         // RÈGLE ABSOLUE : Un seul point ne doit JAMAIS être un cluster
         if (pointCount <= 1) {
@@ -285,45 +214,114 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           const leaves = index.getLeaves(clusterId, Infinity);
           if (leaves.length > 0) {
             result.push(...leaves);
-          } else {
-            const [lng, lat] = (node.geometry as any).coordinates;
-            const matchingPoint = points.find(p => {
-              const [pLng, pLat] = p.geometry.coordinates;
-              return Math.abs(pLng - lng) < 0.001 && Math.abs(pLat - lat) < 0.001;
-            });
-            if (matchingPoint) {
-              result.push(matchingPoint);
-            }
           }
           continue;
         }
         
-        // RÈGLE 2 : À zoom très élevé (>= 6), toujours décomposer complètement
-        if (zoom >= 6) {
-          const clusterId = node.properties.cluster_id;
-          const leaves = index.getLeaves(clusterId, Infinity);
-          result.push(...leaves);
-        } 
-        // RÈGLE 3 : À zoom élevé (4.5-6), décomposer les petits clusters (2-5 points)
-        else if (zoom >= 4.5 && pointCount <= 5) {
-          const clusterId = node.properties.cluster_id;
-          const leaves = index.getLeaves(clusterId, Infinity);
-          result.push(...leaves);
+        // Obtenir toutes les feuilles (points) de ce cluster
+        const clusterId = node.properties.cluster_id;
+        const leaves = index.getLeaves(clusterId, Infinity);
+        
+        // Vérifier si tous les points ont exactement les mêmes coordonnées (localisation exacte)
+        if (leaves.length > 1) {
+          const firstCoords = leaves[0].geometry.coordinates;
+          const EPSILON = 0.000001; // ~10cm de précision
+          const allSameLocation = leaves.every((leaf: any) => {
+            const coords = leaf.geometry.coordinates;
+            return Math.abs(coords[0] - firstCoords[0]) < EPSILON && 
+                   Math.abs(coords[1] - firstCoords[1]) < EPSILON;
+          });
+          
+          // CAS SPÉCIAL : Localisation exacte (mêmes coordonnées) - cluster persistant
+          if (allSameLocation) {
+            // Ce cluster ne se décompose JAMAIS, même au zoom maximum
+            // Il représente plusieurs visiteurs à la même localisation exacte
+            const visitors = leaves.map((leaf: any) => {
+              const props = leaf.properties;
+              // Récupérer les propriétés depuis le point original
+              const [lng, lat] = leaf.geometry.coordinates;
+              const originalPoint = points.find(p => {
+                const [pLng, pLat] = p.geometry.coordinates;
+                return Math.abs(pLng - lng) < 0.0001 && Math.abs(pLat - lat) < 0.0001;
+              });
+              
+              if (originalPoint) {
+                return {
+                  visitorId: originalPoint.properties.visitorId,
+                  eventId: originalPoint.properties.eventId,
+                  timestamp: originalPoint.properties.timestamp,
+                  type: originalPoint.properties.type,
+                  country: originalPoint.properties.country,
+                  city: originalPoint.properties.city,
+                  region: originalPoint.properties.region,
+                  ip: originalPoint.properties.ip,
+                  userAgent: originalPoint.properties.userAgent,
+                  isDatacenter: originalPoint.properties.isDatacenter,
+                  isVPN: originalPoint.properties.isVPN,
+                  location_quality: originalPoint.properties.location_quality,
+                  accuracy_radius_km: originalPoint.properties.accuracy_radius_km,
+                };
+              }
+              
+              return {
+                visitorId: props.visitorId || "",
+                eventId: props.eventId || "",
+                timestamp: props.timestamp || new Date().toISOString(),
+                type: props.type || "VIEW",
+                country: props.country || "Inconnu",
+                city: props.city || "Inconnu",
+                region: props.region || "",
+                ip: props.ip || null,
+                userAgent: props.userAgent || "",
+                isDatacenter: props.isDatacenter || false,
+                isVPN: props.isVPN || false,
+                location_quality: props.location_quality || "unknown",
+                accuracy_radius_km: props.accuracy_radius_km || null,
+              };
+            });
+            
+            result.push({
+              ...node,
+              properties: {
+                ...node.properties,
+                exactLocationCluster: true, // Marqueur pour cluster persistant
+                visitors: visitors, // Liste des visiteurs pour l'affichage
+              } as any,
+            });
+            continue;
+          }
         }
-        // RÈGLE 4 : À zoom moyen-élevé (3.5-4.5), décomposer les très petits clusters (2-3 points)
-        else if (zoom >= 3.5 && pointCount <= 3) {
-          const clusterId = node.properties.cluster_id;
-          const leaves = index.getLeaves(clusterId, Infinity);
-          result.push(...leaves);
-        }
-        // RÈGLE 5 : À zoom moyen (2.5-3.5), décomposer uniquement les clusters de 2 points
-        else if (zoom >= 2.5 && pointCount === 2) {
-          const clusterId = node.properties.cluster_id;
-          const leaves = index.getLeaves(clusterId, Infinity);
-          result.push(...leaves);
-        }
-        // RÈGLE 6 : À zoom faible (< 2.5), garder les clusters avec au moins 2 points
-        else {
+        
+        // CAS NORMAL : Vérifier la séparation visuelle en pixels (logique Snap Map)
+        // Si les points peuvent être distingués à l'écran, on décompose le cluster
+        if (leaves.length > 1 && map.current) {
+          // Projeter les coordonnées des feuilles en pixels
+          const pixelPositions = leaves.map((leaf: any) => {
+            const [lng, lat] = leaf.geometry.coordinates;
+            return map.current!.project([lng, lat]);
+          });
+          
+          // Calculer la distance minimale entre deux points en pixels
+          let minPixelDistance = Infinity;
+          for (let i = 0; i < pixelPositions.length; i++) {
+            for (let j = i + 1; j < pixelPositions.length; j++) {
+              const dx = pixelPositions[i].x - pixelPositions[j].x;
+              const dy = pixelPositions[i].y - pixelPositions[j].y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              minPixelDistance = Math.min(minPixelDistance, distance);
+            }
+          }
+          
+          // RÈGLE SNAP MAP : Si les points sont séparables visuellement (> 40px), on décompose
+          if (minPixelDistance > MIN_PIXEL_SEPARATION) {
+            // Les points sont suffisamment séparés, on les affiche individuellement
+            result.push(...leaves);
+          } else {
+            // Les points sont trop proches, on garde le cluster
+            result.push(node);
+          }
+        } else {
+          // Pas assez de feuilles ou map non disponible, garder le cluster
           result.push(node);
         }
       } else {
@@ -354,6 +352,18 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
   // 4. Mettre à jour la carte avec les nodes
   const updateMap = () => {
     if (!map.current || !index || !map.current.loaded()) return;
+
+    // RÈGLE D'OR : Zéro data = zéro features (reset complet)
+    if (analytics.length === 0 || points.length === 0) {
+      const source = map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource;
+      if (source) {
+        source.setData({
+          type: "FeatureCollection",
+          features: [],
+        });
+      }
+      return;
+    }
 
     const zoom = map.current.getZoom();
     const bounds = map.current.getBounds();
@@ -603,12 +613,13 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       setIsDrawerOpen(true);
     };
 
-    // Clic sur cluster = zoom ou afficher les visiteurs
+    // Clic sur cluster = zoom modéré ou afficher les visiteurs (logique Snap Map)
     map.current.on("click", "clusters", (e) => {
       const feature = e.features?.[0];
       if (!feature || !feature.properties || isAnimatingRef.current || !map.current) return;
 
-      // Si c'est un cluster de localisation exacte, afficher tous les visiteurs
+      // CAS SPÉCIAL : Cluster de localisation exacte (mêmes coordonnées)
+      // On ouvre directement le tiroir avec la liste des visiteurs, pas de zoom
       if (feature.properties.exactLocationCluster === true && feature.properties.visitors) {
         const visitors = feature.properties.visitors;
         setSelectedDetail({
@@ -635,7 +646,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         return;
       }
 
-      // Sinon, c'est un cluster normal - zoomer
+      // CAS NORMAL : Cluster standard - zoom modéré et progressif (Snap Map-like)
       if (!index) return;
       
       const clusterId = feature.properties.cluster_id;
@@ -644,27 +655,25 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       // Obtenir le zoom d'expansion recommandé par Supercluster
       const expansionZoom = index.getClusterExpansionZoom(clusterId);
       
-      // Ajuster le zoom de manière modérée - ne pas zoomer trop
-      // On veut juste voir la zone du cluster, pas zoomer au maximum
+      // ZOOM MODÉRÉ : Snap Map ne zoom pas de manière agressive
+      // On zoom juste assez pour comprendre la zone (1 à 1.5 niveaux max)
       const currentZoom = map.current.getZoom();
-      let targetZoom = expansionZoom;
+      let targetZoom = Math.min(currentZoom + 1.5, expansionZoom);
       
-      // Réduire le zoom pour éviter de zoomer trop
-      if (pointCount <= 5) {
-        // Pour les petits clusters, zoomer modérément
-        targetZoom = Math.min(currentZoom + 1.5, expansionZoom, 10);
-      } else if (pointCount <= 10) {
-        // Pour les clusters moyens, zoomer un peu moins
-        targetZoom = Math.min(currentZoom + 1, expansionZoom, 9);
-      } else {
-        // Pour les gros clusters, zoomer encore moins
-        targetZoom = Math.min(currentZoom + 0.5, expansionZoom, 8);
+      // Pour les très gros clusters, zoomer encore moins
+      if (pointCount > 20) {
+        targetZoom = Math.min(currentZoom + 1, expansionZoom);
+      } else if (pointCount > 10) {
+        targetZoom = Math.min(currentZoom + 1.2, expansionZoom);
       }
       
-      // S'assurer qu'on ne zoom pas en arrière
+      // Ne jamais zoomer en arrière
       if (targetZoom < currentZoom) {
         targetZoom = currentZoom + 0.5;
       }
+      
+      // Limiter le zoom maximum pour éviter les jumps trop agressifs
+      targetZoom = Math.min(targetZoom, 12);
       
       const [lng, lat] = (feature.geometry as any).coordinates;
 
@@ -674,16 +683,21 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       }, 150);
       isAnimatingRef.current = true;
 
+      // Animation fluide avec easing doux (Snap Map-like)
       map.current!.flyTo({
         center: [lng, lat],
         zoom: targetZoom,
-        duration: 800,
+        duration: 600, // Animation plus rapide et fluide
+        easing: (t: number) => {
+          // Easing personnalisé pour un effet plus doux
+          return t * (2 - t);
+        },
       });
 
       setTimeout(() => {
         updateMap();
         isAnimatingRef.current = false;
-      }, 850);
+      }, 650);
     });
 
     // Clic sur point via la couche hit (PRIORITAIRE)
