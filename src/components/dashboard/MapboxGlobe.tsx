@@ -320,44 +320,48 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           return;
         }
 
-        // Cluster normal : zoom modéré avec getClusterExpansionZoom
+        // Cluster normal : zoom modéré avec getClusterExpansionZoom (asynchrone)
         const source = map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource;
-        const expansionZoom = source.getClusterExpansionZoom(clusterId);
         
-        const currentZoom = map.current.getZoom();
-        // Zoom modéré : +1 à +1.5 niveaux max (Snap Map-like)
-        let targetZoom = Math.min(currentZoom + 1.5, expansionZoom);
-        
-        // Pour les très gros clusters, zoomer encore moins
-        if (pointCount > 20) {
-          targetZoom = Math.min(currentZoom + 1, expansionZoom);
-        }
-        
-        // Ne jamais zoomer en arrière
-        if (targetZoom < currentZoom) {
-          targetZoom = currentZoom + 0.5;
-        }
-        
-        // Limiter le zoom maximum
-        targetZoom = Math.min(targetZoom, 12);
+        // getClusterExpansionZoom est asynchrone et retourne une Promise
+        source.getClusterExpansionZoom(clusterId, (error, expansionZoom) => {
+          if (error || !map.current || typeof expansionZoom !== 'number') return;
+          
+          const currentZoom = map.current.getZoom();
+          // Zoom modéré : +1 à +1.5 niveaux max (Snap Map-like)
+          let targetZoom = Math.min(currentZoom + 1.5, expansionZoom);
+          
+          // Pour les très gros clusters, zoomer encore moins
+          if (pointCount > 20) {
+            targetZoom = Math.min(currentZoom + 1, expansionZoom);
+          }
+          
+          // Ne jamais zoomer en arrière
+          if (targetZoom < currentZoom) {
+            targetZoom = currentZoom + 0.5;
+          }
+          
+          // Limiter le zoom maximum
+          targetZoom = Math.min(targetZoom, 12);
 
-        setIsDrawerOpen(false);
-        setTimeout(() => {
-          setSelectedDetail(null);
-        }, 150);
-        
-        isAnimatingRef.current = true;
+          setIsDrawerOpen(false);
+          setTimeout(() => {
+            setSelectedDetail(null);
+          }, 150);
+          
+          isAnimatingRef.current = true;
 
-        map.current.flyTo({
-          center: [lng, lat],
-          zoom: targetZoom,
-          duration: 600,
-          easing: (t: number) => t * (2 - t), // Easing doux
+          map.current.flyTo({
+            center: [lng, lat],
+            zoom: targetZoom,
+            duration: 600,
+            easing: (t: number) => t * (2 - t), // Easing doux
+          });
+
+          setTimeout(() => {
+            isAnimatingRef.current = false;
+          }, 650);
         });
-
-        setTimeout(() => {
-          isAnimatingRef.current = false;
-        }, 650);
       });
 
       // Handler pour clic sur POINT
