@@ -9,7 +9,10 @@ import {
   ShieldAlert,
   ChevronDown,
   ChevronUp,
+  ArrowLeft,
+  User,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { NotificationType } from "@/services/notifications";
 
 const PRIMARY = "#96A982";
@@ -29,6 +32,7 @@ type LogsPageClientProps = {
     folderId: string;
     folderName: string;
   } | null;
+  visitorId?: string | null;
 };
 
 const typeConfig: Record<NotificationType, { label: string; icon: ReactElement; tone: string }> = {
@@ -110,7 +114,8 @@ function formatDateLabel(dateString: string) {
 type SortField = "date" | "type" | "details";
 type SortDirection = "asc" | "desc";
 
-export function LogsPageClient({ initialLogs, linkContext }: LogsPageClientProps) {
+export function LogsPageClient({ initialLogs, linkContext, visitorId }: LogsPageClientProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<NotificationType | "ALL">("ALL");
   const [period, setPeriod] = useState<"7d" | "30d" | "90d">("30d");
@@ -211,9 +216,44 @@ export function LogsPageClient({ initialLogs, linkContext }: LogsPageClientProps
 
   return (
     <div
-      className="w-full"
+      className="w-full p-8 max-w-7xl mx-auto"
       style={{ ["--primary" as string]: PRIMARY, ["--secondary" as string]: SECONDARY }}
     >
+      {/* En-tête avec bouton retour */}
+      <div className="mb-6">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-2 text-sm font-medium text-black/60 hover:text-black transition-colors mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Retour
+        </button>
+        
+        {visitorId && (
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-[--primary]/10 flex items-center justify-center">
+              <User className="w-6 h-6 text-[--primary]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold text-black">Activité du visiteur</h1>
+              <p className="text-sm text-black/50 font-mono mt-1">{visitorId}</p>
+              <p className="text-sm text-black/40 mt-1">
+                {filtered.length} {filtered.length === 1 ? "événement" : "événements"} trouvé{filtered.length > 1 ? "s" : ""}
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {!visitorId && (
+          <div className="mb-6">
+            <h1 className="text-2xl font-semibold text-black">Logs d'activité</h1>
+            <p className="text-sm text-black/50 mt-1">
+              Historique complet des événements de partage
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Tableau */}
       <div className="bg-white border border-[--secondary]/60 rounded-3xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">

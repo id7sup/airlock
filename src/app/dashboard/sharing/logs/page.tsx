@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function LogsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ linkId?: string }>;
+  searchParams: Promise<{ linkId?: string; visitorId?: string }>;
 }) {
   const { userId } = await auth();
   if (!userId) {
@@ -18,25 +18,36 @@ export default async function LogsPage({
 
   const params = await searchParams;
   const linkId = params?.linkId;
+  const visitorId = params?.visitorId;
 
-  const [logs, linkContext] = await Promise.all([
-    getNotifications(userId, 200),
-    (async () => {
-      if (!linkId) return null;
-      try {
-        const doc = await db.collection("shareLinks").doc(linkId).get();
-        if (!doc.exists) return null;
-        const data = doc.data() || {};
-        return {
-          folderId: data.folderId,
-          folderName: data.folderName || data.folder?.name || "Partage",
-        };
-      } catch (error) {
-        console.error("[LOGS] Impossible de récupérer le lien", error);
-        return null;
-      }
-    })(),
-  ]);
+  // Si visitorId est fourni, récupérer les logs depuis shareAnalytics
+  let logs: any[] = [];
+  if (visitorId) {
+    try {
+      const { getVisitorLogsAction } = await import("@/lib/actions/notifications");
+      logs = await getVisitorLogsAction(visitorId, userId);
+    } catch (error) {
+      console.error("[LOGS] Erreur lors de la récupération des logs du visiteur:", error);
+    }
+  } else {
+    // Sinon, utiliser les notifications classiques
+    logs = await getNotifications(userId, 200);
+  }
 
-  return <LogsPageClient initialLogs={logs as any[]} linkContext={linkContext} />;
+  const linkContext = linkId ? (async () => {
+    try {
+      const doc = await db.collection("shareLinks").doc(linkId).get();
+      if (!doc.exists) return null;
+      const data = doc.data() || {};
+      return {
+        folderId: data.folderId,
+        folderName: data.folderName || data.folder?.name || "Partage",
+      };
+    } catch (error) {
+      console.error("[LOGS] Impossible de récupérer le lien", error);
+      return null;
+    }
+  })() : null;
+
+  return <LogsPageClient initialLogs={logs as any[]} linkContext={await linkContext} visitorId={visitorId} />;
 }

@@ -343,12 +343,20 @@ export async function getAllLinksAnalyticsWithGeolocation(userId: string, days: 
   startDate.setDate(startDate.getDate() - days);
 
   try {
-    // Récupérer tous les liens de l'utilisateur
+    // Récupérer tous les liens actifs de l'utilisateur (non révoqués et non supprimés)
     const linksSnapshot = await db.collection("shareLinks")
       .where("creatorId", "==", userId)
       .get();
 
-    const linkIds = linksSnapshot.docs.map(doc => doc.id);
+    // Filtrer pour ne garder que les liens actifs (non révoqués)
+    const activeLinkIds = linksSnapshot.docs
+      .filter(doc => {
+        const data = doc.data();
+        return data.isRevoked !== true; // Exclure les liens révoqués
+      })
+      .map(doc => doc.id);
+
+    const linkIds = activeLinkIds;
 
     if (linkIds.length === 0) {
       return [];

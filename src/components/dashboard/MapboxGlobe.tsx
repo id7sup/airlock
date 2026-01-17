@@ -152,15 +152,16 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
   }, [analytics]);
 
   // 2. Indexer avec Supercluster
-  // IMPORTANT : radius adaptatif basé sur la distance visible à l'écran
-  // On utilise un radius plus petit pour éviter les clusters inutiles
+  // IMPORTANT : radius très réduit pour éviter les clusters qui se touchent
+  // On utilise un radius minimal pour ne clusteriser que les points vraiment superposés
   const index = useMemo(() => {
     if (points.length === 0) return null;
     const sc = new Supercluster({
-      radius: 30, // Radius réduit pour ne clusteriser que les points vraiment proches
+      radius: 20, // Radius très réduit pour éviter les clusters qui se touchent
       maxZoom: 14, // Zoom maximum pour le clustering
       minZoom: 0,
       extent: 512, // Taille de tuile standard
+      minPoints: 2, // Minimum 2 points pour créer un cluster
     });
     sc.load(points);
     return sc;
@@ -230,19 +231,25 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           continue;
         }
         
-        // RÈGLE 2 : À zoom élevé (>= 4), toujours décomposer
-        if (zoom >= 4) {
+        // RÈGLE 2 : À zoom élevé (>= 5), toujours décomposer complètement
+        if (zoom >= 5) {
           const clusterId = node.properties.cluster_id;
           const leaves = index.getLeaves(clusterId, Infinity);
           result.push(...leaves);
         } 
-        // RÈGLE 3 : À zoom moyen (2.5-4), décomposer les petits clusters
+        // RÈGLE 3 : À zoom moyen-élevé (3.5-5), décomposer les petits clusters (2-5 points)
+        else if (zoom >= 3.5 && pointCount <= 5) {
+          const clusterId = node.properties.cluster_id;
+          const leaves = index.getLeaves(clusterId, Infinity);
+          result.push(...leaves);
+        }
+        // RÈGLE 4 : À zoom moyen (2.5-3.5), décomposer les très petits clusters (2-3 points)
         else if (zoom >= 2.5 && pointCount <= 3) {
           const clusterId = node.properties.cluster_id;
           const leaves = index.getLeaves(clusterId, Infinity);
           result.push(...leaves);
         }
-        // RÈGLE 4 : À zoom faible, garder les clusters avec au moins 2 points
+        // RÈGLE 5 : À zoom faible (< 2.5), garder les clusters avec au moins 2 points
         else {
           result.push(node);
         }
@@ -524,12 +531,14 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       // Obtenir le zoom d'expansion recommandé par Supercluster
       const expansionZoom = index.getClusterExpansionZoom(clusterId);
       
-      // Ajuster le zoom pour s'assurer qu'on peut distinguer les points
-      // Si c'est un petit cluster (2-5 points), zoomer un peu plus pour bien les séparer
-      // Si c'est un gros cluster, utiliser le zoom d'expansion tel quel
+      // Ajuster le zoom pour s'assurer qu'on peut distinguer les points ou sous-clusters
+      // Zoomer jusqu'à ce qu'on puisse voir distinctement les points individuels ou les sous-clusters
       let targetZoom = expansionZoom;
       if (pointCount <= 5) {
-        // Pour les petits clusters, zoomer un peu plus pour bien distinguer les points
+        // Pour les petits clusters, zoomer suffisamment pour voir tous les points distinctement
+        targetZoom = Math.min(expansionZoom + 2, 12);
+      } else if (pointCount <= 10) {
+        // Pour les clusters moyens, zoomer pour voir les sous-clusters
         targetZoom = Math.min(expansionZoom + 1, 12);
       } else {
         // Pour les gros clusters, utiliser le zoom d'expansion recommandé
