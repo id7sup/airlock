@@ -139,42 +139,48 @@ export async function getVisitorLogsAction(visitorId: string, userId: string, li
   // Récupérer tous les analytics pour ce visiteur sur tous les liens de l'utilisateur
   const allAnalytics: any[] = [];
   
-  // D'abord, collecter tous les analytics pour trouver le visitorIdStable correspondant
-  // si le visitorId passé est un visitorId rotatif
-  let targetVisitorIdStable: string | null = null;
+  // Collecter tous les analytics de tous les liens
   const tempAnalytics: any[] = [];
   
   for (const linkId of linkIds) {
     try {
       const analytics = await getLinkAnalyticsWithGeolocation(linkId, 365); // 1 an de données
       tempAnalytics.push(...analytics);
-      
-      // Chercher si le visitorId passé correspond à un visitorIdStable
-      if (!targetVisitorIdStable) {
-        const matchingStable = analytics.find(a => 
-          a.visitorIdStable && String(a.visitorIdStable) === String(visitorId)
-        );
-        if (matchingStable?.visitorIdStable) {
-          targetVisitorIdStable = String(matchingStable.visitorIdStable);
-        }
-      }
     } catch (error) {
       console.error(`[VISITOR_LOGS] Erreur pour le lien ${linkId}:`, error);
     }
   }
   
-  // Si on a trouvé un visitorIdStable correspondant, utiliser celui-ci pour regrouper tous les logs
-  // Sinon, le visitorId passé est peut-être déjà un visitorIdStable ou c'est un visitorId rotatif
-  const searchByStable = targetVisitorIdStable || visitorId;
+  // Trouver le visitorIdStable correspondant au visitorId passé
+  // Le visitorId passé peut être soit un visitorId rotatif, soit un visitorIdStable
+  let targetVisitorIdStable: string | null = null;
   
-  // Filtrer par visitorIdStable (pour regrouper tous les logs même si le sel rotatif change)
-  // Fallback sur visitorId si visitorIdStable n'existe pas (anciens logs)
-  allAnalytics.push(...tempAnalytics.filter(a => {
-    // Priorité à visitorIdStable (nouveau système)
-    if (a.visitorIdStable) {
-      return String(a.visitorIdStable) === String(searchByStable);
+  // D'abord, vérifier si le visitorId passé est déjà un visitorIdStable
+  const directMatch = tempAnalytics.find(a => 
+    a.visitorIdStable && String(a.visitorIdStable) === String(visitorId)
+  );
+  if (directMatch?.visitorIdStable) {
+    targetVisitorIdStable = String(directMatch.visitorIdStable);
+  } else {
+    // Sinon, chercher si le visitorId passé est un visitorId rotatif
+    // et trouver le visitorIdStable associé
+    const matchingRotating = tempAnalytics.find(a => 
+      a.visitorId && String(a.visitorId) === String(visitorId)
+    );
+    if (matchingRotating?.visitorIdStable) {
+      targetVisitorIdStable = String(matchingRotating.visitorIdStable);
     }
-    // Fallback sur visitorId pour les anciens logs ou si visitorIdStable n'existe pas
+  }
+  
+  // Filtrer les analytics : chercher par visitorIdStable si trouvé, sinon par visitorId
+  const searchId = targetVisitorIdStable || visitorId;
+  
+  allAnalytics.push(...tempAnalytics.filter(a => {
+    // Si on a un visitorIdStable cible, chercher par visitorIdStable
+    if (targetVisitorIdStable) {
+      return a.visitorIdStable && String(a.visitorIdStable) === String(targetVisitorIdStable);
+    }
+    // Sinon, chercher par visitorId (anciens logs sans visitorIdStable)
     return a.visitorId && String(a.visitorId) === String(visitorId);
   }));
   

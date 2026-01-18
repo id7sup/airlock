@@ -278,7 +278,10 @@ export function LogsPageClient({ initialLogs, linkContext, visitorId }: LogsPage
             </div>
             <div>
               <h1 className="text-2xl font-semibold text-black">Activité du visiteur</h1>
-              <p className="text-sm text-black/50 font-mono mt-1">{visitorId}</p>
+              <p className="text-sm text-black/50 font-mono mt-1 break-all">{visitorId}</p>
+              <p className="text-xs text-black/40 mt-1">
+                Identifiant anonyme (hash SHA-256 de l'IP + User-Agent)
+              </p>
               <p className="text-sm text-black/40 mt-1">
                 {filtered.length} {filtered.length === 1 ? "événement" : "événements"} trouvé{filtered.length > 1 ? "s" : ""}
               </p>

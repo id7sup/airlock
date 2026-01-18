@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Eye, Download, Lock, MapPin, Clock, Monitor, FileText, AlertCircle } from "lucide-react";
+import { X, Eye, Download, Lock, MapPin, Clock, Monitor, FileText, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -108,6 +108,7 @@ function getTimeAgo(date: Date): string {
 
 export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetailCardProps) {
   const [mounted, setMounted] = useState(false);
+  const [currentVisitorIndex, setCurrentVisitorIndex] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -145,9 +146,30 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
   // Vérifier si c'est un cluster de localisation exacte avec plusieurs visiteurs
   const isExactLocationCluster = isCluster && events.length > 1;
 
-  const eventType = currentEvent?.eventType || currentEvent?.type;
-  const userInfo = currentEvent ? parseUserAgent(currentEvent.userAgent || "") : null;
-  const timestamp = currentEvent ? new Date(currentEvent.timestamp) : null;
+  // Réinitialiser l'index du carrousel quand les événements changent
+  useEffect(() => {
+    if (isExactLocationCluster) {
+      setCurrentVisitorIndex(0);
+    }
+  }, [isExactLocationCluster, events.length]);
+
+  // Navigation du carrousel
+  const goToPrevious = () => {
+    setCurrentVisitorIndex((prev) => (prev === 0 ? events.length - 1 : prev - 1));
+  };
+
+  const goToNext = () => {
+    setCurrentVisitorIndex((prev) => (prev === events.length - 1 ? 0 : prev + 1));
+  };
+
+  const goToIndex = (index: number) => {
+    setCurrentVisitorIndex(index);
+  };
+
+  const currentVisitorEvent = isExactLocationCluster ? events[currentVisitorIndex] : currentEvent;
+  const userInfo = currentVisitorEvent ? parseUserAgent(currentVisitorEvent.userAgent || "") : null;
+  const timestamp = currentVisitorEvent ? new Date(currentVisitorEvent.timestamp) : null;
+  const eventType = currentVisitorEvent?.eventType || "";
 
   let eventLabel = "Vue";
   let eventIcon = Eye;
@@ -208,7 +230,7 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
           <div className="relative border-b border-black/[0.06]">
             <div className="flex items-center justify-between px-8 py-6">
               <div className="flex items-center gap-4">
-                {currentEvent && (
+                {currentVisitorEvent && (
                   <div className="w-14 h-14 rounded-2xl flex items-center justify-center">
                     {eventIcon === Eye && <Eye className="w-7 h-7 text-[#96A982]" />}
                     {eventIcon === Download && <Download className="w-7 h-7 text-[#96A982]" />}
@@ -221,7 +243,7 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                     Détail en direct
                   </p>
                   <p className="text-2xl font-semibold tracking-tight text-black">
-                    {currentEvent ? eventLabel : "Aucun point"}
+                    {currentVisitorEvent ? eventLabel : "Aucun point"}
                   </p>
                 </div>
               </div>
@@ -244,7 +266,7 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
           </div>
 
           <div className="flex-1 overflow-hidden">
-            {currentEvent ? (
+            {currentVisitorEvent ? (
               <div className="h-full flex flex-col p-8">
                 {/* Section 1: Contexte - Quand et Où */}
                 <div className="grid grid-cols-2 gap-6 mb-8">
@@ -274,47 +296,47 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                       <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">Où</h3>
                     </div>
                     <div className="pl-7 space-y-0.5">
-                      {currentEvent.city ? (
+                      {currentVisitorEvent.city ? (
                         <>
                           <p className="text-sm font-semibold text-black leading-tight">
-                            {currentEvent.city || currentEvent.country || "Localisation inconnue"}
+                            {currentVisitorEvent.city || currentVisitorEvent.country || "Localisation inconnue"}
                           </p>
                           <p className="text-xs text-black/50">
-                            {[currentEvent.region, currentEvent.country].filter(Boolean).join(", ") || "Localisation inconnue"}
-                            {(currentEvent.isDatacenter || currentEvent.isVPN || currentEvent.location_quality) && (
+                            {[currentVisitorEvent.region, currentVisitorEvent.country].filter(Boolean).join(", ") || "Localisation inconnue"}
+                            {(currentVisitorEvent.isDatacenter || currentVisitorEvent.isVPN || currentVisitorEvent.location_quality) && (
                               <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-medium uppercase tracking-wider">
                                 <AlertCircle className="w-3 h-3" />
-                                {currentEvent.isDatacenter ? "Datacenter" :
-                                 currentEvent.isVPN ? "VPN/Proxy" :
-                                 currentEvent.location_quality === "hosting_or_datacenter" ? "Datacenter" :
-                                 currentEvent.location_quality === "vpn_or_anonymous_proxy" ? "VPN/Proxy" :
+                                {currentVisitorEvent.isDatacenter ? "Datacenter" :
+                                 currentVisitorEvent.isVPN ? "VPN/Proxy" :
+                                 currentVisitorEvent.location_quality === "hosting_or_datacenter" ? "Datacenter" :
+                                 currentVisitorEvent.location_quality === "vpn_or_anonymous_proxy" ? "VPN/Proxy" :
                                  "Position biaisée"}
                               </span>
                             )}
                           </p>
                           {/* Explication de la précision */}
-                          {(currentEvent.isDatacenter || currentEvent.isVPN || currentEvent.location_quality === "hosting_or_datacenter" || currentEvent.location_quality === "vpn_or_anonymous_proxy") && (
+                          {(currentVisitorEvent.isDatacenter || currentVisitorEvent.isVPN || currentVisitorEvent.location_quality === "hosting_or_datacenter" || currentVisitorEvent.location_quality === "vpn_or_anonymous_proxy") && (
                             <div className="mt-2 pl-7 space-y-1">
                               <p className="text-[10px] text-amber-700/80 leading-relaxed">
-                                {currentEvent.isDatacenter || currentEvent.location_quality === "hosting_or_datacenter" 
+                                {currentVisitorEvent.isDatacenter || currentVisitorEvent.location_quality === "hosting_or_datacenter" 
                                   ? "⚠️ La position indiquée correspond au datacenter du serveur, pas à la position réelle de l'utilisateur. La localisation peut être très éloignée (plusieurs centaines de kilomètres)."
-                                  : currentEvent.isVPN || currentEvent.location_quality === "vpn_or_anonymous_proxy"
+                                  : currentVisitorEvent.isVPN || currentVisitorEvent.location_quality === "vpn_or_anonymous_proxy"
                                   ? "⚠️ La position indiquée correspond au serveur VPN/Proxy utilisé, pas à la position réelle de l'utilisateur. La localisation peut être très éloignée (plusieurs centaines de kilomètres)."
                                   : "⚠️ La position peut être biaisée et ne pas correspondre à la localisation réelle de l'utilisateur."}
                               </p>
-                              {currentEvent.isp && (
+                              {currentVisitorEvent.isp && (
                                 <p className="text-[10px] text-amber-700/60 mt-1">
-                                  ISP: {currentEvent.isp}
+                                  ISP: {currentVisitorEvent.isp}
                                 </p>
                               )}
                             </div>
                           )}
-                          {currentEvent.accuracy_radius_km && !currentEvent.isDatacenter && !currentEvent.isVPN && currentEvent.location_quality === "residential_or_mobile" && (
+                          {currentVisitorEvent.accuracy_radius_km && !currentVisitorEvent.isDatacenter && !currentVisitorEvent.isVPN && currentVisitorEvent.location_quality === "residential_or_mobile" && (
                             <p className="text-[10px] text-black/40 mt-1 pl-7">
-                              Précision estimée : ± {currentEvent.accuracy_radius_km} km (localisation résidentielle/mobile)
+                              Précision estimée : ± {currentVisitorEvent.accuracy_radius_km} km (localisation résidentielle/mobile)
                             </p>
                           )}
-                          {!currentEvent.accuracy_radius_km && !currentEvent.isDatacenter && !currentEvent.isVPN && currentEvent.location_quality !== "residential_or_mobile" && (
+                          {!currentVisitorEvent.accuracy_radius_km && !currentVisitorEvent.isDatacenter && !currentVisitorEvent.isVPN && currentVisitorEvent.location_quality !== "residential_or_mobile" && (
                             <p className="text-[10px] text-black/40 mt-1 pl-7">
                               Précision non disponible pour cette localisation
                             </p>
@@ -322,14 +344,14 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                         </>
                       ) : (
                         <p className="text-sm font-semibold text-black leading-tight">
-                          {currentEvent.country || "Localisation inconnue"}
-                          {(currentEvent.isDatacenter || currentEvent.isVPN || currentEvent.location_quality) && (
+                          {currentVisitorEvent.country || "Localisation inconnue"}
+                          {(currentVisitorEvent.isDatacenter || currentVisitorEvent.isVPN || currentVisitorEvent.location_quality) && (
                             <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-medium uppercase tracking-wider">
                               <AlertCircle className="w-3 h-3" />
-                              {currentEvent.isDatacenter ? "Datacenter" :
-                               currentEvent.isVPN ? "VPN/Proxy" :
-                               currentEvent.location_quality === "hosting_or_datacenter" ? "Datacenter" :
-                               currentEvent.location_quality === "vpn_or_anonymous_proxy" ? "VPN/Proxy" :
+                              {currentVisitorEvent.isDatacenter ? "Datacenter" :
+                               currentVisitorEvent.isVPN ? "VPN/Proxy" :
+                               currentVisitorEvent.location_quality === "hosting_or_datacenter" ? "Datacenter" :
+                               currentVisitorEvent.location_quality === "vpn_or_anonymous_proxy" ? "VPN/Proxy" :
                                "Position biaisée"}
                             </span>
                           )}
@@ -367,72 +389,134 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                 {/* Section 3: Identité - Qui */}
                 {isExactLocationCluster ? (
                   <div className="mb-6">
-                    <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40 mb-3">
-                      {events.length} visiteurs uniques à cette localisation exacte
-                    </h3>
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                      {events.map((event, idx) => {
-                        const eventUserInfo = parseUserAgent(event.userAgent || "");
-                        return (
-                          <div key={idx} className="p-4 bg-black/[0.02] rounded-xl border border-black/[0.06] hover:border-black/[0.1] transition-colors cursor-pointer group">
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="text-xs font-semibold text-black">Visiteur #{idx + 1}</p>
-                              <p className="text-[10px] text-black/40">
-                                {new Date(event.timestamp).toLocaleString("fr-FR", {
-                                  day: "numeric",
-                                  month: "short",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </p>
-                            </div>
-                            <div className="space-y-1.5">
-                              <div>
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-0.5">ID Visiteur</p>
-                                <p className="text-xs font-mono text-black break-all">{event.visitorId || "—"}</p>
-                              </div>
-                              {event.ip && (
-                                <div>
-                                  <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-0.5">IP</p>
-                                  <p className="text-xs font-mono text-black break-all">{event.ip}</p>
-                                </div>
-                              )}
-                              {eventUserInfo && (
-                                <div>
-                                  <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-0.5">Appareil</p>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    <span className="text-[10px] px-2 py-0.5 bg-black/5 rounded text-black">{eventUserInfo.device}</span>
-                                    <span className="text-[10px] px-2 py-0.5 bg-black/5 rounded text-black">{eventUserInfo.browser}</span>
-                                    <span className="text-[10px] px-2 py-0.5 bg-black/5 rounded text-black">{eventUserInfo.os}</span>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">
+                        {events.length} visiteurs uniques à cette localisation exacte
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-black/50">
+                          {currentVisitorIndex + 1} / {events.length}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Carrousel des visiteurs */}
+                    <div className="relative">
+                      {/* Conteneur du carrousel */}
+                      <div className="relative overflow-hidden rounded-xl">
+                        <AnimatePresence mode="wait">
+                          <motion.div
+                            key={currentVisitorIndex}
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.2 }}
+                            className="p-4 bg-black/[0.02] rounded-xl border border-black/[0.06]"
+                          >
+                            {(() => {
+                              const event = events[currentVisitorIndex];
+                              const eventUserInfo = parseUserAgent(event.userAgent || "");
+                              return (
+                                <>
+                                  <div className="flex items-center justify-between mb-3">
+                                    <p className="text-xs font-semibold text-black">Visiteur #{currentVisitorIndex + 1}</p>
+                                    <p className="text-[10px] text-black/40">
+                                      {new Date(event.timestamp).toLocaleString("fr-FR", {
+                                        day: "numeric",
+                                        month: "short",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })}
+                                    </p>
                                   </div>
-                                </div>
-                              )}
-                            </div>
-                            {/* Bouton pour voir les logs de ce visiteur spécifique */}
-                            {(event.visitorId || (event as any).visitorIdStable) && (
-                              <div className="mt-3 pt-3 border-t border-black/[0.06]">
-                                <button
-                                  onClick={() => {
-                                    // Utiliser visitorIdStable si disponible (pour regrouper tous les logs), sinon visitorId
-                                    const visitorIdToUse = (event as any).visitorIdStable || event.visitorId;
-                                    sessionStorage.setItem('returnToGlobe', 'true');
-                                    sessionStorage.setItem('globeSelectedDetail', JSON.stringify({
-                                      visitorId: visitorIdToUse,
-                                      id: event.id,
-                                    }));
-                                    router.push(`/dashboard/sharing/logs?visitorId=${encodeURIComponent(visitorIdToUse)}`);
-                                    onClose();
-                                  }}
-                                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-black/60 hover:text-black bg-black/[0.02] hover:bg-black/[0.05] rounded-lg transition-colors group-hover:bg-black/[0.08]"
-                                >
-                                  <FileText className="w-3.5 h-3.5" />
-                                  Voir tous les logs de ce visiteur
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                                  <div className="space-y-1.5">
+                                    <div>
+                                      <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-0.5">ID Visiteur</p>
+                                      <p className="text-xs font-mono text-black break-all">{event.visitorId || "—"}</p>
+                                    </div>
+                                    {event.ip && (
+                                      <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-0.5">IP</p>
+                                        <p className="text-xs font-mono text-black break-all">{event.ip}</p>
+                                      </div>
+                                    )}
+                                    {eventUserInfo && (
+                                      <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-0.5">Appareil</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          <span className="text-[10px] px-2 py-0.5 bg-black/5 rounded text-black">{eventUserInfo.device}</span>
+                                          <span className="text-[10px] px-2 py-0.5 bg-black/5 rounded text-black">{eventUserInfo.browser}</span>
+                                          <span className="text-[10px] px-2 py-0.5 bg-black/5 rounded text-black">{eventUserInfo.os}</span>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {/* Bouton pour voir les logs de ce visiteur spécifique */}
+                                  {(event.visitorId || (event as any).visitorIdStable) && (
+                                    <div className="mt-3 pt-3 border-t border-black/[0.06]">
+                                      <button
+                                        onClick={() => {
+                                          // Utiliser visitorIdStable si disponible (pour regrouper tous les logs), sinon visitorId
+                                          const visitorIdToUse = (event as any).visitorIdStable || event.visitorId;
+                                          sessionStorage.setItem('returnToGlobe', 'true');
+                                          sessionStorage.setItem('globeSelectedDetail', JSON.stringify({
+                                            visitorId: visitorIdToUse,
+                                            id: event.id,
+                                          }));
+                                          router.push(`/dashboard/sharing/logs?visitorId=${encodeURIComponent(visitorIdToUse)}`);
+                                          onClose();
+                                        }}
+                                        className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-black/60 hover:text-black bg-black/[0.02] hover:bg-black/[0.05] rounded-lg transition-colors"
+                                      >
+                                        <FileText className="w-3.5 h-3.5" />
+                                        Voir tous les logs de ce visiteur
+                                      </button>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </motion.div>
+                        </AnimatePresence>
+                      </div>
+
+                      {/* Boutons de navigation */}
+                      {events.length > 1 && (
+                        <>
+                          <button
+                            onClick={goToPrevious}
+                            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 w-10 h-10 rounded-full bg-white border border-black/[0.1] shadow-lg flex items-center justify-center hover:bg-black/5 transition-colors z-10"
+                            aria-label="Visiteur précédent"
+                          >
+                            <ChevronLeft className="w-5 h-5 text-black/60" />
+                          </button>
+                          <button
+                            onClick={goToNext}
+                            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 w-10 h-10 rounded-full bg-white border border-black/[0.1] shadow-lg flex items-center justify-center hover:bg-black/5 transition-colors z-10"
+                            aria-label="Visiteur suivant"
+                          >
+                            <ChevronRight className="w-5 h-5 text-black/60" />
+                          </button>
+                        </>
+                      )}
+
+                      {/* Indicateurs de position (dots) */}
+                      {events.length > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-4">
+                          {events.map((_, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => goToIndex(idx)}
+                              className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                                idx === currentVisitorIndex
+                                  ? "bg-[#96A982] w-6"
+                                  : "bg-black/20 hover:bg-black/30"
+                              }`}
+                              aria-label={`Aller au visiteur ${idx + 1}`}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -441,7 +525,7 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                       <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">Adresse IP</h3>
                       <div className="p-3.5 bg-black/[0.02] rounded-xl border border-black/[0.06]">
                         <p className="text-sm font-semibold text-black font-mono break-all">
-                          {currentEvent.ip || "—"}
+                          {currentVisitorEvent.ip || "—"}
                         </p>
                       </div>
                     </div>
@@ -450,7 +534,7 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                       <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">Visiteur</h3>
                       <div className="p-3.5 bg-black/[0.02] rounded-xl border border-black/[0.06]">
                         <p className="text-sm font-semibold text-black font-mono break-all">
-                          {currentEvent.visitorId || "—"}
+                          {currentVisitorEvent.visitorId || "—"}
                         </p>
                       </div>
                     </div>
@@ -462,30 +546,30 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40 mb-1">Événement</p>
-                      <p className="text-xs font-mono text-black/60">#{currentEvent.id}</p>
+                      <p className="text-xs font-mono text-black/60">#{currentVisitorEvent.id}</p>
                     </div>
-                    {currentEvent.userAgent && (
+                    {currentVisitorEvent.userAgent && (
                       <div className="flex-1 ml-6">
                         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40 mb-1">User Agent</p>
                         <p className="text-[10px] text-black/40 font-mono leading-relaxed break-all">
-                          {currentEvent.userAgent}
+                          {currentVisitorEvent.userAgent}
                         </p>
                       </div>
                     )}
                   </div>
                   
                   {/* Bouton pour voir les logs de ce visiteur */}
-                  {(currentEvent.visitorId || (currentEvent as any).visitorIdStable) && (
+                  {(currentVisitorEvent.visitorId || (currentVisitorEvent as any).visitorIdStable) && (
                     <div className="mt-4 pt-4 border-t border-black/[0.06]">
                       <button
                         onClick={() => {
                           // Utiliser visitorIdStable si disponible (pour regrouper tous les logs), sinon visitorId
-                          const visitorIdToUse = (currentEvent as any).visitorIdStable || currentEvent.visitorId;
+                          const visitorIdToUse = (currentVisitorEvent as any).visitorIdStable || currentVisitorEvent.visitorId;
                           // Sauvegarder l'état du tiroir dans sessionStorage pour pouvoir y revenir
                           sessionStorage.setItem('returnToGlobe', 'true');
                           sessionStorage.setItem('globeSelectedDetail', JSON.stringify({
                             visitorId: visitorIdToUse,
-                            id: currentEvent.id,
+                            id: currentVisitorEvent.id,
                           }));
                           // Rediriger vers les logs avec le visitorIdStable en paramètre (pour regrouper tous les logs)
                           router.push(`/dashboard/sharing/logs?visitorId=${encodeURIComponent(visitorIdToUse)}`);

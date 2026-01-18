@@ -101,7 +101,7 @@ function PasswordManagerCard({ linkId, currentPasswordHash, onUpdate }: {
   };
 
   return (
-    <div className="p-4 rounded-2xl bg-white border border-black/[0.05]">
+    <div className="p-3 sm:p-4 rounded-2xl bg-white border border-black/[0.05]">
       <div className="flex items-center gap-3 mb-3">
         <div className="w-12 h-12 rounded-xl bg-black/[0.03] flex items-center justify-center">
           <Lock className="w-6 h-6 text-black/50" />
@@ -789,7 +789,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
 
   return (
     <div className="min-h-screen bg-[#f7f7f8]">
-      <div className="max-w-[1700px] mx-auto px-6 lg:px-10 py-8 space-y-8">
+      <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-10 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6 lg:space-y-8">
         {/* Retour */}
         <Link 
           href="/dashboard/sharing" 
@@ -802,21 +802,182 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
         {/* Carte principale avec identité et actions */}
         <div className="bg-white rounded-3xl border border-black/[0.05] shadow-sm overflow-hidden">
           {/* En-tête de la carte */}
-          <div className="p-8">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-              {/* Identité */}
-              <div className="flex items-start gap-5 flex-1 min-w-0">
-                <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-brand-primary/20 to-brand-primary/5 text-brand-primary flex items-center justify-center shadow-lg shadow-brand-primary/10 shrink-0">
-                  <FolderOpen className="w-10 h-10 fill-current" />
+          <div className="p-4 md:p-6">
+            {/* Version mobile : empilée */}
+            <div className="flex flex-col gap-4 md:hidden">
+              {/* Identité mobile */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-primary/20 to-brand-primary/5 text-brand-primary flex items-center justify-center shadow-md shadow-brand-primary/10 shrink-0">
+                  <FolderOpen className="w-5 h-5 fill-current" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-3 mb-2">
-                    <h1 className="text-4xl font-bold tracking-tight text-black">{linkData.folderName}</h1>
-                    <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shrink-0 ${statusBadge.tone}`}>
-                      {statusBadge.label}
-                    </span>
-                  </div>
-                  <p className="text-sm text-black/40 font-medium">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <h1 className="text-lg font-bold tracking-tight text-black truncate">{linkData.folderName}</h1>
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider shrink-0 ${statusBadge.tone}`}>
+                    {statusBadge.label}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Toggle mobile */}
+              <div className="flex items-center justify-center py-2">
+                <div className="relative inline-flex items-center py-1.5 px-2.5 bg-black/[0.04] rounded-full">
+                  {tabs.map((tab) => {
+                    const isActive = activeTab === tab;
+                    const tabIndex = tabs.indexOf(tab);
+                    const tabWidth = 100 / tabs.length;
+                    
+                    return (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`relative z-10 px-5 py-2 text-xs font-medium transition-colors duration-200 ${
+                          isActive ? "text-black" : "text-black/45"
+                        }`}
+                        style={{ width: `${tabWidth}%` }}
+                      >
+                        <span className="block text-center leading-none">{tab}</span>
+                      </button>
+                    );
+                  })}
+                  <motion.div
+                    layoutId="activeTabBackgroundMobile"
+                    className="absolute top-1.5 bottom-1.5 rounded-full bg-white shadow-sm"
+                    initial={false}
+                    transition={{
+                      type: "spring",
+                      stiffness: 500,
+                      damping: 30
+                    }}
+                    style={{
+                      width: `calc(${100 / tabs.length}% - 6px)`,
+                      left: `calc(${(tabs.findIndex(t => t === activeTab) / tabs.length) * 100}% + 3px)`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Actions mobile */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={copyToClipboard}
+                  className="h-9 px-3 rounded-xl bg-black text-white text-xs font-medium hover:bg-black/90 transition-all flex items-center gap-1.5 active:scale-95 flex-1 justify-center"
+                >
+                  {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copied ? "Copié" : "Copier"}</span>
+                </button>
+                <Link
+                  href={`/share/${linkData.token}`}
+                  target="_blank"
+                  className="h-9 px-3 rounded-xl bg-white border border-black/[0.08] text-xs font-medium hover:bg-black/[0.02] transition-all flex items-center gap-1.5 active:scale-95 flex-1 justify-center"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Ouvrir</span>
+                </Link>
+                
+                {/* Menu Actions mobile */}
+                <div className="relative" ref={actionsMenuRef}>
+                  <button
+                    onClick={() => setShowActionsMenu(!showActionsMenu)}
+                    className="h-9 w-9 rounded-xl bg-white border border-black/[0.08] text-xs font-medium hover:bg-black/[0.02] transition-all flex items-center justify-center active:scale-95"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                  
+                  <AnimatePresence>
+                    {showActionsMenu && (
+                      <>
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          onClick={() => setShowActionsMenu(false)}
+                          className="fixed inset-0 z-10"
+                        />
+                        <motion.div
+                          initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                          transition={{ duration: 0.2, ease: "easeOut" }}
+                          className="absolute right-0 top-full mt-2 z-20 bg-white rounded-2xl border border-black/[0.08] shadow-xl min-w-[200px] overflow-hidden"
+                        >
+                          {linkData.isRevoked ? (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowActionsMenu(false);
+                                  handleReactivate();
+                                }}
+                                className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                                Réactiver
+                              </button>
+                              <div className="h-px bg-black/[0.05]" />
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowActionsMenu(false);
+                                  handleDelete();
+                                }}
+                                className="w-full text-left px-4 py-3 hover:bg-red-50 transition-colors text-sm font-medium text-red-600 flex items-center gap-2"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Supprimer
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowActionsMenu(false);
+                                  handleRevoke();
+                                }}
+                                className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
+                              >
+                                <Lock className="w-4 h-4" />
+                                Révoquer
+                              </button>
+                              <div className="h-px bg-black/[0.05]" />
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowActionsMenu(false);
+                                  handleDelete();
+                                }}
+                                className="w-full text-left px-4 py-3 hover:bg-red-50 transition-colors text-sm font-medium text-red-600 flex items-center gap-2"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Supprimer
+                              </button>
+                            </>
+                          )}
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
+
+            {/* Version desktop : en ligne */}
+            <div className="hidden md:relative md:flex md:items-center md:gap-4">
+              {/* Identité */}
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-primary/20 to-brand-primary/5 text-brand-primary flex items-center justify-center shadow-md shadow-brand-primary/10 shrink-0">
+                  <FolderOpen className="w-6 h-6 fill-current" />
+                </div>
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-black truncate">{linkData.folderName}</h1>
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${statusBadge.tone}`}>
+                    {statusBadge.label}
+                  </span>
+                  <p className="text-xs text-black/40 font-medium shrink-0 hidden lg:block">
                     Créé le{" "}
                     <span className="text-black/60">
                       {new Date(linkData.createdAt).toLocaleDateString("fr-FR", {
@@ -829,32 +990,70 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                 </div>
               </div>
 
+              {/* Navigation par onglets - Centré absolument avec plus d'espace */}
+              <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center px-8 py-3">
+                <div className="relative inline-flex items-center py-1.5 px-2.5 bg-black/[0.04] rounded-full">
+                  {tabs.map((tab) => {
+                    const isActive = activeTab === tab;
+                    const tabIndex = tabs.indexOf(tab);
+                    const tabWidth = 100 / tabs.length;
+                    
+                    return (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`relative z-10 px-6 py-2 text-sm font-medium transition-colors duration-200 ${
+                          isActive ? "text-black" : "text-black/45"
+                        }`}
+                        style={{ width: `${tabWidth}%` }}
+                      >
+                        <span className="block text-center leading-none">{tab}</span>
+                      </button>
+                    );
+                  })}
+                  <motion.div
+                    layoutId="activeTabBackground"
+                    className="absolute top-1.5 bottom-1.5 rounded-full bg-white shadow-sm"
+                    initial={false}
+                    transition={{
+                      type: "spring",
+                      stiffness: 500,
+                      damping: 30
+                    }}
+                    style={{
+                      width: `calc(${100 / tabs.length}% - 6px)`,
+                      left: `calc(${(tabs.findIndex(t => t === activeTab) / tabs.length) * 100}% + 3px)`,
+                    }}
+                  />
+                </div>
+              </div>
+
               {/* Actions */}
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 ml-auto">
                 <button
                   onClick={copyToClipboard}
-                  className="h-10 px-5 rounded-xl bg-black text-white text-sm font-medium hover:bg-black/90 transition-all flex items-center gap-2 active:scale-95"
+                  className="h-10 px-4 lg:px-5 rounded-xl bg-black text-white text-xs lg:text-sm font-medium hover:bg-black/90 transition-all flex items-center gap-2 active:scale-95"
                 >
                   {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  {copied ? "Copié" : "Copier"}
+                  <span className="hidden lg:inline">{copied ? "Copié" : "Copier"}</span>
                 </button>
                 <Link
                   href={`/share/${linkData.token}`}
                   target="_blank"
-                  className="h-10 px-5 rounded-xl bg-white border border-black/[0.08] text-sm font-medium hover:bg-black/[0.02] transition-all flex items-center gap-2 active:scale-95"
+                  className="h-10 px-4 lg:px-5 rounded-xl bg-white border border-black/[0.08] text-xs lg:text-sm font-medium hover:bg-black/[0.02] transition-all flex items-center gap-2 active:scale-95"
                 >
                   <ExternalLink className="w-4 h-4" />
-                  Ouvrir
+                  <span className="hidden lg:inline">Ouvrir</span>
                 </Link>
                 
                 {/* Menu Actions */}
                 <div className="relative" ref={actionsMenuRef}>
                   <button
                     onClick={() => setShowActionsMenu(!showActionsMenu)}
-                    className="h-10 px-5 rounded-xl bg-white border border-black/[0.08] text-sm font-medium hover:bg-black/[0.02] transition-all flex items-center gap-2 active:scale-95"
+                    className="h-10 px-4 lg:px-5 rounded-xl bg-white border border-black/[0.08] text-xs lg:text-sm font-medium hover:bg-black/[0.02] transition-all flex items-center gap-2 active:scale-95"
                   >
                     <MoreVertical className="w-4 h-4" />
-                    Actions
+                    <span className="hidden lg:inline">Actions</span>
                   </button>
                   
                   <AnimatePresence>
@@ -939,59 +1138,21 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
               </div>
             </div>
           </div>
-
-          {/* Navigation par onglets - Toggle Apple redesigné */}
-          <div className="px-8 pb-8 flex items-center justify-center">
-            <div className="relative inline-flex items-center py-1 px-2 bg-black/[0.04] rounded-full">
-              {tabs.map((tab) => {
-                const isActive = activeTab === tab;
-                const tabIndex = tabs.indexOf(tab);
-                const tabWidth = 100 / tabs.length;
-                
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`relative z-10 px-6 py-2 text-sm font-medium transition-colors duration-200 ${
-                      isActive ? "text-black" : "text-black/45"
-                    }`}
-                    style={{ width: `${tabWidth}%` }}
-                  >
-                    <span className="block text-center leading-none">{tab}</span>
-                  </button>
-                );
-              })}
-              <motion.div
-                layoutId="activeTabBackground"
-                className="absolute top-1 bottom-1 rounded-full bg-white shadow-sm"
-                initial={false}
-                transition={{
-                  type: "spring",
-                  stiffness: 500,
-                  damping: 30
-                }}
-                style={{
-                  width: `calc(${100 / tabs.length}% - 6px)`,
-                  left: `calc(${(tabs.findIndex(t => t === activeTab) / tabs.length) * 100}% + 3px)`,
-                }}
-              />
-            </div>
-          </div>
         </div>
 
         {/* Contenu principal */}
         <div>
 
         {activeTab === "Vue globale" && (
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-5 items-start">
             {/* Colonne gauche : paramètres du lien */}
-            <div className="space-y-4">
-              <div className="p-4 rounded-2xl border border-black/[0.06] bg-white shadow-sm space-y-3">
+            <div className="space-y-3 sm:space-y-4">
+              <div className="p-3 sm:p-4 rounded-2xl border border-black/[0.06] bg-white shadow-sm space-y-3">
                 <h2 className="text-base font-semibold text-black">Contrôles</h2>
                 {[ 
                   { title: "Téléchargement", desc: linkData.allowDownload ? "Autorisé" : "Bloqué", icon: <Download className={`w-5 h-5 ${linkData.allowDownload ? "text-brand-primary" : "text-black/30"}`} />, toggle: linkData.allowDownload, onToggle: handleToggleDownload },
                 ].map((item) => (
-                  <div key={item.title} className="flex items-center gap-4 p-4 rounded-2xl border border-black/[0.05] bg-white hover:border-black/10 transition-all">
+                  <div key={item.title} className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl border border-black/[0.05] bg-white hover:border-black/10 transition-all">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
                       item.toggle ? "bg-brand-primary/10" : "bg-black/5"
                     }`}>
@@ -1028,7 +1189,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                 ))}
 
                 {/* Quota */}
-                <div className="p-4 rounded-2xl border border-black/[0.05] bg-white hover:border-black/10 transition-all">
+                <div className="p-3 sm:p-4 rounded-2xl border border-black/[0.05] bg-white hover:border-black/10 transition-all">
                   <div className="flex items-center gap-3 mb-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                       linkData.maxViews ? "bg-brand-primary/10" : "bg-black/5"
@@ -1117,7 +1278,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                 </div>
 
                 {/* Expiration */}
-                <div className="p-4 rounded-2xl border border-black/[0.05] bg-white hover:border-black/10 transition-all">
+                <div className="p-3 sm:p-4 rounded-2xl border border-black/[0.05] bg-white hover:border-black/10 transition-all">
                   <div className="flex items-center gap-3 mb-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                       linkData.expiresAt ? "bg-orange-50" : "bg-black/5"
@@ -1324,7 +1485,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl border border-black/[0.05] bg-white hover:border-black/10 transition-all">
+              <div className="p-3 sm:p-4 rounded-2xl border border-black/[0.05] bg-white hover:border-black/10 transition-all">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center">
                     <Download className="w-5 h-5 text-brand-primary" />
@@ -1371,7 +1532,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
               )}
 
               {stats && stats.topFiles.length > 0 && (
-                <div className="p-4 rounded-2xl border border-black/[0.06] bg-white shadow-sm space-y-3">
+                <div className="p-3 sm:p-4 rounded-2xl border border-black/[0.06] bg-white shadow-sm space-y-3">
                   <h3 className="text-base font-semibold text-black">Fichiers les plus consultés</h3>
                   <p className="text-xs text-black/50">Top 10 des fichiers de ce partage</p>
                   <div className="space-y-2">
@@ -1413,7 +1574,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                   </div>
                   
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between p-4 rounded-2xl bg-white border border-black/[0.05] hover:border-black/[0.1] transition-colors group">
+                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-2xl bg-white border border-black/[0.05] hover:border-black/[0.1] transition-colors group">
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-xl bg-black/[0.03] flex items-center justify-center group-hover:bg-black/[0.05] transition-colors">
                           <AlertTriangle className="w-6 h-6 text-black/50" />
@@ -1437,7 +1598,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
               )}
 
               {stats && stats.funnel && (
-                <div className="p-4 rounded-2xl border border-black/[0.06] bg-white shadow-sm space-y-3">
+                <div className="p-3 sm:p-4 rounded-2xl border border-black/[0.06] bg-white shadow-sm space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-base font-semibold text-black">Funnel d'engagement</h3>
                     <span className="text-[11px] text-black/40 uppercase tracking-[0.18em]">Conversion</span>
