@@ -1,10 +1,56 @@
 import crypto from "crypto";
 
 /**
+ * Extrait le préfixe IP pour regrouper les IPs similaires (même plage réseau)
+ * 
+ * Pour IPv4 : prend les 3 premiers octets (ex: 192.168.1.x)
+ * Pour IPv6 : prend les 64 premiers bits (première moitié)
+ * 
+ * Cela permet de lier les visiteurs qui changent d'IP dans la même plage réseau
+ * (par exemple, changement d'IP dynamique, NAT, etc.)
+ * 
+ * @param ip - Adresse IP (IPv4 ou IPv6)
+ * @returns Préfixe IP anonymisé
+ */
+export function getIPPrefix(ip: string): string {
+  if (ip === "unknown" || !ip) {
+    return "unknown";
+  }
+
+  // IPv4 : prendre les 3 premiers octets
+  const ipv4Match = ip.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}$/);
+  if (ipv4Match) {
+    return ipv4Match[1] + ".0"; // Ex: 192.168.1.0
+  }
+
+  // IPv6 : prendre les 64 premiers bits (première moitié)
+  // Format IPv6 peut être compressé, on normalise d'abord
+  if (ip.includes(":")) {
+    // Simplification : prendre les 4 premiers groupes (64 bits)
+    const parts = ip.split(":");
+    if (parts.length >= 4) {
+      return parts.slice(0, 4).join(":") + "::";
+    }
+    return ip.split("::")[0] + "::"; // Prendre la partie avant :: si compression
+  }
+
+  // Si on ne peut pas parser, retourner l'IP complète (sera hashée)
+  return ip;
+}
+
+/**
  * Génère un hash de l'IP pour identifier les visiteurs de manière anonyme
  */
 export function hashIP(ip: string): string {
   return crypto.createHash("sha256").update(ip).digest("hex").substring(0, 16);
+}
+
+/**
+ * Génère un hash du préfixe IP pour regrouper les IPs similaires
+ */
+export function hashIPPrefix(ip: string): string {
+  const prefix = getIPPrefix(ip);
+  return crypto.createHash("sha256").update(prefix).digest("hex").substring(0, 16);
 }
 
 /**
@@ -32,8 +78,12 @@ function getStableSalt(): string {
 /**
  * Génère un visitorId unique basé sur l'IP et le user-agent avec un sel qui tourne
  * 
- * Utilise IP + User-Agent + sel (qui change chaque jour) pour produire une
+ * Utilise l'IP complète + User-Agent + sel (qui change chaque jour) pour produire une
  * "anonymous signature" (hash SHA-256) afin de compter les visiteurs sans cookies par défaut.
+ * 
+ * IMPORTANT: On utilise l'IP complète (pas le préfixe) pour éviter de regrouper des personnes
+ * différentes qui auraient des IPs similaires. Si un utilisateur change d'IP, il sera
+ * considéré comme un nouveau visiteur (plus sûr que de regrouper par erreur).
  * 
  * @param ip - Adresse IP du visiteur (sera hashée, pas stockée)
  * @param userAgent - User-Agent du navigateur
@@ -41,6 +91,8 @@ function getStableSalt(): string {
  */
 export function generateVisitorId(ip: string, userAgent?: string): string {
   const salt = getRotatingSalt();
+  // Utiliser l'IP complète pour une différenciation précise
+  // Cela évite de regrouper des personnes différentes avec des IPs similaires
   const combined = `${ip}-${userAgent || ""}-${salt}`;
   return crypto.createHash("sha256").update(combined).digest("hex");
 }
@@ -51,12 +103,18 @@ export function generateVisitorId(ip: string, userAgent?: string): string {
  * Ce visitorId ne change pas selon les jours, permettant de regrouper tous les logs
  * d'un même visiteur même s'il visite sur plusieurs jours.
  * 
+ * IMPORTANT: On utilise l'IP complète (pas le préfixe) pour éviter de regrouper des personnes
+ * différentes qui auraient des IPs similaires. Si un utilisateur change d'IP, il sera
+ * considéré comme un nouveau visiteur (plus sûr que de regrouper par erreur).
+ * 
  * @param ip - Adresse IP du visiteur (sera hashée, pas stockée)
  * @param userAgent - User-Agent du navigateur
  * @returns Hash SHA-256 anonyme stable pour identifier le visiteur
  */
 export function generateStableVisitorId(ip: string, userAgent?: string): string {
   const salt = getStableSalt();
+  // Utiliser l'IP complète pour une différenciation précise
+  // Cela évite de regrouper des personnes différentes avec des IPs similaires
   const combined = `${ip}-${userAgent || ""}-${salt}`;
   return crypto.createHash("sha256").update(combined).digest("hex");
 }

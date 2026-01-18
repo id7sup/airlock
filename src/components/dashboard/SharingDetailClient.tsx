@@ -25,7 +25,6 @@ import {
   FileText,
   Shield,
   AlertTriangle,
-  Network,
   RotateCcw,
   MoreVertical
 } from "lucide-react";
@@ -215,10 +214,6 @@ interface SharedLink {
 
 interface ExtendedStats {
   invalidAttempts: number;
-  totalVPN: number;
-  totalDatacenter: number;
-  ipChanges: number;
-  deviceChanges: number;
   recipientCount: number;
   reshares: number;
   topFiles: Array<{ fileId: string; fileName: string; count: number }>;
@@ -383,10 +378,6 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
 
         // Compter TOUS les ACCESS_DENIED (toutes les tentatives invalides)
         const invalidAttempts = analytics.filter((a: any) => a.eventType === "ACCESS_DENIED").length;
-        const totalVPN = analytics.filter((a: any) => a.isVPN === true).length;
-        const totalDatacenter = analytics.filter((a: any) => a.isDatacenter === true).length;
-        const ipChanges = analytics.filter((a: any) => a.ipChanged === true).length;
-        const deviceChanges = analytics.filter((a: any) => a.deviceChanged === true).length;
 
         const fileCounts: Record<string, { count: number; fileName: string }> = {};
         analytics.forEach((a: any) => {
@@ -400,10 +391,6 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
 
         setStats({
           invalidAttempts,
-          totalVPN,
-          totalDatacenter,
-          ipChanges,
-          deviceChanges,
           recipientCount: analytics.reduce((sum: number, a: any) => sum + (a.recipientCount || 0), 0),
           reshares: analytics.filter((a: any) => a.isReshare === true).length,
           topFiles: Object.entries(fileCounts)
@@ -1438,36 +1425,6 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                       </div>
                       <div className="text-right">
                         <p className="text-2xl font-bold text-black tabular-nums">{stats.invalidAttempts}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 rounded-2xl bg-white border border-black/[0.05] hover:border-black/[0.1] transition-colors group">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-black/[0.03] flex items-center justify-center group-hover:bg-black/[0.05] transition-colors">
-                          <Network className="w-6 h-6 text-black/50" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-black">VPN / Datacenter</p>
-                          <p className="text-xs text-black/40">Connexions suspectes</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-black tabular-nums">{stats.totalVPN + stats.totalDatacenter}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 rounded-2xl bg-white border border-black/[0.05] hover:border-black/[0.1] transition-colors group">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-black/[0.03] flex items-center justify-center group-hover:bg-black/[0.05] transition-colors">
-                          <Lock className="w-6 h-6 text-black/50" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-black">Changements IP/Appareil</p>
-                          <p className="text-xs text-black/40">Variations détectées</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-black tabular-nums">{stats.ipChanges + stats.deviceChanges}</p>
                       </div>
                     </div>
 
