@@ -20,7 +20,8 @@ import {
   Globe,
   ChevronDown,
   RotateCcw,
-  MoreVertical
+  MoreVertical,
+  Share2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SharingAnalyticsChart } from "./SharingAnalyticsChart";
@@ -551,6 +552,39 @@ function LinkItem({
   const actionsRef = useRef<HTMLDivElement>(null);
   const isRevoked = link.isRevoked === true;
 
+  const handleShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowActions(false);
+    
+    const shareUrl = `${window.location.origin}/share/${link.token}`;
+    const shareData = {
+      title: `Partage: ${link.folderName}`,
+      text: `Partage du dossier "${link.folderName}"`,
+      url: shareUrl,
+    };
+
+    try {
+      // Vérifier si l'API Web Share est disponible
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        // Fallback: copier le lien dans le presse-papiers
+        await navigator.clipboard.writeText(shareUrl);
+      }
+    } catch (error: any) {
+      // L'utilisateur a annulé le partage ou erreur
+      if (error.name !== 'AbortError') {
+        // Si ce n'est pas une annulation, essayer de copier dans le presse-papiers
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+        } catch (clipboardError) {
+          console.error('Erreur lors de la copie:', clipboardError);
+        }
+      }
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (actionsRef.current && !actionsRef.current.contains(event.target as Node)) {
@@ -634,6 +668,14 @@ function LinkItem({
                   >
                     Voir les détails
                   </Link>
+                  <div className="h-px bg-black/[0.05] my-1" />
+                  <button
+                    onClick={handleShare}
+                    className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    Partager
+                  </button>
                   {isRevoked ? (
                     <button
                       onClick={(e) => {

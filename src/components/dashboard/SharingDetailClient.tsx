@@ -26,7 +26,8 @@ import {
   Shield,
   AlertTriangle,
   RotateCcw,
-  MoreVertical
+  MoreVertical,
+  Share2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -249,6 +250,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
   const [shareUrl, setShareUrl] = useState("");
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
   const [restrictDomain, setRestrictDomain] = useState(link.restrictDomain === true);
   const [blockVpn, setBlockVpn] = useState(link.blockVpn === true);
   const [notifications, setNotifications] = useState<string[]>(link.notifications || []);
@@ -312,21 +314,40 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
     };
   }, [isCalendarOpen]);
 
-  // Fermer le menu actions au clic extérieur
+  // Fermer le menu au clic extérieur et recalculer la position au scroll/resize
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
-        setShowActionsMenu(false);
+        closeActionsMenu();
       }
     };
 
     if (showActionsMenu) {
+      // Recalculer la position au scroll et resize
+      const calculatePosition = () => {
+        const button = actionsMenuRef.current?.querySelector('button');
+        if (button) {
+          const rect = button.getBoundingClientRect();
+          setMenuPosition({
+            top: rect.bottom,
+            right: window.innerWidth - rect.right,
+          });
+        }
+      };
+      
+      const handleScroll = () => calculatePosition();
+      const handleResize = () => calculatePosition();
+      
+      window.addEventListener('scroll', handleScroll, true);
+      window.addEventListener('resize', handleResize);
       document.addEventListener("mousedown", handleClickOutside);
+      
+      return () => {
+        window.removeEventListener('scroll', handleScroll, true);
+        window.removeEventListener('resize', handleResize);
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
     }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
   }, [showActionsMenu]);
 
   useEffect(() => {
@@ -684,6 +705,63 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
     });
   };
 
+  const closeActionsMenu = () => {
+    setShowActionsMenu(false);
+    setMenuPosition(null);
+  };
+
+  const openActionsMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    const button = event.currentTarget;
+    
+    // Calculer la position immédiatement au clic pour plus de précision
+    const rect = button.getBoundingClientRect();
+    
+    // Positionner le menu exactement sous le bouton, sans espacement
+    setMenuPosition({
+      top: rect.bottom, // Position exacte du bas du bouton
+      right: window.innerWidth - rect.right,
+    });
+    
+    setShowActionsMenu(true);
+  };
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeActionsMenu();
+    
+    const shareData = {
+      title: `Partage: ${linkData.folderName}`,
+      text: `Partage du dossier "${linkData.folderName}"`,
+      url: shareUrl,
+    };
+
+    try {
+      // Vérifier si l'API Web Share est disponible
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        // Fallback: copier le lien dans le presse-papiers
+        await navigator.clipboard.writeText(shareUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch (error: any) {
+      // L'utilisateur a annulé le partage ou erreur
+      if (error.name !== 'AbortError') {
+        // Si ce n'est pas une annulation, essayer de copier dans le presse-papiers
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch (clipboardError) {
+          console.error('Erreur lors de la copie:', clipboardError);
+        }
+      }
+    }
+  };
+
   const toggleNotification = async (notif: string) => {
     const next = notifications.includes(notif)
       ? notifications.filter((n) => n !== notif)
@@ -877,36 +955,48 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                 {/* Menu Actions mobile */}
                 <div className="relative" ref={actionsMenuRef}>
                   <button
-                    onClick={() => setShowActionsMenu(!showActionsMenu)}
+                    onClick={openActionsMenu}
                     className="h-9 w-9 rounded-xl bg-white border border-black/[0.08] text-xs font-medium hover:bg-black/[0.02] transition-all flex items-center justify-center active:scale-95"
                   >
                     <MoreVertical className="w-4 h-4" />
                   </button>
                   
                   <AnimatePresence>
-                    {showActionsMenu && (
+                    {showActionsMenu && menuPosition && (
                       <>
                         <motion.div
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
-                          onClick={() => setShowActionsMenu(false)}
-                          className="fixed inset-0 z-10"
+                          onClick={closeActionsMenu}
+                          className="fixed inset-0 z-[9998]"
                         />
                         <motion.div
-                          initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -8, scale: 0.98 }}
-                          transition={{ duration: 0.2, ease: "easeOut" }}
-                          className="absolute right-0 top-full mt-2 z-20 bg-white rounded-2xl border border-black/[0.08] shadow-xl min-w-[200px] overflow-hidden"
+                          initial={{ opacity: 0, scale: 0.98 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.98 }}
+                          transition={{ duration: 0.15, ease: "easeOut" }}
+                          className="fixed z-[9999] bg-white rounded-2xl border border-black/[0.08] shadow-xl min-w-[200px] overflow-hidden"
+                          style={{
+                            top: `${menuPosition.top}px`,
+                            right: `${menuPosition.right}px`,
+                          }}
                         >
+                          <button
+                            onClick={handleShare}
+                            className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
+                          >
+                            <Share2 className="w-4 h-4" />
+                            Partager
+                          </button>
+                          <div className="h-px bg-black/[0.05]" />
                           {linkData.isRevoked ? (
                             <>
                               <button
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  setShowActionsMenu(false);
+                                  closeActionsMenu();
                                   handleReactivate();
                                 }}
                                 className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
@@ -919,7 +1009,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  setShowActionsMenu(false);
+                                  closeActionsMenu();
                                   handleDelete();
                                 }}
                                 className="w-full text-left px-4 py-3 hover:bg-red-50 transition-colors text-sm font-medium text-red-600 flex items-center gap-2"
@@ -934,7 +1024,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  setShowActionsMenu(false);
+                                  closeActionsMenu();
                                   handleRevoke();
                                 }}
                                 className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
@@ -947,7 +1037,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  setShowActionsMenu(false);
+                                  closeActionsMenu();
                                   handleDelete();
                                 }}
                                 className="w-full text-left px-4 py-3 hover:bg-red-50 transition-colors text-sm font-medium text-red-600 flex items-center gap-2"
@@ -1049,7 +1139,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                 {/* Menu Actions */}
                 <div className="relative" ref={actionsMenuRef}>
                   <button
-                    onClick={() => setShowActionsMenu(!showActionsMenu)}
+                    onClick={openActionsMenu}
                     className="h-10 px-4 lg:px-5 rounded-xl bg-white border border-black/[0.08] text-xs lg:text-sm font-medium hover:bg-black/[0.02] transition-all flex items-center gap-2 active:scale-95"
                   >
                     <MoreVertical className="w-4 h-4" />
@@ -1057,29 +1147,41 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                   </button>
                   
                   <AnimatePresence>
-                    {showActionsMenu && (
+                    {showActionsMenu && menuPosition && (
                       <>
                         <motion.div
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
-                          onClick={() => setShowActionsMenu(false)}
-                          className="fixed inset-0 z-10"
+                          onClick={closeActionsMenu}
+                          className="fixed inset-0 z-[9998]"
                         />
                         <motion.div
-                          initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -8, scale: 0.98 }}
-                          transition={{ duration: 0.2, ease: "easeOut" }}
-                          className="absolute right-0 top-full mt-2 z-20 bg-white rounded-2xl border border-black/[0.08] shadow-xl min-w-[200px] overflow-hidden"
+                          initial={{ opacity: 0, scale: 0.98 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.98 }}
+                          transition={{ duration: 0.15, ease: "easeOut" }}
+                          className="fixed z-[9999] bg-white rounded-2xl border border-black/[0.08] shadow-xl min-w-[200px] overflow-hidden"
+                          style={{
+                            top: `${menuPosition.top}px`,
+                            right: `${menuPosition.right}px`,
+                          }}
                         >
+                          <button
+                            onClick={handleShare}
+                            className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
+                          >
+                            <Share2 className="w-4 h-4" />
+                            Partager
+                          </button>
+                          <div className="h-px bg-black/[0.05]" />
                           {linkData.isRevoked ? (
                             <>
                               <button
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  setShowActionsMenu(false);
+                                  closeActionsMenu();
                                   handleReactivate();
                                 }}
                                 className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
@@ -1092,7 +1194,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  setShowActionsMenu(false);
+                                  closeActionsMenu();
                                   handleDelete();
                                 }}
                                 className="w-full text-left px-4 py-3 hover:bg-red-50 transition-colors text-sm font-medium text-red-600 flex items-center gap-2"
@@ -1107,7 +1209,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  setShowActionsMenu(false);
+                                  closeActionsMenu();
                                   handleRevoke();
                                 }}
                                 className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
@@ -1120,7 +1222,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  setShowActionsMenu(false);
+                                  closeActionsMenu();
                                   handleDelete();
                                 }}
                                 className="w-full text-left px-4 py-3 hover:bg-red-50 transition-colors text-sm font-medium text-red-600 flex items-center gap-2"

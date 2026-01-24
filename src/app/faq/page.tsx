@@ -87,6 +87,14 @@ const faqs = [
     question: "Comment Airlock garantit-il la souveraineté des données ?",
     answer: "Airlock garantit la souveraineté des données en stockant exclusivement vos fichiers dans Cloudflare R2 (via l'API compatible S3). Vous choisissez la localisation géographique et gardez le contrôle total sur vos données.",
   },
+  {
+    question: "Comment fonctionne exactement la sécurité chez Airlock ?",
+    answer: "Airlock utilise une architecture de sécurité multicouche : (1) Chiffrement en transit via TLS 1.3, (2) Chiffrement au repos sur Cloudflare R2, (3) URLs présignées temporaires (expiration 5 min à 1h), (4) Tokens uniques hashés SHA-256, (5) Permissions granulaires et révocation instantanée. Vos fichiers ne passent jamais par nos serveurs lors de l'upload. Airlock n'analyse ni n'exploite le contenu de vos fichiers.",
+  },
+  {
+    question: "Airlock est-il une solution 'zero-knowledge' ou 'end-to-end encrypted' ?",
+    answer: "Non, Airlock n'est pas une solution zero-knowledge au sens cryptographique strict (où seul l'utilisateur détient les clés de chiffrement). Airlock est une solution sécurisée avec chiffrement au repos et en transit, contrôle d'accès granulaire, et tokens temporaires. L'approche de Cloudflare R2 signifie que Cloudflare (comme opérateur de stockage) peut techniquement accéder aux données. Cependant, Airlock implémente plusieurs couches de sécurité et nous n'analysons ni n'exploitons vos fichiers. Pour les cas de confidentialité maximale, un chiffrement côté client (avant upload) reste la meilleure pratique.",
+  },
 ];
 
 export default function FAQPage() {
