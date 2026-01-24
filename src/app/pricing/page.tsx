@@ -200,20 +200,41 @@ export default function PricingPage() {
 
         <div className="max-w-7xl mx-auto space-y-24 relative z-10">
           <div className="text-center space-y-8">
-            <div className="inline-block px-4 py-1.5 bg-[#f5f5f7] rounded-full">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="inline-block px-4 py-1.5 bg-[#f5f5f7] rounded-full"
+            >
               <span className="text-[11px] font-semibold text-black/40 uppercase tracking-[0.2em]">Facturation</span>
-            </div>
-            <h1 className="text-5xl md:text-[88px] font-medium tracking-tight text-black leading-none">
+            </motion.div>
+            <motion.h1
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.1 }}
+              className="text-5xl md:text-[88px] font-medium tracking-tight text-black leading-none"
+            >
               Simple et transparent.
-            </h1>
-            <p className="text-xl md:text-[24px] text-black/45 font-medium max-w-2xl mx-auto leading-relaxed">
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.2 }}
+              className="text-xl md:text-[24px] text-black/45 font-medium max-w-2xl mx-auto leading-relaxed"
+            >
               Une solution souveraine pour tous vos besoins de partage sécurisé.
-            </p>
+            </motion.p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
             {/* Free Plan */}
-            <div className="bg-[#f5f5f7] rounded-[48px] p-12 space-y-10 border border-black/[0.03]">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, delay: 0.3 }}
+              className="bg-[#f5f5f7] rounded-[48px] p-12 space-y-10 border border-black/[0.03]"
+            >
               <div className="space-y-4">
                 <h3 className="text-2xl font-medium text-black">Individuel</h3>
                 <div className="flex items-baseline gap-1">
@@ -222,7 +243,7 @@ export default function PricingPage() {
                 </div>
                 <p className="text-black/40 font-medium">Parfait pour commencer à partager en toute sécurité.</p>
               </div>
-              
+
               <ul className="space-y-4 text-[17px] font-medium">
                 <li className="flex items-center gap-3"><Check className="w-5 h-5 text-[#96A982]" /> 5 Go de stockage</li>
                 <li className="flex items-center gap-3"><Check className="w-5 h-5 text-[#96A982]" /> Liens publics sécurisés</li>
@@ -233,10 +254,16 @@ export default function PricingPage() {
               <Link href="/login" className="block w-full text-center py-4 bg-white rounded-2xl font-medium border border-black/5 hover:bg-black hover:text-white transition-all">
                 Démarrer maintenant
               </Link>
-            </div>
+            </motion.div>
 
             {/* Pro Plan */}
-            <div className="bg-black text-white rounded-[48px] p-12 space-y-10 shadow-2xl relative overflow-hidden">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, delay: 0.4 }}
+              className="bg-black text-white rounded-[48px] p-12 space-y-10 shadow-2xl relative overflow-hidden"
+            >
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-2xl font-medium">Professionnel</h3>
@@ -248,7 +275,7 @@ export default function PricingPage() {
                 </div>
                 <p className="text-white/40 font-medium">Pour les équipes exigeantes qui veulent plus de puissance.</p>
               </div>
-              
+
               <ul className="space-y-4 text-[17px] font-medium">
                 <li className="flex items-center gap-3"><Check className="w-5 h-5 text-[#96A982]" /> 100 Go de stockage</li>
                 <li className="flex items-center gap-3"><Check className="w-5 h-5 text-[#96A982]" /> Analytics avancés</li>
@@ -259,7 +286,7 @@ export default function PricingPage() {
               <button className="block w-full text-center py-4 bg-[#96A982] rounded-2xl font-medium hover:bg-[#B7C5A9] transition-all">
                 Rejoindre la liste d'attente
               </button>
-            </div>
+            </motion.div>
           </div>
         </div>
       </main>

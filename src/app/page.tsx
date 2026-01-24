@@ -425,17 +425,23 @@ export default function Home() {
                 { icon: <Compass className="w-6 h-6 text-[#96A982]" />, title: "Navigation claire", desc: "Tous les dossiers, Récents, Favoris, Corbeille." },
                 { icon: <Search className="w-6 h-6 text-[#96A982]" />, title: "Recherche instantanée", desc: "filtre en temps réel, sans rechargement." },
                 { icon: <MousePointer2 className="w-6 h-6 text-[#96A982]" />, title: "Rangement intelligent", desc: "glisse un dossier sur un autre pour le ranger." },
-                { icon: <Layers className="w-6 h-6 text-[#96A982]" />, title: "Ordre personnalisé", desc: "réorganise librement, l’ordre est mémorisé." },
+                { icon: <Layers className="w-6 h-6 text-[#96A982]" />, title: "Ordre personnalisé", desc: "réorganise librement, l'ordre est mémorisé." },
                 { icon: <Database className="w-6 h-6 text-[#96A982]" />, title: "Quota visible", desc: "ton stockage est toujours sous contrôle (5 Go / espace)." },
                 { icon: <Zap className="w-6 h-6 text-[#96A982]" />, title: "Activité en direct", desc: "notifications quand un partage est consulté / téléchargé." }
               ].map((item, i) => (
-                <div key={i} className="flex flex-col items-center text-center space-y-7">
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.7, delay: i * 0.1 }}
+                  className="flex flex-col items-center text-center space-y-7">
                   <div className="w-16 h-16 bg-[#B7C5A9]/15 rounded-[22px] flex items-center justify-center">{item.icon}</div>
                   <div className="space-y-3">
                     <h3 className="text-[22px] font-medium text-black tracking-tight">{item.title}</h3>
                     <p className="text-[17px] text-black/40 leading-relaxed font-medium max-w-[280px]">{item.desc}</p>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>
@@ -474,12 +480,18 @@ export default function Home() {
                 {[
                   { icon: <Download className="w-6 h-6" />, title: "Lecture seule / téléchargement", desc: "activez ou bloquez le download en un clic.", detail: "Contrôlez si vos destinataires peuvent enregistrer localement vos documents." },
                   { icon: <Lock className="w-6 h-6" />, title: "Mot de passe", desc: "ajoutez une protection simple, efficace.", detail: "Une barrière de sécurité supplémentaire pour vos fichiers sensibles." },
-                  { icon: <Timer className="w-6 h-6" />, title: "Date d’expiration", desc: "définissez une durée de vie claire pour chaque lien.", detail: "Le lien s'autodétruit passée la date choisie." },
+                  { icon: <Timer className="w-6 h-6" />, title: "Date d'expiration", desc: "définissez une durée de vie claire pour chaque lien.", detail: "Le lien s'autodétruit passée la date choisie." },
                   { icon: <Eye className="w-6 h-6" />, title: "Quota de vues", desc: "limite automatique pour éviter les partages qui traînent.", detail: "Idéal pour les documents à usage unique." },
                   { icon: <ShieldCheck className="w-6 h-6" />, title: "Révocation immédiate", desc: "désactivez un lien à tout moment.", detail: "Coupez l'accès instantanément en cas d'erreur." },
                   { icon: <RefreshCw className="w-6 h-6" />, title: "Réactivation intelligente", desc: "prolongez ou augmentez le quota pour le rendre valide.", detail: "Redonnez vie à un lien expiré sans en générer un nouveau." }
                 ].map((item, i) => (
-                  <div key={i} className="group relative bg-white border border-black/[0.04] rounded-[40px] p-10 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[0_40px_80px_-15px_rgba(0,0,0,0.06)] hover:-translate-y-1.5 overflow-hidden">
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.7, delay: i * 0.1 }}
+                    className="group relative bg-white border border-black/[0.04] rounded-[40px] p-10 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[0_40px_80px_-15px_rgba(0,0,0,0.06)] hover:-translate-y-1.5 overflow-hidden">
                     <div className="flex flex-col md:flex-row gap-10 items-start">
                       <div className="w-16 h-16 shrink-0 bg-[#B7C5A9]/10 rounded-[24px] flex items-center justify-center text-[#96A982] transition-all duration-700 group-hover:bg-[#B7C5A9]/20 group-hover:scale-110">{item.icon}</div>
                       <div className="space-y-4 text-left">
@@ -490,7 +502,7 @@ export default function Home() {
                         </div>
                       </div>
         </div>
-        </div>
+        </motion.div>
                 ))}
             </div>
             </div>
@@ -557,19 +569,25 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 text-left">
               {[
                 { icon: <LayoutDashboard className="w-6 h-6" />, title: "Tableau de contrôle", desc: "tous les liens actifs, au même endroit." },
-                { icon: <Activity className="w-6 h-6" />, title: "Statuts lisibles", desc: "actif, expiré, révoqué — en un coup d’œil." },
+                { icon: <Activity className="w-6 h-6" />, title: "Statuts lisibles", desc: "actif, expiré, révoqué — en un coup d'œil." },
                 { icon: <Timer className="w-6 h-6" />, title: "Expiration & quota", desc: "date limite + vues restantes, sans surprise." },
                 { icon: <BarChart3 className="w-6 h-6" />, title: "Analytics 7 jours", desc: "vues et téléchargements, affichés proprement." },
                 { icon: <History className="w-6 h-6" />, title: "Traçabilité", desc: "chaque interaction est enregistrée." },
                 { icon: <Power className="w-6 h-6" />, title: "Action rapide", desc: "réactiver, prolonger ou désactiver un lien." }
               ].map((item, i) => (
-                <div key={i} className="group flex gap-6 items-start p-8 rounded-[32px] hover:bg-[#f5f5f7] transition-all duration-500">
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.7, delay: i * 0.1 }}
+                  className="group flex gap-6 items-start p-8 rounded-[32px] hover:bg-[#f5f5f7] transition-all duration-500">
                   <div className="w-12 h-12 shrink-0 flex items-center justify-center text-[#96A982] transition-transform duration-500 group-hover:scale-110">{item.icon}</div>
                   <div className="space-y-2">
                     <h3 className="text-[20px] font-medium text-black tracking-tight">{item.title}</h3>
                     <p className="text-[16px] text-black/40 leading-relaxed font-medium group-hover:text-black/60 transition-colors">{item.desc}</p>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>
@@ -600,16 +618,22 @@ export default function Home() {
               <div className="lg:col-span-8 space-y-0">
                 {[
                   { q: "Quelle est la différence avec Google Drive / Dropbox ?", a: "Airlock est pensé pour le partage sensible : liens expirables, lecture seule, mot de passe, quota de vues, révocation immédiate, et suivi des accès — sans complexité." },
-                  { q: "Est-ce que je peux partager un dossier sans créer de compte pour l’autre personne ?", a: "Oui. Avec un lien public sécurisé, l’autre personne accède sans compte (selon vos règles)." },
-                  { q: "Comment je limite ce que le lien permet de faire ?", a: "Vous choisissez : consultation seule (téléchargement désactivé), mot de passe, date d’expiration, et quota de vues." },
+                  { q: "Est-ce que je peux partager un dossier sans créer de compte pour l'autre personne ?", a: "Oui. Avec un lien public sécurisé, l'autre personne accède sans compte (selon vos règles)." },
+                  { q: "Comment je limite ce que le lien permet de faire ?", a: "Vous choisissez : consultation seule (téléchargement désactivé), mot de passe, date d'expiration, et quota de vues." },
                   { q: "Que se passe-t-il quand un lien expire ou atteint son quota ?", a: "Il devient automatiquement inactif. Vous pouvez le réactiver en prolongeant la date ou en augmentant le quota." },
                   { q: "Est-ce que je vois qui a consulté ou téléchargé ?", a: "Airlock enregistre les interactions (vues / téléchargements) et les affiche dans Mes partages et le centre de notifications." },
-                  { q: "Est-ce que les fichiers passent par vos serveurs pendant l’upload ?", a: "Non : l’upload se fait directement depuis le navigateur vers le stockage via des URLs signées, pour la performance et la sécurité." }
+                  { q: "Est-ce que les fichiers passent par vos serveurs pendant l'upload ?", a: "Non : l'upload se fait directement depuis le navigateur vers le stockage via des URLs signées, pour la performance et la sécurité." }
                 ].map((item, i) => (
-                  <div key={i} className="py-10 border-b border-black/[0.05] first:pt-0 last:border-0 group cursor-default">
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.6, delay: i * 0.1 }}
+                    className="py-10 border-b border-black/[0.05] first:pt-0 last:border-0 group cursor-default">
                     <h3 className="text-2xl md:text-[26px] font-medium text-black tracking-tight mb-4 transition-colors group-hover:text-[#96A982]">{item.q}</h3>
                     <p className="text-lg md:text-[19px] text-black/40 font-medium leading-relaxed max-w-3xl">{item.a}</p>
-                </div>
+                </motion.div>
                 ))}
               </div>
             </div>
