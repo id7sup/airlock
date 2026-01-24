@@ -868,7 +868,7 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
       )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8 lg:mb-12">
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight">Mes dossiers</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight text-black">Mes dossiers</h1>
           <p className="text-black/40 text-sm sm:text-base font-medium">
             {currentFilter === "favorites" && "Gérez vos dossiers favoris en sélectionnant plusieurs éléments à la fois."}
             {currentFilter === "trash" && "Restaurez ou supprimez définitivement plusieurs dossiers en une seule action."}
@@ -923,7 +923,7 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
           placeholder="Rechercher un dossier..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 bg-[#f5f5f7] border-none rounded-xl sm:rounded-2xl text-sm sm:text-[14px] font-medium focus:ring-2 focus:ring-black/5 focus:bg-white transition-all outline-none"
+          className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 bg-[#f5f5f7] border-none rounded-xl sm:rounded-2xl text-sm sm:text-[14px] font-medium text-black focus:ring-2 focus:ring-black/5 focus:bg-white transition-all outline-none placeholder:text-black/40"
         />
       </div>
 
@@ -935,7 +935,7 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
             </div>
             <input 
               autoFocus
-              className="w-full text-base sm:text-[17px] font-medium bg-transparent outline-none border-b-2 border-black/10 focus:border-black transition-colors pb-2 sm:pb-3"
+              className="w-full text-base sm:text-[17px] font-medium bg-transparent outline-none border-b-2 border-black/10 focus:border-black transition-colors pb-2 sm:pb-3 text-black placeholder:text-black/40"
               placeholder={isGroupingMode ? "Nom du groupe..." : "Nom du dossier..."}
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}

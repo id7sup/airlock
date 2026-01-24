@@ -301,17 +301,17 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
       {/* Page Header Simplifié */}
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
         <div className="space-y-1">
-          <h1 className="text-4xl font-medium tracking-tight">Flux de Partage</h1>
+          <h1 className="text-4xl font-medium tracking-tight text-black">Flux de Partage</h1>
           <p className="text-black/40 text-base font-medium">Gestion granulaire et analytics en direct.</p>
         </div>
         
         <div className="flex gap-4 p-2 bg-[#f5f5f7] rounded-[24px] border border-black/[0.03]">
           <div className="bg-white px-6 py-3 rounded-2xl shadow-sm border border-black/[0.01] flex flex-col items-center min-w-[100px]">
             <p className="text-[10px] font-bold text-black/20 uppercase tracking-widest mb-1">Actifs</p>
-            <p className="text-2xl font-medium tabular-nums">{links.length}</p>
+            <p className="text-2xl font-medium tabular-nums text-black">{links.length}</p>
           </div>
           <div className="bg-black px-6 py-3 rounded-2xl shadow-lg shadow-black/20 flex flex-col items-center min-w-[100px]">
-            <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mb-1">Total Vues</p>
+            <p className="text-[10px] font-bold text-white uppercase tracking-widest mb-1">Total Vues</p>
             <p className="text-2xl font-medium text-white tabular-nums">{links.reduce((acc, curr) => acc + (curr.viewCount || 0), 0)}</p>
           </div>
         </div>

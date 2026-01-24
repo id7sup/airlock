@@ -507,7 +507,7 @@ export default function Home() {
             whileHover={{ scale: 1.02, transition: { duration: 0.3 } }}
             className="relative z-10 w-[88%] md:w-[72%] max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[8px] md:rounded-[24px] overflow-hidden border border-white/10"
           >
-            <img src="/assets/dashboardthree.png" alt="Airlock Analytics - Tableau de bord avec statistiques en temps réel : vues, téléchargements, sessions actives" className="w-full h-auto pointer-events-none select-none" loading="lazy" />
+            <img src="/assets/dahboarddthree.png" alt="Airlock Analytics - Tableau de bord avec statistiques en temps réel : vues, téléchargements, sessions actives" className="w-full h-auto pointer-events-none select-none" loading="lazy" />
           </motion.div>
         </section>
 

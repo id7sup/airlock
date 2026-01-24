@@ -155,7 +155,7 @@ export function Sidebar({ storageUsed = 0 }: { storageUsed?: number }) {
               >
                 <Logo className="w-8 h-8" />
               </motion.div>
-              <span className="text-xl font-semibold tracking-tight">Airlock</span>
+              <span className="text-xl font-semibold tracking-tight text-black">Airlock</span>
             </Link>
             <motion.button
               whileHover={{ scale: 1.1, rotate: 90 }}
