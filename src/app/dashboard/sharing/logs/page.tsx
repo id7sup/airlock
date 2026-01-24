@@ -13,7 +13,7 @@ export default async function LogsPage({
 }) {
   const { userId } = await auth();
   if (!userId) {
-    redirect("/sign-in");
+    redirect("/login");
   }
 
   const params = await searchParams;

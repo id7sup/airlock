@@ -4,7 +4,7 @@ import { faqSchema } from "./seo";
 export const homeFaqStructuredData = faqSchema([
   {
     question: "Quelle est la différence avec Google Drive / Dropbox ?",
-    answer: "Airlock est pensé pour le partage sensible : liens expirables, lecture seule, mot de passe, quota de vues, révocation immédiate, et suivi des accès — sans complexité. Contrairement à Google Drive ou Dropbox, Airlock offre un contrôle total sur vos fichiers avec une architecture zero-knowledge et un stockage souverain.",
+    answer: "Airlock est pensé pour le partage sensible : liens expirables, lecture seule, mot de passe, quota de vues, révocation immédiate, et suivi des accès — sans complexité. Contrairement à Google Drive ou Dropbox, Airlock offre un contrôle total sur vos fichiers avec chiffrement sécurisé et stockage souverain.",
   },
   {
     question: "Est-ce que je peux partager un dossier sans créer de compte pour l'autre personne ?",
@@ -28,7 +28,7 @@ export const homeFaqStructuredData = faqSchema([
   },
   {
     question: "Comment fonctionne le chiffrement des fichiers sur Airlock ?",
-    answer: "Airlock utilise un chiffrement de bout en bout avec des URLs présignées éphémères. Vos fichiers sont stockés de manière sécurisée dans votre propre bucket Cloudflare R2 ou AWS S3, avec un accès contrôlé via des tokens temporaires.",
+    answer: "Airlock utilise un chiffrement de bout en bout avec des URLs présignées éphémères. Vos fichiers sont stockés de manière sécurisée dans Cloudflare R2 (via l'API compatible S3), avec un accès contrôlé via des tokens temporaires.",
   },
   {
     question: "Qu'est-ce qu'une data room et comment Airlock s'en rapproche ?",
@@ -60,6 +60,6 @@ export const homeFaqStructuredData = faqSchema([
   },
   {
     question: "Comment Airlock garantit-il la souveraineté des données ?",
-    answer: "Airlock garantit la souveraineté des données en vous permettant de stocker vos fichiers dans vos propres buckets Cloudflare R2 ou AWS S3. Vous choisissez la localisation géographique et gardez le contrôle total sur vos données.",
+    answer: "Airlock garantit la souveraineté des données en stockant exclusivement vos fichiers dans Cloudflare R2 (via l'API compatible S3). Vous choisissez la localisation géographique et gardez le contrôle total sur vos données.",
   },
 ]);

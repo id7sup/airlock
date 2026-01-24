@@ -32,7 +32,7 @@ pm2 restart airlock            # Restart the application
 - **React 19** and **TypeScript**
 - **Firebase Admin** for Firestore database
 - **Clerk** for authentication
-- **AWS S3** for file storage
+- **Cloudflare R2** for file storage (via S3-compatible API)
 - **Mapbox** for geographic visualization
 - **PM2** for process management (production)
 
@@ -115,8 +115,8 @@ Apply this conversion in:
 
 ### File Upload Flow
 
-1. User requests upload → Server Action generates presigned S3 URL
-2. Client uploads directly to S3 (bypass server bandwidth)
+1. User requests upload → Server Action generates presigned R2 URL (S3-compatible)
+2. Client uploads directly to R2 (bypass server bandwidth)
 3. On success → Create Firestore entry with file metadata
 4. File stored with key: `{workspaceId}/{folderId}/{fileId}-{filename}`
 
@@ -163,7 +163,7 @@ Public share pages: [src/app/share/[token]/page.tsx](src/app/share/[token]/page.
   mimeType: string
   folderId: string
   workspaceId: string
-  s3Key: string           // S3 object key
+  s3Key: string           // R2 object key (S3-compatible)
   createdAt: Timestamp
   updatedAt: Timestamp
 }
@@ -229,13 +229,13 @@ Critical environment variables (see full list in README):
 - `NEXT_PUBLIC_FIREBASE_*` - Firebase client config
 - `FIREBASE_PRIVATE_KEY` - Firebase Admin service account key
 - `CLERK_SECRET_KEY` - Clerk authentication
-- `S3_*` - AWS S3 credentials and bucket
+- `S3_*` - Cloudflare R2 credentials and bucket (S3-compatible API)
 - `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` - Mapbox for globe visualization
 
 ### Security Considerations
 
 1. **Never expose Firebase Admin credentials** - Only use in server-side code
-2. **S3 presigned URLs** - Always generate time-limited URLs (default 3600s)
+2. **R2 presigned URLs** - Always generate time-limited URLs (default 3600s)
 3. **Share link tokens** - Hash before storage/comparison (SHA-256)
 4. **Input validation** - Validate all user inputs in Server Actions
 5. **Permission checks** - Verify user has access before any operation

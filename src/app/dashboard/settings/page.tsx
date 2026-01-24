@@ -50,7 +50,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="p-4 sm:p-6 md:p-10 max-w-5xl mx-auto text-black animate-in fade-in duration-700 select-none">
+    <div className="p-4 sm:p-6 md:p-10 max-w-5xl mx-auto text-black animate-in fade-in duration-700 select-none -ml-2 sm:-ml-4 md:-ml-6">
       <div className="mb-6 sm:mb-8 md:mb-12">
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-medium tracking-tight text-black">Paramètres</h1>
         <p className="text-black/40 text-sm sm:text-base font-medium mt-1 sm:mt-2">Gérez votre identité et vos préférences de sécurité.</p>
@@ -120,7 +120,7 @@ export default function SettingsPage() {
                 <div className="space-y-3 sm:space-y-4">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 sm:p-6 bg-[#f5f5f7] rounded-xl sm:rounded-2xl md:rounded-[28px] gap-2 sm:gap-0">
                     <span className="text-sm sm:text-base font-medium text-black">Langue de l'interface</span>
-                    <span className="text-[10px] font-bold text-black uppercase tracking-[0.2em] bg-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-sm">Français</span>
+                    <span className="hidden lg:inline-block text-[10px] font-bold text-black uppercase tracking-[0.2em] bg-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-sm">Français</span>
                   </div>
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 sm:p-6 bg-[#f5f5f7] rounded-xl sm:rounded-2xl md:rounded-[28px] gap-2 sm:gap-0">
                     <span className="text-sm sm:text-base font-medium text-black">Fuseau horaire</span>
@@ -211,7 +211,7 @@ export default function SettingsPage() {
                   <div className="p-6 sm:p-8 md:p-10 bg-black rounded-2xl sm:rounded-3xl md:rounded-[40px] text-white shadow-[0_40px_80px_-20px_rgba(0,0,0,0.2)] overflow-hidden relative">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 md:mb-12 relative z-10 gap-3 sm:gap-0">
                       <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.3em] opacity-40">Formule Gratuite</span>
-                      <div className="flex items-center gap-2 px-3 sm:px-4 py-1 sm:py-1.5 bg-white/10 backdrop-blur-xl rounded-full border border-white/10 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">
+                      <div className="hidden lg:flex items-center gap-2 px-3 sm:px-4 py-1 sm:py-1.5 bg-white/10 backdrop-blur-xl rounded-full border border-white/10 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">
                         <div className="w-1.5 h-1.5 rounded-full bg-[#96A982] animate-pulse" />
                         Abonnement Actif
                       </div>
@@ -249,10 +249,10 @@ export default function SettingsPage() {
                     </div>
                     <div className="space-y-0.5 min-w-0">
                       <p className="text-sm sm:text-base font-medium text-black">Cloudflare R2</p>
-                      <p className="text-[10px] sm:text-[11px] text-black/20 font-bold uppercase tracking-widest">Stockage de documents</p>
+                      <p className="hidden sm:block text-[10px] sm:text-[11px] text-black/20 font-bold uppercase tracking-widest">Stockage de documents</p>
                     </div>
                   </div>
-                  <span className="text-[9px] sm:text-[10px] font-bold text-black bg-white px-3 sm:px-4 py-1 sm:py-1.5 rounded-full border border-black/5 shadow-sm self-start sm:self-auto">CONNECTÉ</span>
+                  <span className="hidden lg:inline-block text-[9px] sm:text-[10px] font-bold text-black bg-white px-3 sm:px-4 py-1 sm:py-1.5 rounded-full border border-black/5 shadow-sm self-start sm:self-auto">CONNECTÉ</span>
                 </div>
               </section>
             </div>

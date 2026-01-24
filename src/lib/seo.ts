@@ -33,8 +33,7 @@ export const defaultMetadata: Metadata = {
     "RGPD",
     "souveraineté données",
     "cloudflare R2",
-    "AWS S3",
-    "zero-knowledge",
+    "chiffrement sécurisé",
     "partage privé",
     "contrôle accès fichiers",
   ],
@@ -142,16 +141,16 @@ export const pricingMetadata: Metadata = {
 };
 
 export const securityMetadata: Metadata = {
-  title: "Sécurité et Chiffrement | Architecture Zero-Knowledge",
-  description: "Découvrez notre architecture de sécurité. Chiffrement, URLs présignées éphémères, stockage souverain, conformité RGPD. Vos fichiers sont protégés à chaque niveau avec Airlock.",
+  title: "Sécurité et Chiffrement | Protection en Couches",
+  description: "Découvrez notre architecture de sécurité. Chiffrement au repos et en transit, URLs présignées éphémères, tokens hashés, stockage souverain, conformité RGPD. Vos fichiers sont protégés à chaque niveau avec Airlock.",
   openGraph: {
-    title: "Sécurité et Chiffrement | Architecture Zero-Knowledge",
+    title: "Sécurité et Chiffrement | Protection en Couches",
     description: "Découvrez notre architecture de sécurité. Chiffrement, URLs présignées éphémères, stockage souverain, conformité RGPD.",
     url: `${siteUrl}/security`,
   },
   twitter: {
-    title: "Sécurité Airlock | Architecture Zero-Knowledge",
-    description: "Chiffrement, URLs présignées éphémères, stockage souverain, conformité RGPD.",
+    title: "Sécurité Airlock | Protection Multicouche",
+    description: "Chiffrement au repos et en transit, URLs présignées éphémères, stockage souverain, conformité RGPD.",
   },
   alternates: {
     canonical: `${siteUrl}/security`,

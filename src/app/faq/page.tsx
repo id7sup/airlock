@@ -53,7 +53,7 @@ const faqs = [
   },
   {
     question: "Comment fonctionne le chiffrement des fichiers sur Airlock ?",
-    answer: "Airlock utilise un chiffrement de bout en bout avec des URLs présignées éphémères. Vos fichiers sont stockés de manière sécurisée dans votre propre bucket Cloudflare R2 ou AWS S3, avec un accès contrôlé via des tokens temporaires.",
+    answer: "Airlock utilise un chiffrement de bout en bout avec des URLs présignées éphémères. Vos fichiers sont stockés de manière sécurisée dans Cloudflare R2 (via l'API compatible S3), avec un accès contrôlé via des tokens temporaires.",
   },
   {
     question: "Qu'est-ce qu'une data room et comment Airlock s'en rapproche ?",
@@ -85,7 +85,7 @@ const faqs = [
   },
   {
     question: "Comment Airlock garantit-il la souveraineté des données ?",
-    answer: "Airlock garantit la souveraineté des données en vous permettant de stocker vos fichiers dans vos propres buckets Cloudflare R2 ou AWS S3. Vous choisissez la localisation géographique et gardez le contrôle total sur vos données.",
+    answer: "Airlock garantit la souveraineté des données en stockant exclusivement vos fichiers dans Cloudflare R2 (via l'API compatible S3). Vous choisissez la localisation géographique et gardez le contrôle total sur vos données.",
   },
 ];
 

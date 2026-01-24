@@ -14,28 +14,40 @@ export const dynamic = 'force-dynamic';
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://airlck.com";
 
 function generateRobotsTxt(): string {
-  const robotsTxt = `User-agent: *
+  // Pas de doublons Bingbot. Pas de lignes vides superflues.
+  const robotsTxt = 
+`User-agent: *
 Allow: /
 Disallow: /dashboard/
 Disallow: /api/
 Disallow: /share/
 Disallow: /_next/
 Disallow: /admin/
-
+# Google
 User-agent: Googlebot
 Allow: /
 Disallow: /dashboard/
 Disallow: /api/
 Disallow: /share/
-
+# Bing
 User-agent: Bingbot
 Allow: /
 Disallow: /dashboard/
 Disallow: /api/
 Disallow: /share/
-
-Sitemap: ${siteUrl}/sitemap.xml
-`;
+# OpenAI (ChatGPT)
+User-agent: GPTBot
+Allow: /
+# Anthropic (Claude)
+User-agent: ClaudeBot
+Allow: /
+# Perplexity
+User-agent: PerplexityBot
+Allow: /
+# Common Crawl (utilisé par beaucoup d’IA)
+User-agent: CCBot
+Allow: /
+Sitemap: ${siteUrl}/sitemap.xml`;
 
   return robotsTxt;
 }

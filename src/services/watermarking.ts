@@ -3,9 +3,10 @@ import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import * as admin from "firebase-admin";
 
+// S3-compatible client pour Cloudflare R2
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || "auto",
-  endpoint: process.env.S3_ENDPOINT,
+  endpoint: process.env.S3_ENDPOINT, // Endpoint Cloudflare R2
   credentials: {
     accessKeyId: process.env.S3_ACCESS_KEY_ID || "",
     secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || "",

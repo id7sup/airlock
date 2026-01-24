@@ -24,8 +24,8 @@ Airlock est une application Next.js 16 utilisant l'App Router, avec une architec
          │                    │                    │
          ▼                    ▼                    ▼
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│  Firebase    │    │  AWS S3      │    │   Clerk      │
-│  (Firestore) │    │  (Storage)   │    │  (Auth)      │
+│  Firebase    │    │ Cloudflare   │    │   Clerk      │
+│  (Firestore) │    │  R2 Storage  │    │  (Auth)      │
 └──────────────┘    └──────────────┘    └──────────────┘
 ```
 
@@ -62,7 +62,7 @@ airlock/
 │   ├── services/               # Services métier
 │   │   ├── analytics.ts        # Analytics
 │   │   ├── sharing.ts          # Partage
-│   │   ├── storage.ts          # Stockage S3
+│   │   ├── storage.ts          # Stockage R2 (S3-compatible)
 │   │   └── notifications.ts    # Notifications
 │   └── proxy.ts                # Proxy d'authentification (Next.js 16+)
 ├── public/                     # Fichiers statiques
@@ -93,7 +93,7 @@ User → Clerk → Proxy → Protected Routes
 3. Téléchargement
    → API route /api/public/download
    → Vérifie token
-   → Génère URL S3 signée
+   → Génère URL R2 signée (S3-compatible)
    → Redirige vers fichier
 ```
 
@@ -101,8 +101,8 @@ User → Clerk → Proxy → Protected Routes
 ```
 1. User upload fichier
    → Server Action (files.ts)
-   → Génère URL S3 presignée
-   → Client upload directement vers S3
+   → Génère URL R2 presignée (S3-compatible)
+   → Client upload directement vers R2
    → Callback → Crée entrée Firestore
 ```
 
@@ -133,7 +133,7 @@ User → Clerk → Proxy → Protected Routes
   mimeType: string
   folderId: string
   workspaceId: string
-  s3Key: string
+  s3Key: string           // Clé R2 (API compatible S3)
   createdAt: Timestamp
   updatedAt: Timestamp
 }
@@ -185,7 +185,7 @@ User → Clerk → Proxy → Protected Routes
 - Protection par mot de passe optionnelle
 
 ### Stockage
-- URLs S3 presignées (expiration limitée)
+- URLs R2 presignées (S3-compatible, expiration limitée)
 - Validation des permissions avant accès
 - Watermarking automatique pour certains fichiers
 
@@ -217,8 +217,8 @@ User → Clerk → Proxy → Protected Routes
 - `getLinkAnalytics()` - Récupère les stats
 
 ### `services/storage.ts`
-- `getUploadUrl()` - Génère URL upload S3
-- `getDownloadUrl()` - Génère URL download S3
+- `getUploadUrl()` - Génère URL upload R2 (S3-compatible)
+- `getDownloadUrl()` - Génère URL download R2 (S3-compatible)
 
 ## 🚀 Performance
 

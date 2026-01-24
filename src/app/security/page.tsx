@@ -164,9 +164,8 @@ export default function SecurityPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6 }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#96A982]/10 rounded-full"
+                  className="inline-flex px-4 py-2 bg-[#96A982]/10 rounded-full"
                 >
-                  <Shield className="w-4 h-4 text-[#96A982]" />
                   <span className="text-[12px] font-semibold text-[#96A982] uppercase tracking-wider">Sécurité de niveau entreprise</span>
                 </motion.div>
 
@@ -230,49 +229,49 @@ export default function SecurityPage() {
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.8, delay: 0.2 }}
-                  className="relative"
+                  className="relative lg:overflow-visible"
                 >
-                  {/* Main Dashboard Image */}
-                  <div className="relative rounded-[24px] overflow-hidden shadow-2xl shadow-black/10 border border-black/5">
+                  {/* Main Dashboard Image (oversized, cropped on the right) */}
+                  <div className="relative rounded-[24px] overflow-hidden shadow-2xl shadow-black/10 border border-black/5 lg:w-[140%] lg:ml-auto">
                     <img
-                      src="/assets/security-hero.png"
+                      src="/assets/logsview.png"
                       alt="Airlock Security Dashboard"
                       className="w-full h-auto"
                     />
                   </div>
 
-                  {/* Floating Badge 1 */}
+                  {/* Floating Badge 1 - Logs en temps réel (côté gauche) */}
                   <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.6, delay: 0.5 }}
-                    className="absolute -left-4 md:-left-8 top-1/4 bg-white rounded-2xl p-4 shadow-xl shadow-black/5 border border-black/5"
+                    className="hidden lg:block absolute -left-6 md:-left-12 top-[54%] -translate-y-1/2 bg-white/95 backdrop-blur-md rounded-2xl px-5 py-4 shadow-2xl shadow-black/10 border border-black/10 z-20"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-green-500/10 rounded-xl flex items-center justify-center">
-                        <Lock className="w-5 h-5 text-green-600" />
+                      <div className="w-10 h-10 bg-[#96A982]/10 rounded-xl flex items-center justify-center">
+                        <Activity className="w-5 h-5 text-[#96A982]" />
                       </div>
                       <div>
-                        <p className="text-[11px] font-bold text-black/40 uppercase tracking-wider">Chiffré</p>
-                        <p className="text-sm font-semibold text-black">SHA-256</p>
+                        <p className="text-[11px] font-bold text-black/40 uppercase tracking-wider">Logs en temps réel</p>
+                        <p className="text-sm font-semibold text-black">Suivi des accès</p>
                       </div>
                     </div>
                   </motion.div>
 
-                  {/* Floating Badge 2 */}
+                  {/* Floating Badge 2 - Suivi des partages (en haut à droite) */}
                   <motion.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.6, delay: 0.6 }}
-                    className="absolute -right-4 md:-right-8 bottom-1/4 bg-white rounded-2xl p-4 shadow-xl shadow-black/5 border border-black/5"
+                    className="hidden lg:block absolute right-2 md:right-10 -top-5 md:-top-9 bg-white/95 backdrop-blur-md rounded-2xl px-5 py-4 shadow-2xl shadow-black/10 border border-black/10 z-20"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-[#96A982]/10 rounded-xl flex items-center justify-center">
-                        <ShieldCheck className="w-5 h-5 text-[#96A982]" />
+                        <Eye className="w-5 h-5 text-[#96A982]" />
                       </div>
                       <div>
-                        <p className="text-[11px] font-bold text-black/40 uppercase tracking-wider">Statut</p>
-                        <p className="text-sm font-semibold text-green-600">Protégé</p>
+                        <p className="text-[11px] font-bold text-black/40 uppercase tracking-wider">Partages suivis</p>
+                        <p className="text-sm font-semibold text-green-600">Vues & téléchargements</p>
                       </div>
                     </div>
                   </motion.div>

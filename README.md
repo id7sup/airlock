@@ -56,7 +56,7 @@ Plateforme de partage de fichiers sécurisée avec authentification, gestion de 
 ### Backend & Services
 - **Firebase Admin** - Base de données (Firestore)
 - **Clerk** - Authentification
-- **AWS S3** - Stockage de fichiers
+- **Cloudflare R2** - Stockage de fichiers (via API compatible S3)
 - **Mapbox** - Cartographie et globe
 - **PM2** - Gestion de processus
 
@@ -74,7 +74,7 @@ Plateforme de partage de fichiers sécurisée avec authentification, gestion de 
 - npm ou yarn
 - Compte Firebase
 - Compte Clerk
-- Bucket S3 (ou compatible)
+- Compte Cloudflare R2
 
 ### Étapes
 
@@ -111,7 +111,7 @@ Voir [ENV.md](./ENV.md) pour la liste complète des variables.
 **Minimum requis :**
 - `NEXT_PUBLIC_FIREBASE_*` - Configuration Firebase
 - `CLERK_SECRET_KEY` - Clé secrète Clerk
-- `S3_*` - Configuration S3
+- `S3_*` - Configuration Cloudflare R2 (API compatible S3)
 - `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` - Token Mapbox (pour le globe)
 
 ## 🚀 Déploiement

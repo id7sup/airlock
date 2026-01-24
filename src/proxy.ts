@@ -37,19 +37,25 @@ const isPublicRoute = createRouteMatcher([
  * Vérifie si la route est publique. Si non, exige une authentification.
  * Les routes SEO (sitemap.xml, robots.txt) sont toujours publiques.
  */
-export default clerkMiddleware(async (auth, request) => {
-  const pathname = request.nextUrl.pathname;
-  
-  // Toujours permettre l'accès aux routes SEO publiques (priorité absolue)
-  if (pathname === '/sitemap.xml' || pathname === '/robots.txt' || pathname === '/manifest.json') {
-    return;
+export default clerkMiddleware(
+  async (auth, request) => {
+    const pathname = request.nextUrl.pathname;
+    
+    // Toujours permettre l'accès aux routes SEO publiques (priorité absolue)
+    if (pathname === '/sitemap.xml' || pathname === '/robots.txt' || pathname === '/manifest.json') {
+      return;
+    }
+    
+    // Vérifier si la route est publique
+    if (!isPublicRoute(request)) {
+      await auth.protect();
+    }
+  },
+  {
+    // Redirige les utilisateurs non authentifiés vers la page de connexion personnalisée
+    signInUrl: "/login",
   }
-  
-  // Vérifier si la route est publique
-  if (!isPublicRoute(request)) {
-    await auth.protect();
-  }
-});
+);
 
 export const config = {
   matcher: [
