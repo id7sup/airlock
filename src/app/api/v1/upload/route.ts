@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { validateAPIKey, checkScope } from "@/lib/api/auth";
 import { checkRateLimit, trackAPIUsage } from "@/lib/api/ratelimit";
-import { responses } from "@/lib/api/responses";
+import { successResponse, responses } from "@/lib/api/responses";
 import { db } from "@/lib/firebase";
 import { getUploadUrl } from "@/services/storage";
 import crypto from "crypto";
@@ -233,7 +233,7 @@ export async function POST(req: NextRequest) {
     });
 
     // 11. Return presigned URL
-    return responses.successResponse({
+    return successResponse({
       uploadUrl,
       s3Key,
       fileId,

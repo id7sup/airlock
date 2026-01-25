@@ -1,0 +1,248 @@
+{
+  "info": {
+    "name": "Airlock API",
+    "description": "Collection pour tester l'API Airlock",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentification",
+      "item": [
+        {
+          "name": "Tester l'authentification",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{API_KEY}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/folders",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "folders"]
+            },
+            "description": "Teste que ta clé API fonctionne"
+          }
+        },
+        {
+          "name": "Test avec clé invalide (devrait échouer)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer invalid_key_12345",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/folders",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "folders"]
+            },
+            "description": "Devrait retourner 401 Unauthorized"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dossiers",
+      "item": [
+        {
+          "name": "Lister les dossiers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{API_KEY}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/folders?limit=20&offset=0",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "folders"],
+              "query": [
+                {"key": "limit", "value": "20"},
+                {"key": "offset", "value": "0"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Créer un dossier",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{API_KEY}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Folder API\",\n  \"parentId\": null\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/folders",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "folders"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fichiers",
+      "item": [
+        {
+          "name": "Lister les fichiers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{API_KEY}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/files?limit=20&offset=0",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "files"],
+              "query": [
+                {"key": "limit", "value": "20"},
+                {"key": "offset", "value": "0"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Obtenir URL d'upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{API_KEY}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"FOLDER_ID_HERE\",\n  \"name\": \"test-file.txt\",\n  \"size\": 1024,\n  \"mimeType\": \"text/plain\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/upload",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "upload"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Partages",
+      "item": [
+        {
+          "name": "Lister les partages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{API_KEY}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/shares",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "shares"]
+            }
+          }
+        },
+        {
+          "name": "Créer un lien de partage",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{API_KEY}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folderId\": \"FOLDER_ID_HERE\",\n  \"allowDownload\": true,\n  \"allowViewOnline\": true,\n  \"maxViews\": 100\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/shares",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "shares"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Obtenir les analytics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{API_KEY}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/v1/analytics?days=7",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "v1", "analytics"],
+              "query": [
+                {"key": "days", "value": "7"}
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "API_KEY",
+      "value": "YOUR_API_KEY_HERE",
+      "type": "string"
+    }
+  ]
+}

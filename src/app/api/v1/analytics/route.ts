@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { validateAPIKey, checkScope } from "@/lib/api/auth";
 import { checkRateLimit, trackAPIUsage, getAPIKeyUsageStats } from "@/lib/api/ratelimit";
-import { responses } from "@/lib/api/responses";
+import { successResponse, responses } from "@/lib/api/responses";
 import { db } from "@/lib/firebase";
 import crypto from "crypto";
 
@@ -118,7 +118,7 @@ export async function GET(req: NextRequest) {
     }
 
     const linksSnapshot = await query.get();
-    const links = linksSnapshot.docs.map((doc) => ({
+    const links = linksSnapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data(),
     }));
@@ -133,29 +133,29 @@ export async function GET(req: NextRequest) {
       .where("date", "<=", endDateStr)
       .get();
 
-    const analytics = analyticsSnapshot.docs.map((doc) => doc.data());
+    const analytics = analyticsSnapshot.docs.map((doc: any) => doc.data());
 
     // Filter by folderId if specified
     let filteredAnalytics = analytics;
     if (folderId) {
-      const folderLinkIds = links.map((l) => l.id);
-      filteredAnalytics = analytics.filter((a) =>
+      const folderLinkIds = links.map((l: any) => l.id);
+      filteredAnalytics = analytics.filter((a: any) =>
         folderLinkIds.includes(a.linkId)
       );
     }
 
     // 6. Calculate summary stats
     const totalViews = filteredAnalytics.filter(
-      (a) => a.eventType === "OPEN_SHARE"
+      (a: any) => a.eventType === "OPEN_SHARE"
     ).length;
     const totalDownloads = filteredAnalytics.filter(
-      (a) => a.eventType === "DOWNLOAD_FILE"
+      (a: any) => a.eventType === "DOWNLOAD_FILE"
     ).length;
-    const activeLinks = new Set(filteredAnalytics.map((a) => a.linkId)).size;
+    const activeLinks = new Set(filteredAnalytics.map((a: any) => a.linkId)).size;
 
     // 7. Group by date for daily breakdown
     const byDate: Record<string, any> = {};
-    filteredAnalytics.forEach((event) => {
+    filteredAnalytics.forEach((event: any) => {
       if (!byDate[event.date]) {
         byDate[event.date] = {
           date: event.date,
@@ -197,7 +197,7 @@ export async function GET(req: NextRequest) {
     });
 
     // 9. Return response
-    return responses.successResponse({
+    return successResponse({
       summary: {
         totalViews,
         totalDownloads,

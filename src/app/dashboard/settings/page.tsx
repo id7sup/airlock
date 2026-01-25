@@ -1,34 +1,131 @@
 "use client";
 
 import { useUser, useClerk } from "@clerk/nextjs";
-import { 
-  User, 
-  Shield, 
-  CreditCard, 
-  Trash2, 
-  ChevronRight, 
-  Lock, 
+import {
+  User,
+  Shield,
+  CreditCard,
+  Trash2,
+  ChevronRight,
+  Lock,
   Smartphone,
   Globe,
   Database,
   ExternalLink,
   Settings2,
-  ArrowUpRight
+  ArrowUpRight,
+  Key,
+  Copy,
+  Trash,
+  Plus
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { deleteAccountAction } from "@/lib/actions/account";
 import { useRouter } from "next/navigation";
+import { listAPIKeysAction, createAPIKeyAction, revokeAPIKeyAction } from "@/lib/actions/api-keys";
 
 export default function SettingsPage() {
   const { user } = useUser();
   const { openUserProfile } = useClerk();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'profile' | 'account' | 'billing'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'account' | 'billing' | 'api'>('profile');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [apiKeys, setApiKeys] = useState<any[]>([]);
+  const [loadingKeys, setLoadingKeys] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [selectedScopes, setSelectedScopes] = useState<string[]>(["files:read", "files:write", "folders:read"]);
+  const [newKeyDisplay, setNewKeyDisplay] = useState<any>(null);
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [revokeConfirm, setRevokeConfirm] = useState<string | null>(null);
 
   if (!user) return null;
+
+  useEffect(() => {
+    loadApiKeys();
+  }, []);
+
+  const loadApiKeys = async () => {
+    setLoadingKeys(true);
+    try {
+      const result = await listAPIKeysAction();
+      if (result.success) {
+        setApiKeys(result.keys || []);
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des clés API:", error);
+    } finally {
+      setLoadingKeys(false);
+    }
+  };
+
+  const handleCreateKey = async () => {
+    if (!newKeyName.trim() || selectedScopes.length === 0) {
+      alert("Veuillez remplir tous les champs");
+      return;
+    }
+
+    setCreateLoading(true);
+    try {
+      const result = await createAPIKeyAction({
+        name: newKeyName,
+        scopes: selectedScopes,
+      });
+
+      if (result.success) {
+        setNewKeyDisplay(result.apiKey);
+        setNewKeyName("");
+        setSelectedScopes(["files:read", "files:write", "folders:read"]);
+        setShowCreateModal(false);
+        await loadApiKeys();
+      } else {
+        alert(`Erreur: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Erreur:", error);
+      alert("Impossible de créer la clé API");
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  const handleRevokeKey = async (keyId: string) => {
+    try {
+      const result = await revokeAPIKeyAction(keyId);
+      if (result.success) {
+        setRevokeConfirm(null);
+        await loadApiKeys();
+      } else {
+        alert(`Erreur: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Erreur:", error);
+      alert("Impossible de révoquer la clé");
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(true);
+      setTimeout(() => setCopiedKey(false), 2000);
+    } catch (error) {
+      console.error("Erreur de copie:", error);
+    }
+  };
+
+  const scopeOptions = [
+    { id: "files:read", label: "Lire les fichiers" },
+    { id: "files:write", label: "Uploader les fichiers" },
+    { id: "folders:read", label: "Lire les dossiers" },
+    { id: "folders:write", label: "Créer des dossiers" },
+    { id: "shares:read", label: "Lire les partages" },
+    { id: "shares:write", label: "Créer des partages" },
+    { id: "analytics:read", label: "Lire les analytics" },
+  ];
 
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
@@ -46,6 +143,7 @@ export default function SettingsPage() {
   const tabs = [
     { id: 'profile', label: 'Profil', icon: User },
     { id: 'account', label: 'Sécurité', icon: Shield },
+    { id: 'api', label: 'API Connections', icon: Key },
     { id: 'billing', label: 'Abonnement', icon: CreditCard },
   ];
 
@@ -193,6 +291,190 @@ export default function SettingsPage() {
                 >
                   Supprimer mon compte Airlock
                 </button>
+              </section>
+            </div>
+          )}
+
+          {activeTab === 'api' && (
+            <div className="space-y-6 sm:space-y-8 md:space-y-10 animate-in slide-in-from-right-4 duration-500">
+              {/* New Key Display Modal */}
+              {newKeyDisplay && (
+                <section className="bg-green-50/30 rounded-2xl sm:rounded-3xl md:rounded-[40px] p-4 sm:p-6 md:p-10 border border-green-100/50">
+                  <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-50 rounded-xl sm:rounded-2xl flex items-center justify-center text-green-600 flex-shrink-0">
+                      <Key className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-medium text-green-600 tracking-tight">Clé API créée</h3>
+                  </div>
+                  <p className="text-sm sm:text-base text-green-600/60 font-medium mb-4 sm:mb-6 leading-relaxed">
+                    Voici votre clé API. Copiez-la maintenant, vous ne pourrez plus la voir après cette page.
+                  </p>
+                  <div className="p-3 sm:p-4 bg-black rounded-xl font-mono text-xs sm:text-sm text-green-400 overflow-x-auto mb-4 sm:mb-6">
+                    {newKeyDisplay.key}
+                  </div>
+                  <button
+                    onClick={() => copyToClipboard(newKeyDisplay.key)}
+                    className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-green-600 text-white rounded-xl sm:rounded-2xl text-xs sm:text-[13px] font-bold uppercase tracking-[0.2em] hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Copy className="w-4 h-4" />
+                    {copiedKey ? "Copié!" : "Copier"}
+                  </button>
+                  <button
+                    onClick={() => setNewKeyDisplay(null)}
+                    className="w-full sm:w-auto mt-3 px-6 sm:px-8 py-3 sm:py-4 bg-white text-black rounded-xl sm:rounded-2xl text-xs sm:text-[13px] font-bold uppercase tracking-[0.2em] border border-black/10 hover:bg-black/5 active:scale-95 transition-all"
+                  >
+                    Fermer
+                  </button>
+                </section>
+              )}
+
+              {/* Create Key Modal */}
+              {showCreateModal && (
+                <section className="bg-white rounded-2xl sm:rounded-3xl md:rounded-[40px] p-4 sm:p-6 md:p-10 shadow-2xl shadow-black/[0.03] border border-black/[0.02]">
+                  <h3 className="text-lg sm:text-xl font-medium text-black tracking-tight mb-6 sm:mb-8">Créer une clé API</h3>
+
+                  <div className="space-y-6 sm:space-y-8">
+                    <div>
+                      <label className="block text-sm font-medium text-black mb-3">Nom de la clé</label>
+                      <input
+                        type="text"
+                        value={newKeyName}
+                        onChange={(e) => setNewKeyName(e.target.value)}
+                        placeholder="Ex: Production API Key"
+                        className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-[#f5f5f7] rounded-xl sm:rounded-2xl border border-black/5 focus:outline-none focus:border-black/20 text-black placeholder-black/30"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-black mb-3">Permissions</label>
+                      <div className="space-y-2">
+                        {scopeOptions.map((scope) => (
+                          <label key={scope.id} className="flex items-center gap-3 p-3 sm:p-4 bg-[#f5f5f7] rounded-xl sm:rounded-2xl cursor-pointer hover:bg-black/5 transition-all">
+                            <input
+                              type="checkbox"
+                              checked={selectedScopes.includes(scope.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedScopes([...selectedScopes, scope.id]);
+                                } else {
+                                  setSelectedScopes(selectedScopes.filter((s) => s !== scope.id));
+                                }
+                              }}
+                              className="w-4 h-4 rounded accent-black"
+                            />
+                            <span className="text-sm font-medium text-black">{scope.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 sm:gap-4 pt-4">
+                      <button
+                        onClick={handleCreateKey}
+                        disabled={createLoading}
+                        className="flex-1 px-6 sm:px-8 py-3 sm:py-4 bg-black text-white rounded-xl sm:rounded-2xl text-xs sm:text-[13px] font-bold uppercase tracking-[0.2em] hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
+                      >
+                        {createLoading ? "Création..." : "Créer la clé"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowCreateModal(false);
+                          setNewKeyName("");
+                          setSelectedScopes(["files:read", "files:write", "folders:read"]);
+                        }}
+                        className="flex-1 px-6 sm:px-8 py-3 sm:py-4 bg-white text-black rounded-xl sm:rounded-2xl text-xs sm:text-[13px] font-bold uppercase tracking-[0.2em] border border-black/10 hover:bg-black/5 active:scale-95 transition-all"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* Revoke Confirm Modal */}
+              {revokeConfirm && (
+                <ConfirmModal
+                  isOpen={true}
+                  onClose={() => setRevokeConfirm(null)}
+                  onConfirm={() => handleRevokeKey(revokeConfirm)}
+                  title="Révoquer la clé API"
+                  message="Cette action est irréversible. La clé API ne fonctionnera plus. Êtes-vous sûr?"
+                  confirmText="Oui, révoquer"
+                  cancelText="Annuler"
+                  isDestructive={true}
+                />
+              )}
+
+              {/* API Keys List */}
+              <section className="bg-white rounded-2xl sm:rounded-3xl md:rounded-[40px] p-4 sm:p-6 md:p-10 shadow-2xl shadow-black/[0.03] border border-black/[0.02]">
+                <div className="flex items-center justify-between mb-6 sm:mb-8 gap-4">
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-medium text-black tracking-tight">Clés API</h3>
+                    <p className="text-xs sm:text-[13px] text-black/40 font-medium mt-1">Gérez vos clés d'accès API</p>
+                  </div>
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    disabled={showCreateModal || createLoading}
+                    className="flex-shrink-0 px-4 sm:px-6 py-2 sm:py-3 bg-black text-white rounded-xl sm:rounded-2xl text-xs sm:text-[13px] font-bold uppercase tracking-[0.2em] hover:opacity-90 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden sm:inline">Nouvelle</span>
+                  </button>
+                </div>
+
+                {loadingKeys ? (
+                  <div className="text-center py-12 text-black/40">Chargement...</div>
+                ) : apiKeys.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Key className="w-12 h-12 text-black/10 mx-auto mb-4" />
+                    <p className="text-black/40 font-medium mb-4">Aucune clé API</p>
+                    <button
+                      onClick={() => setShowCreateModal(true)}
+                      className="px-6 sm:px-8 py-3 sm:py-4 bg-black text-white rounded-xl sm:rounded-2xl text-xs sm:text-[13px] font-bold uppercase tracking-[0.2em] hover:opacity-90 active:scale-95 transition-all"
+                    >
+                      Créer la première
+                    </button>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-black/5">
+                          <th className="text-left p-4 font-medium text-black/60 text-xs uppercase tracking-wider">#</th>
+                          <th className="text-left p-4 font-medium text-black/60 text-xs uppercase tracking-wider">Description</th>
+                          <th className="text-left p-4 font-medium text-black/60 text-xs uppercase tracking-wider">Clé API</th>
+                          <th className="text-left p-4 font-medium text-black/60 text-xs uppercase tracking-wider">Expire</th>
+                          <th className="text-left p-4 font-medium text-black/60 text-xs uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {apiKeys.map((key, index) => (
+                          <tr key={key.id} className="border-b border-black/5 hover:bg-black/2 transition-colors">
+                            <td className="p-4 text-black/60">{index + 1}</td>
+                            <td className="p-4 font-medium text-black">{key.name}</td>
+                            <td className="p-4 font-mono text-xs text-black/40">
+                              <div className="flex items-center gap-2">
+                                <span className="max-w-xs truncate">{key.keyHash?.substring(0, 24)}...</span>
+                              </div>
+                            </td>
+                            <td className="p-4 text-sm text-black/60">
+                              {key.expiresAt ? new Date(key.expiresAt).toLocaleDateString("fr-FR") : "Jamais"}
+                            </td>
+                            <td className="p-4">
+                              <button
+                                onClick={() => setRevokeConfirm(key.id)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Révoquer"
+                              >
+                                <Trash className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </section>
             </div>
           )}

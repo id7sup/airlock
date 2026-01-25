@@ -131,7 +131,7 @@ export async function listAPIKeys(userId: string, workspaceId?: string) {
 
     const snapshot = await query.orderBy("createdAt", "desc").get();
 
-    return snapshot.docs.map((doc) => convertAPIKeyDoc(doc.id, doc.data()));
+    return snapshot.docs.map((doc: any) => convertAPIKeyDoc(doc.id, doc.data()));
   } catch (error) {
     console.error("Failed to list API keys:", error);
     return [];

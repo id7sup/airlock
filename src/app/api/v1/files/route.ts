@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { validateAPIKey, checkScope } from "@/lib/api/auth";
 import { checkRateLimit, trackAPIUsage } from "@/lib/api/ratelimit";
-import { responses } from "@/lib/api/responses";
+import { successResponse, responses } from "@/lib/api/responses";
 import { db } from "@/lib/firebase";
 import crypto from "crypto";
 
@@ -139,7 +139,7 @@ export async function GET(req: NextRequest) {
       .offset(offset)
       .get();
 
-    const files = snapshot.docs.map((doc) => {
+    const files = snapshot.docs.map((doc: any) => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -174,7 +174,7 @@ export async function GET(req: NextRequest) {
     });
 
     // 7. Return response
-    return responses.successResponse({ files, total });
+    return successResponse({ files, total });
   } catch (error) {
     console.error("GET /api/v1/files error:", error);
     return responses.internalError();
