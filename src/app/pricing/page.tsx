@@ -24,7 +24,7 @@ export default function PricingPage() {
             </Link>
             
             <div className="hidden md:flex items-center gap-6 text-[13px] font-medium tracking-tight">
-              <button 
+              <button
                 onMouseEnter={() => setIsFeaturesHovered(true)}
                 className={`transition-colors flex items-center gap-1.5 py-2 ${isFeaturesHovered ? 'text-white' : 'text-white/70 hover:text-white'}`}
               >
@@ -35,6 +35,9 @@ export default function PricingPage() {
               </Link>
               <Link href="/security" className="text-white/70 hover:text-white transition-colors">
                 Sécurité
+              </Link>
+              <Link href="/documentation-api" className="text-white/70 hover:text-white transition-colors">
+                API
               </Link>
             </div>
 

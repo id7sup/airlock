@@ -217,7 +217,7 @@ export default function Home() {
             
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-6 text-[13px] font-medium tracking-tight">
-              <button 
+              <button
                 onMouseEnter={() => setIsFeaturesHovered(true)}
                 className={`transition-colors flex items-center gap-1.5 py-2 ${isFeaturesHovered ? 'text-white' : 'text-white/70 hover:text-white'}`}
               >
@@ -228,6 +228,9 @@ export default function Home() {
               </Link>
               <Link href="/security" className="text-white/70 hover:text-white transition-colors">
                 Sécurité
+              </Link>
+              <Link href="/documentation-api" className="text-white/70 hover:text-white transition-colors">
+                API
               </Link>
             </div>
 
@@ -296,12 +299,19 @@ export default function Home() {
                   >
                     Facturation
                   </Link>
-                  <Link 
-                    href="/security" 
+                  <Link
+                    href="/security"
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2"
                   >
                     Sécurité
+                  </Link>
+                  <Link
+                    href="/documentation-api"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2"
+                  >
+                    Documentation API
                   </Link>
                   <div className="pt-2 mt-2 border-t border-white/5 flex flex-col gap-2">
                     <SignedOut>

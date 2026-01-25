@@ -3,9 +3,13 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
-import { Copy, Trash2, Eye, EyeOff, Plus } from "lucide-react";
+import { Copy, Trash2, Eye, EyeOff, Plus, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
-import { listAPIKeys, createAPIKey, revokeAPIKey } from "@/services/api-keys";
+import {
+  createAPIKeyAction,
+  listAPIKeysAction,
+  revokeAPIKeyAction,
+} from "@/lib/actions/api-keys";
 
 interface APIKey {
   id: string;
@@ -40,6 +44,9 @@ export default function APIPage() {
   const [createdKey, setCreatedKey] = useState<(APIKey & { key: string }) | null>(null);
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isRevoking, setIsRevoking] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoaded || !userId) return;
@@ -50,11 +57,17 @@ export default function APIPage() {
   const loadKeys = async () => {
     try {
       setLoading(true);
-      // In a real app, this would be a Server Action or API call
-      // For now, just show empty state
-      setKeys([]);
+      setError(null);
+      const result = await listAPIKeysAction();
+
+      if (result.success) {
+        setKeys(result.keys || []);
+      } else {
+        setError(result.error || "Impossible de charger les clés API");
+      }
     } catch (error) {
-      console.error("Failed to load API keys:", error);
+      console.error("Erreur lors du chargement:", error);
+      setError("Une erreur est survenue");
     } finally {
       setLoading(false);
     }
@@ -62,41 +75,59 @@ export default function APIPage() {
 
   const handleCreateKey = async () => {
     if (!newKeyName.trim() || selectedScopes.length === 0) {
-      alert("Please enter a name and select at least one scope");
+      setError("Veuillez entrer un nom et sélectionner au moins une permission");
       return;
     }
 
     try {
-      // In a real app, this would be a Server Action
-      // const newKey = await createAPIKey({
-      //   name: newKeyName,
-      //   userId: userId!,
-      //   workspaceId: "workspace123",
-      //   scopes: selectedScopes,
-      // });
-      // setCreatedKey(newKey);
-      // setShowCreateModal(false);
-      // await loadKeys();
+      setIsCreating(true);
+      setError(null);
+      const result = await createAPIKeyAction({
+        name: newKeyName.trim(),
+        scopes: selectedScopes,
+        expiresAt: null,
+      });
 
-      alert("Feature coming soon! API key creation requires backend Server Action");
+      if (result.success && result.apiKey) {
+        setCreatedKey(result.apiKey as APIKey & { key: string });
+        setShowCreateModal(false);
+        setNewKeyName("");
+        await loadKeys();
+      } else {
+        setError(result.error || "Impossible de créer la clé API");
+      }
     } catch (error) {
-      console.error("Failed to create API key:", error);
-      alert("Failed to create API key");
+      console.error("Erreur:", error);
+      setError("Une erreur est survenue lors de la création");
+    } finally {
+      setIsCreating(false);
     }
   };
 
   const handleRevokeKey = async (keyId: string) => {
-    if (!confirm("Are you sure you want to revoke this API key? It cannot be recovered.")) {
+    if (
+      !confirm(
+        "Êtes-vous sûr ? Vous ne pouvez pas récupérer cette clé API."
+      )
+    ) {
       return;
     }
 
     try {
-      // await revokeAPIKey(keyId);
-      // setKeys(keys.filter(k => k.id !== keyId));
-      alert("Feature coming soon! Revoke requires backend Server Action");
+      setIsRevoking(keyId);
+      setError(null);
+      const result = await revokeAPIKeyAction(keyId);
+
+      if (result.success) {
+        setKeys(keys.filter((k) => k.id !== keyId));
+      } else {
+        setError(result.error || "Impossible de révoquer la clé API");
+      }
     } catch (error) {
-      console.error("Failed to revoke API key:", error);
-      alert("Failed to revoke API key");
+      console.error("Erreur:", error);
+      setError("Une erreur est survenue");
+    } finally {
+      setIsRevoking(null);
     }
   };
 
@@ -112,12 +143,12 @@ export default function APIPage() {
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    setCopyFeedback(`${label} copied!`);
+    setCopyFeedback(`${label} copié !`);
     setTimeout(() => setCopyFeedback(null), 2000);
   };
 
   if (!isLoaded) {
-    return <div>Loading...</div>;
+    return <div className="p-8">Chargement...</div>;
   }
 
   return (
@@ -134,10 +165,10 @@ export default function APIPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-4xl md:text-5xl font-medium tracking-tight mb-2">
-                  API Keys
+                  Clés API
                 </h1>
                 <p className="text-lg text-black/50 font-medium">
-                  Manage API access to your workspace
+                  Gérez l'accès API à votre espace de travail
                 </p>
               </div>
               <motion.button
@@ -147,17 +178,29 @@ export default function APIPage() {
                 className="flex items-center gap-2 bg-black text-white px-6 py-3 rounded-[24px] font-medium hover:bg-black/90 transition-all"
               >
                 <Plus className="w-5 h-5" />
-                Create Key
+                Créer une clé
               </motion.button>
             </div>
           </motion.div>
         </div>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-5xl mx-auto px-6 py-4 mt-6 bg-red-50 border border-red-200 rounded-[16px] flex gap-3"
+        >
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm font-medium text-red-900">{error}</p>
+        </motion.div>
+      )}
+
       {/* Content */}
       <div className="max-w-5xl mx-auto px-6 py-16">
         {loading ? (
-          <div className="text-center py-12">Loading API keys...</div>
+          <div className="text-center py-12">Chargement des clés API...</div>
         ) : keys.length === 0 ? (
           // Empty State
           <motion.div
@@ -168,9 +211,9 @@ export default function APIPage() {
           >
             <div className="space-y-6">
               <div>
-                <h3 className="text-2xl font-medium mb-2">No API keys yet</h3>
+                <h3 className="text-2xl font-medium mb-2">Aucune clé API</h3>
                 <p className="text-black/50 font-medium">
-                  Create your first API key to start integrating Airlock into your website
+                  Créez votre première clé API pour commencer l'intégration
                 </p>
               </div>
               <motion.button
@@ -180,11 +223,14 @@ export default function APIPage() {
                 className="inline-flex items-center gap-2 bg-black text-white px-8 py-4 rounded-[24px] font-medium hover:bg-black/90 transition-all"
               >
                 <Plus className="w-5 h-5" />
-                Create API Key
+                Créer une clé API
               </motion.button>
               <p className="text-sm text-black/40 font-medium">
-                <Link href="/api-docs" className="text-[#96A982] hover:underline">
-                  View API documentation →
+                <Link
+                  href="/documentation-api"
+                  className="text-[#96A982] hover:underline"
+                >
+                  Consulter la documentation →
                 </Link>
               </p>
             </div>
@@ -206,11 +252,11 @@ export default function APIPage() {
                       <h3 className="text-lg font-medium">{key.name}</h3>
                       <div className="flex items-center gap-3 mt-2">
                         <span className="text-xs font-bold text-[#96A982] uppercase tracking-wider bg-[#96A982]/10 px-3 py-1 rounded-full">
-                          {key.isRevoked ? "Revoked" : key.isActive ? "Active" : "Inactive"}
+                          {key.isRevoked ? "Révoquée" : key.isActive ? "Active" : "Inactive"}
                         </span>
                         {key.expiresAt && (
                           <span className="text-xs font-medium text-black/50">
-                            Expires {new Date(key.expiresAt).toLocaleDateString()}
+                            Expire le {new Date(key.expiresAt).toLocaleDateString("fr-FR")}
                           </span>
                         )}
                       </div>
@@ -218,17 +264,17 @@ export default function APIPage() {
 
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <p className="text-black/50 font-medium">Created</p>
+                        <p className="text-black/50 font-medium">Créée le</p>
                         <p className="font-medium">
-                          {new Date(key.createdAt).toLocaleDateString()}
+                          {new Date(key.createdAt).toLocaleDateString("fr-FR")}
                         </p>
                       </div>
                       <div>
-                        <p className="text-black/50 font-medium">Last Used</p>
+                        <p className="text-black/50 font-medium">Dernière utilisation</p>
                         <p className="font-medium">
                           {key.lastUsedAt
-                            ? new Date(key.lastUsedAt).toLocaleDateString()
-                            : "Never"}
+                            ? new Date(key.lastUsedAt).toLocaleDateString("fr-FR")
+                            : "Jamais"}
                         </p>
                       </div>
                     </div>
@@ -245,18 +291,14 @@ export default function APIPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleRevokeKey(key.id)}
-                      className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                      disabled={key.isRevoked}
-                      title="Revoke API key"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </motion.button>
-                  </div>
+                  <button
+                    onClick={() => handleRevokeKey(key.id)}
+                    disabled={isRevoking === key.id || key.isRevoked}
+                    className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all disabled:opacity-50"
+                    title="Révoquer la clé API"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
               </motion.div>
             ))}
@@ -280,9 +322,9 @@ export default function APIPage() {
               className="bg-white rounded-[32px] p-8 max-w-md w-full space-y-6 border border-black/[0.03]"
             >
               <div>
-                <h2 className="text-2xl font-medium mb-2">API Key Created</h2>
+                <h2 className="text-2xl font-medium mb-2">Clé API créée</h2>
                 <p className="text-black/50 font-medium">
-                  Copy your API key and store it safely. You won't see it again.
+                  Copiez votre clé API et stockez-la en sécurité. Vous ne la verrez plus.
                 </p>
               </div>
 
@@ -303,17 +345,17 @@ export default function APIPage() {
                   </button>
                 </div>
                 <button
-                  onClick={() => copyToClipboard(createdKey.key, "API key")}
+                  onClick={() => copyToClipboard(createdKey.key, "Clé API")}
                   className="w-full flex items-center justify-center gap-2 bg-[#96A982] text-white text-sm font-medium py-2 rounded-lg hover:bg-[#96A982]/90 transition-all"
                 >
                   <Copy className="w-4 h-4" />
-                  Copy to Clipboard
+                  Copier
                 </button>
               </div>
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-[16px] p-4">
                 <p className="text-sm font-medium text-yellow-900">
-                  ⚠️ Store this key securely. If lost, you'll need to create a new one.
+                  ⚠️ Conservez cette clé en sécurité. Si elle est perdue, créez-en une nouvelle.
                 </p>
               </div>
 
@@ -321,7 +363,7 @@ export default function APIPage() {
                 onClick={() => setCreatedKey(null)}
                 className="w-full bg-black text-white py-3 rounded-[24px] font-medium hover:bg-black/90 transition-all"
               >
-                Done
+                Terminé
               </button>
             </motion.div>
           </motion.div>
@@ -344,27 +386,27 @@ export default function APIPage() {
               className="bg-white rounded-[32px] p-8 max-w-md w-full space-y-6 border border-black/[0.03] max-h-[90vh] overflow-y-auto"
             >
               <div>
-                <h2 className="text-2xl font-medium mb-2">Create API Key</h2>
+                <h2 className="text-2xl font-medium mb-2">Créer une clé API</h2>
                 <p className="text-black/50 font-medium">
-                  Generate a new API key with specific scopes
+                  Générez une nouvelle clé API avec des permissions spécifiques
                 </p>
               </div>
 
               <div className="space-y-3">
                 <label className="block">
-                  <p className="text-sm font-medium text-black/70 mb-2">Key Name</p>
+                  <p className="text-sm font-medium text-black/70 mb-2">Nom de la clé</p>
                   <input
                     type="text"
                     value={newKeyName}
                     onChange={(e) => setNewKeyName(e.target.value)}
-                    placeholder="e.g., Production API"
+                    placeholder="Ex: Production API"
                     className="w-full px-4 py-2 bg-[#f5f5f7] border border-black/[0.03] rounded-[12px] font-medium focus:outline-none focus:border-[#96A982]"
                   />
                 </label>
               </div>
 
               <div className="space-y-3">
-                <p className="text-sm font-medium text-black/70">Scopes</p>
+                <p className="text-sm font-medium text-black/70">Permissions</p>
                 <div className="space-y-2">
                   {[
                     "files:read",
@@ -400,14 +442,16 @@ export default function APIPage() {
                 <button
                   onClick={() => setShowCreateModal(false)}
                   className="flex-1 py-3 rounded-[24px] font-medium border border-black/10 hover:bg-black/5 transition-all"
+                  disabled={isCreating}
                 >
-                  Cancel
+                  Annuler
                 </button>
                 <button
                   onClick={handleCreateKey}
-                  className="flex-1 bg-black text-white py-3 rounded-[24px] font-medium hover:bg-black/90 transition-all"
+                  disabled={isCreating}
+                  className="flex-1 bg-black text-white py-3 rounded-[24px] font-medium hover:bg-black/90 transition-all disabled:opacity-50"
                 >
-                  Create
+                  {isCreating ? "Création..." : "Créer"}
                 </button>
               </div>
             </motion.div>
