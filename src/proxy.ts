@@ -21,6 +21,8 @@ const isPublicRoute = createRouteMatcher([
   "/login",              // Page de connexion personnalisée
   "/register",           // Page d'inscription personnalisée
   "/api/public(.*)",     // API publiques (partage)
+  "/api/v1(.*)",         // API v1 (authentification Bearer token, pas Clerk)
+  "/api-docs",           // Page documentation API
   "/share(.*)",          // Pages de partage publiques
   "/manifest.json",      // Manifest PWA
   "/sitemap.xml",        // Sitemap XML (SEO)
