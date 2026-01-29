@@ -189,10 +189,7 @@ export async function updateFoldersOrderAction(folderOrders: { id: string, order
   const batch = db.batch();
   folderOrders.forEach(({ id, order }) => {
     const ref = db.collection("folders").doc(id);
-    batch.update(ref, { 
-      order, 
-      updatedAt: admin.firestore.FieldValue.serverTimestamp() 
-    });
+    batch.update(ref, { order });
   });
 
   await batch.commit();
@@ -346,6 +343,11 @@ export async function renameFolderAction(folderId: string, newName: string) {
   const { userId } = await auth();
   if (!userId) throw new Error("Non autorisé");
 
+  // Validation on server side
+  const trimmedName = newName.trim();
+  if (!trimmedName) throw new Error("Le nom du dossier ne peut pas être vide");
+  if (trimmedName.length > 60) throw new Error("Le nom du dossier doit faire moins de 60 caractères");
+
   const folderDoc = await db.collection("folders").doc(folderId).get();
   if (!folderDoc.exists) throw new Error("Dossier non trouvé");
   const folderData = folderDoc.data()!;
@@ -359,7 +361,7 @@ export async function renameFolderAction(folderId: string, newName: string) {
   if (!hasAccess) throw new Error("Non autorisé à modifier ce dossier");
 
   await db.collection("folders").doc(folderId).update({
-    name: newName,
+    name: trimmedName,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 

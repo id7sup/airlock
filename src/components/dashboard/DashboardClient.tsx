@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { 
   FolderOpen, 
   MoreVertical, 
@@ -28,18 +28,35 @@ import { ShareModal } from "@/components/dashboard/ShareModal";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { ErrorModal } from "@/components/shared/ErrorModal";
 import { UploadModal } from "@/components/dashboard/UploadModal";
-import { 
-  createFolderAction, 
-  deleteFolderAction, 
-  moveToTrashAction, 
+import {
+  createFolderAction,
+  deleteFolderAction,
+  moveToTrashAction,
   toggleFavoriteAction,
-  groupFoldersAction
+  groupFoldersAction,
+  renameFolderAction,
+  updateFoldersOrderAction
 } from "@/lib/actions/folders";
 import { getPresignedUploadUrlAction, confirmFileUploadAction } from "@/lib/actions/files";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 
 interface FolderType {
@@ -48,8 +65,10 @@ interface FolderType {
   isFavorite: boolean;
   isDeleted: boolean;
   order: number;
+  parentId: string | null;
   _count: { files: number; children: number };
   updatedAt: string;
+  createdAt: string;
   shareRole?: "VIEWER" | "EDITOR";
   shareCanDownload?: boolean;
   isShared?: boolean;
@@ -57,29 +76,166 @@ interface FolderType {
   isPermissionHidden?: boolean;
 }
 
+// --- Sortable Folder Item (Drag & Drop Wrapper) ---
+function SortableFolderItem(props: any) {
+  const { folder, isDragging, ...rest } = props;
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging: isSortableDragging
+  } = useSortable({ id: folder.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isSortableDragging ? 1000 : 0,
+    opacity: isSortableDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <FolderItem
+        folder={folder}
+        isDragging={isSortableDragging}
+        {...rest}
+      />
+    </div>
+  );
+}
+
 // --- Folder Item ---
-function FolderItem({ 
-  folder, 
-  isSelected, 
-  onToggleSelect, 
-  onShare, 
+function FolderItem({
+  folder,
+  isSelected,
+  onToggleSelect,
+  onShare,
   onTrash,
   onRestore,
   onDeletePermanent,
   onToggleFavorite,
   currentFilter,
+  isDragging,
 }: any) {
   const router = useRouter();
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(folder.name);
+  const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Handle renaming
+  const handleRenameSave = async () => {
+    const trimmed = renameValue.trim();
+    if (!trimmed || trimmed === folder.name) {
+      setIsRenaming(false);
+      setRenameValue(folder.name);
+      return;
+    }
+
+    if (trimmed.length > 60) {
+      setRenameValue(folder.name);
+      return;
+    }
+
+    try {
+      await renameFolderAction(folder.id, trimmed);
+      setIsRenaming(false);
+    } catch (error) {
+      console.error("Erreur lors du renommage:", error);
+      setRenameValue(folder.name);
+      setIsRenaming(false);
+    }
+  };
+
+  const handleRenameCancel = () => {
+    setIsRenaming(false);
+    setRenameValue(folder.name);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.stopPropagation();
+      handleRenameSave();
+    } else if (e.key === "Escape") {
+      e.stopPropagation();
+      handleRenameCancel();
+    }
+  };
+
+  // Context menu handlers
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenuPosition({ x: e.clientX, y: e.clientY });
+    setIsContextMenuOpen(true);
+  };
+
+  const handleDotsClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setContextMenuPosition({ x: rect.right, y: rect.bottom });
+    setIsContextMenuOpen(true);
+  };
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setIsContextMenuOpen(false);
+      }
+    };
+
+    if (isContextMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isContextMenuOpen]);
+
+  // Focus input when entering rename mode
+  useEffect(() => {
+    if (isRenaming && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isRenaming]);
+
+  // Handle F2 key for renaming
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F2" && !isRenaming) {
+        // Check if folder item is focused/hovered
+        if ((document.activeElement as HTMLElement)?.closest('[data-folder-id="' + folder.id + '"]')) {
+          e.preventDefault();
+          setIsRenaming(true);
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isRenaming, folder.id]);
 
   const itemClass = `p-4 sm:p-5 lg:p-6 transition-all duration-500 group relative bg-white h-full block rounded-xl sm:rounded-2xl border border-black/[0.05] hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] hover:border-black/10 ${
     isSelected ? "ring-2 ring-black shadow-xl" : "shadow-sm shadow-black/[0.01]"
-  }`;
+  } ${isDragging ? "opacity-50" : ""}`;
 
   return (
-    <div 
+    <div
       className="relative h-full select-none"
       data-folder-id={folder.id}
+      onContextMenu={handleContextMenu}
       onClick={(e) => {
+        // Si on est en train de renommer, ignorer les clics
+        if (isRenaming) {
+          e.stopPropagation();
+          return;
+        }
+
         // Si Meta/Ctrl est pressé, on sélectionne au lieu d'ouvrir
         if (e.metaKey || e.ctrlKey) {
           e.preventDefault();
@@ -93,6 +249,13 @@ function FolderItem({
           router.push(`/dashboard/folder/${folder.id}?from=${currentFilter}`);
         }
       }}
+      onDoubleClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!folder.isDeleted && !(folder as any).isPermissionHidden) {
+          setIsRenaming(true);
+        }
+      }}
     >
       <div className={itemClass} data-folder-id={folder.id}>
         <div className="flex items-start justify-between mb-3 sm:mb-4">
@@ -100,7 +263,7 @@ function FolderItem({
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-black/5 rounded-xl sm:rounded-2xl flex items-center justify-center text-brand-primary group-hover:scale-110 transition-transform duration-500">
               <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6 fill-current" />
             </div>
-            <button 
+            <button
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFavorite(folder.id, folder.isFavorite, e); }}
               className={`p-1 sm:p-1.5 transition-all duration-300 group/star opacity-0 group-hover:opacity-100 ${
@@ -110,43 +273,33 @@ function FolderItem({
               <Star className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-all ${folder.isFavorite ? "fill-current" : "group-hover/star:fill-current text-orange-400"}`} />
             </button>
           </div>
-          
-          <div className="flex flex-col items-end gap-1.5 sm:gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+
+          <div className="flex flex-col items-end gap-1.5 sm:gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0 relative">
             <div className="flex items-center gap-1">
-                  {!folder.isDeleted && !(folder as any).isPermissionHidden ? (
-                <>
-                  {!folder.isShared && (
-                    <button 
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onShare(folder.id, folder.name, e); }} 
-                      className="p-1.5 sm:p-2 text-black/20 hover:text-black hover:bg-black/5 rounded-full transition-colors"
-                    >
-                      <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </button>
-                  )}
-                  <button 
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTrash(folder.id, e); }} 
-                    className="p-1.5 sm:p-2 text-black/20 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  </button>
-                </>
+              {!folder.isDeleted && !(folder as any).isPermissionHidden ? (
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={handleDotsClick}
+                  className="p-1.5 sm:p-2 text-black/20 hover:text-black hover:bg-black/5 rounded-full transition-colors"
+                  title="Menu actions"
+                >
+                  <MoreVertical className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </button>
               ) : (
                 <>
                   {(folder.isDeleted || (folder as any).isPermissionHidden) && (
-                    <button 
+                    <button
                       onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRestore(folder.id, e); }} 
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRestore(folder.id, e); }}
                       className="text-[9px] sm:text-[10px] font-bold text-black px-2 sm:px-3 py-0.5 sm:py-1 bg-black/5 rounded-full hover:bg-black/10 transition-all text-nowrap"
                     >
                       Restaurer
                     </button>
                   )}
                   {folder.isDeleted && (
-                    <button 
+                    <button
                       onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDeletePermanent(folder.id, e); }} 
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDeletePermanent(folder.id, e); }}
                       className="p-1.5 sm:p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
                     >
                       <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -155,7 +308,7 @@ function FolderItem({
                 </>
               )}
             </div>
-            {/* Badge partagé en dessous du bouton supprimer */}
+            {/* Badge partagé en dessous du bouton menu */}
             {folder.isShared && !folder.isDeleted && !(folder as any).isPermissionHidden && (
               <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 bg-brand-primary/10 text-brand-primary rounded-full">
                 <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
@@ -164,18 +317,33 @@ function FolderItem({
             )}
           </div>
         </div>
-        
-        <div className="pointer-events-none space-y-1.5 sm:space-y-2">
+
+        <div className={`space-y-1.5 sm:space-y-2 ${isRenaming ? "" : "pointer-events-none"}`}>
           <div>
-            <h3 className="text-base sm:text-lg font-medium text-black truncate tracking-tight">{folder.name}</h3>
-            {folder.isShared && folder.sharedBy && (
+            {isRenaming ? (
+              <input
+                ref={inputRef}
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onBlur={handleRenameSave}
+                onClick={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+                className="w-full text-base sm:text-lg font-medium bg-transparent outline-none border-b-2 border-brand-primary focus:border-brand-primary transition-colors pb-1 text-black"
+                maxLength={60}
+              />
+            ) : (
+              <h3 className="text-base sm:text-lg font-medium text-black truncate tracking-tight">{folder.name}</h3>
+            )}
+            {folder.isShared && folder.sharedBy && !isRenaming && (
               <p className="text-[10px] sm:text-xs text-black/40 font-medium mt-0.5 truncate">Partagé par {folder.sharedBy}</p>
             )}
           </div>
           <div className="flex items-center justify-between flex-wrap gap-1.5 sm:gap-2">
             <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
               <span className="text-[10px] sm:text-[11px] text-black/30 font-medium uppercase tracking-widest">{folder._count.files} fichiers</span>
-              {folder.isShared && (
+              {folder.isShared && !isRenaming && (
                 <>
                   <span className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 bg-black text-white rounded-full font-medium">
                     {folder.shareRole === "VIEWER" ? "Viewer" : "Editor"}
@@ -188,12 +356,105 @@ function FolderItem({
                 </>
               )}
             </div>
-            <span className="text-[10px] sm:text-[11px] text-black/30 font-medium uppercase tracking-widest" suppressHydrationWarning>
-              {new Date(folder.updatedAt).toLocaleDateString()}
-            </span>
+            {!isRenaming && (
+              <span className="text-[10px] sm:text-[11px] text-black/30 font-medium uppercase tracking-widest" suppressHydrationWarning>
+                {new Date(folder.updatedAt).toLocaleDateString()}
+              </span>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Context Menu Portal */}
+      {isContextMenuOpen && createPortal(
+        <div
+          ref={contextMenuRef}
+          className="fixed bg-white rounded-xl shadow-2xl border border-black/10 z-[9999] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          style={{
+            left: `${contextMenuPosition.x}px`,
+            top: `${contextMenuPosition.y}px`,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!folder.isDeleted && !(folder as any).isPermissionHidden) {
+                router.push(`/dashboard/folder/${folder.id}?from=${currentFilter}`);
+              }
+              setIsContextMenuOpen(false);
+            }}
+            className="w-full px-4 py-2.5 text-sm font-medium text-black hover:bg-black/5 transition-colors text-left flex items-center gap-2"
+          >
+            <FolderOpen className="w-4 h-4" />
+            Ouvrir
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!folder.isDeleted && !(folder as any).isPermissionHidden) {
+                setIsRenaming(true);
+              }
+              setIsContextMenuOpen(false);
+            }}
+            className="w-full px-4 py-2.5 text-sm font-medium text-black hover:bg-black/5 transition-colors text-left flex items-center gap-2 border-t border-black/5"
+          >
+            <Edit2 className="w-4 h-4" />
+            Renommer
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite(folder.id, folder.isFavorite, e);
+              setIsContextMenuOpen(false);
+            }}
+            className="w-full px-4 py-2.5 text-sm font-medium text-black hover:bg-black/5 transition-colors text-left flex items-center gap-2 border-t border-black/5"
+          >
+            <Star className={`w-4 h-4 ${folder.isFavorite ? "fill-current text-orange-400" : ""}`} />
+            {folder.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+          </button>
+          {!folder.isDeleted && !(folder as any).isPermissionHidden && !folder.isShared && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onShare(folder.id, folder.name, e);
+                setIsContextMenuOpen(false);
+              }}
+              className="w-full px-4 py-2.5 text-sm font-medium text-black hover:bg-black/5 transition-colors text-left flex items-center gap-2 border-t border-black/5"
+            >
+              <ArrowUpRight className="w-4 h-4" />
+              Partager
+            </button>
+          )}
+          {!folder.isDeleted && !(folder as any).isPermissionHidden && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onTrash(folder.id, e);
+                setIsContextMenuOpen(false);
+              }}
+              className="w-full px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 transition-colors text-left flex items-center gap-2 border-t border-black/5"
+            >
+              <Trash2 className="w-4 h-4" />
+              Supprimer
+            </button>
+          )}
+          {(folder.isDeleted || (folder as any).isPermissionHidden) && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRestore(folder.id, e);
+                setIsContextMenuOpen(false);
+              }}
+              className="w-full px-4 py-2.5 text-sm font-medium text-black hover:bg-black/5 transition-colors text-left flex items-center gap-2 border-t border-black/5"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Restaurer
+            </button>
+          )}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
@@ -264,10 +525,30 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
     isDestructive: true
   });
 
-  const filteredFolders = folders.filter(folder => 
+  // Filtrer par recherche et appliquer le tri selon la vue
+  let filteredFolders = folders.filter(folder =>
     folder.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
     !hiddenFolderIds.includes(folder.id) // Exclure les dossiers temporairement cachés
   );
+
+  // Re-trier selon le currentFilter pour éviter que le drag-and-drop affecte l'ordre final
+  if (currentFilter === "recent") {
+    // Trier par date de mise à jour (plus récent en premier)
+    filteredFolders = [...filteredFolders].sort((a, b) => {
+      const getTime = (o: FolderType) => {
+        const date = new Date(o.updatedAt);
+        return date.getTime();
+      };
+      return getTime(b) - getTime(a);
+    });
+  } else if (currentFilter === "favorites") {
+    // Les favoris peuvent être réordonnés, pas besoin de re-tri
+  } else if (currentFilter === "trash") {
+    // La corbeille peut être réordonnée, pas besoin de re-tri
+  } else if (currentFilter === "shared") {
+    // Les dossiers partagés peuvent être réordonnés, pas besoin de re-tri
+  }
+  // Pour "all" et undefined, garder l'ordre du drag-and-drop
 
   // Système de sélection lasso complètement réécrit
   const onMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -423,8 +704,19 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
     window.addEventListener('mouseup', stopSelection);
   }, [filteredFolders]);
 
+  // Synchroniser les dossiers initiaux seulement si l'ensemble change (filtre/vue), pas pour l'ordre
   useEffect(() => {
-    setFolders(initialFolders);
+    const initialIds = new Set(initialFolders.map(f => f.id));
+    const currentIds = new Set(folders.map(f => f.id));
+
+    // Si l'ensemble des dossiers a vraiment changé (IDs différents), réinitialiser
+    // Cela évite de réinitialiser après un simple drag-drop qui fait revalidatePath
+    const idsChanged = initialIds.size !== currentIds.size ||
+      Array.from(initialIds).some(id => !currentIds.has(id));
+
+    if (idsChanged) {
+      setFolders(initialFolders);
+    }
   }, [initialFolders]);
 
   const handleCreateFolder = async () => {
@@ -803,6 +1095,71 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
     }
   };
 
+  // Drag and Drop Configuration
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    // Désactiver le drag-and-drop pour les vues autres que "all"
+    // Le drag-and-drop est seulement autorisé pour la vue "Tous les dossiers"
+    if (currentFilter && currentFilter !== "all") {
+      return;
+    }
+
+    // Si l'élément n'a pas bougé ou qu'on drague hors d'une zone valide
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    // Trouver les indices dans la liste filtrée (pour l'affichage)
+    const oldIndex = filteredFolders.findIndex(f => f.id === active.id);
+    const newIndex = filteredFolders.findIndex(f => f.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    // Créer une copie de la liste filtrée reordonnée pour calculer les nouveaux ordres
+    const reorderedFiltered = [...filteredFolders];
+    const [movedFolder] = reorderedFiltered.splice(oldIndex, 1);
+    reorderedFiltered.splice(newIndex, 0, movedFolder);
+
+    // Mettre à jour l'état local immédiatement avec les nouveaux ordres
+    const newFolders = folders.map((folder) => {
+      const newOrderIndex = reorderedFiltered.findIndex(f => f.id === folder.id);
+      return newOrderIndex !== -1
+        ? { ...folder, order: newOrderIndex }
+        : folder;
+    });
+
+    // Trier les dossiers par ordre pour avoir une liste cohérente
+    const sortedFolders = [...newFolders].sort((a, b) => a.order - b.order);
+    setFolders(sortedFolders);
+
+    // Créer l'objet pour la mise à jour du serveur avec les vrais indices
+    const folderOrders = reorderedFiltered.map((folder, index) => ({
+      id: folder.id,
+      order: index
+    }));
+
+    try {
+      await updateFoldersOrderAction(folderOrders);
+    } catch (error) {
+      console.error("Erreur lors du réordonnement:", error);
+      setFolders(folders); // Restaurer l'état précédent en cas d'erreur
+    }
+  };
+
   return (
     <div 
       ref={containerRef}
@@ -927,79 +1284,87 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
         />
       </div>
 
-      <div ref={gridRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-10">
-        {showCreateInput && (
-          <div className="p-5 sm:p-6 lg:p-8 rounded-2xl sm:rounded-[32px] border-2 border-black ring-4 sm:ring-8 ring-black/5 animate-in zoom-in-95 duration-300 bg-white min-h-[180px] sm:min-h-[200px] flex flex-col justify-between shadow-2xl">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-black/5 rounded-xl sm:rounded-2xl flex items-center justify-center text-brand-primary mb-4 sm:mb-6">
-              <FolderOpen className="w-6 h-6 sm:w-7 sm:h-7 fill-current" />
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <div ref={gridRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-10">
+          {showCreateInput && (
+            <div className="p-5 sm:p-6 lg:p-8 rounded-2xl sm:rounded-[32px] border-2 border-black ring-4 sm:ring-8 ring-black/5 animate-in zoom-in-95 duration-300 bg-white min-h-[180px] sm:min-h-[200px] flex flex-col justify-between shadow-2xl">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-black/5 rounded-xl sm:rounded-2xl flex items-center justify-center text-brand-primary mb-4 sm:mb-6">
+                <FolderOpen className="w-6 h-6 sm:w-7 sm:h-7 fill-current" />
+              </div>
+              <input
+                autoFocus
+                className="w-full text-base sm:text-[17px] font-medium bg-transparent outline-none border-b-2 border-black/10 focus:border-black transition-colors pb-2 sm:pb-3 text-black placeholder:text-black/40"
+                placeholder={isGroupingMode ? "Nom du groupe..." : "Nom du dossier..."}
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
+              />
+              <div className="flex gap-4 sm:gap-6 mt-4 sm:mt-6">
+                <button onClick={handleCreateFolder} className="text-[10px] sm:text-[11px] font-bold text-black uppercase tracking-widest hover:underline">Confirmer</button>
+                <button onClick={handleCancelGrouping} className="text-[10px] sm:text-[11px] font-bold text-black/30 uppercase tracking-widest hover:underline">Annuler</button>
+              </div>
             </div>
-            <input 
-              autoFocus
-              className="w-full text-base sm:text-[17px] font-medium bg-transparent outline-none border-b-2 border-black/10 focus:border-black transition-colors pb-2 sm:pb-3 text-black placeholder:text-black/40"
-              placeholder={isGroupingMode ? "Nom du groupe..." : "Nom du dossier..."}
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
-            />
-            <div className="flex gap-4 sm:gap-6 mt-4 sm:mt-6">
-              <button onClick={handleCreateFolder} className="text-[10px] sm:text-[11px] font-bold text-black uppercase tracking-widest hover:underline">Confirmer</button>
-              <button onClick={handleCancelGrouping} className="text-[10px] sm:text-[11px] font-bold text-black/30 uppercase tracking-widest hover:underline">Annuler</button>
-            </div>
-          </div>
-        )}
+          )}
 
-        {filteredFolders.map((folder) => (
-          <FolderItem 
-            key={folder.id}
-            folder={folder}
-            isSelected={selectedIds.includes(folder.id)}
-            currentFilter={currentFilter}
-            onToggleSelect={(id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
-            onShare={(id: string, name: string, e: any) => { setSelectedFolder({id, name}); setIsShareModalOpen(true); }}
-            onTrash={(id: string, e: any) => { 
-              const folder = filteredFolders.find(f => f.id === id);
-              if (folder?.isShared) {
-                // Dossier partagé : retirer l'accès
-                setConfirmModal({
-                  isOpen: true,
-                  title: "Retirer l'accès ?",
-                  message: "Ce dossier disparaîtra de votre vue. Le propriétaire conservera toujours l'accès.",
-                  isDestructive: true,
-                  onConfirm: async () => {
-                    const { revokeSharedFolderAccessAction } = await import("@/lib/actions/sharing");
-                    await revokeSharedFolderAccessAction(id);
-                    setConfirmModal(p => ({...p, isOpen: false}));
-                    router.refresh();
+          <SortableContext items={filteredFolders.map(f => f.id)}>
+            {filteredFolders.map((folder) => (
+              <SortableFolderItem
+                key={folder.id}
+                folder={folder}
+                isSelected={selectedIds.includes(folder.id)}
+                currentFilter={currentFilter}
+                onToggleSelect={(id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+                onShare={(id: string, name: string, e: any) => { setSelectedFolder({id, name}); setIsShareModalOpen(true); }}
+                onTrash={(id: string, e: any) => {
+                  const folder = filteredFolders.find(f => f.id === id);
+                  if (folder?.isShared) {
+                    // Dossier partagé : retirer l'accès
+                    setConfirmModal({
+                      isOpen: true,
+                      title: "Retirer l'accès ?",
+                      message: "Ce dossier disparaîtra de votre vue. Le propriétaire conservera toujours l'accès.",
+                      isDestructive: true,
+                      onConfirm: async () => {
+                        const { revokeSharedFolderAccessAction } = await import("@/lib/actions/sharing");
+                        await revokeSharedFolderAccessAction(id);
+                        setConfirmModal(p => ({...p, isOpen: false}));
+                        router.refresh();
+                      }
+                    });
+                  } else {
+                    // Dossier normal : mettre à la corbeille
+                    setConfirmModal({
+                      isOpen: true,
+                      title: "Mettre à la corbeille ?",
+                      message: "Le dossier sera déplacé. Vous pourrez le restaurer plus tard.",
+                      isDestructive: true,
+                      onConfirm: () => moveToTrashAction(id, true).then(() => { setConfirmModal(p => ({...p, isOpen: false})); router.refresh(); })
+                    });
                   }
-                });
-              } else {
-                // Dossier normal : mettre à la corbeille
-                setConfirmModal({
-                  isOpen: true,
-                  title: "Mettre à la corbeille ?",
-                  message: "Le dossier sera déplacé. Vous pourrez le restaurer plus tard.",
-                  isDestructive: true,
-                  onConfirm: () => moveToTrashAction(id, true).then(() => { setConfirmModal(p => ({...p, isOpen: false})); router.refresh(); })
-                });
-              }
-            }}
-            onRestore={(id: string, e: any) => {
-              // moveToTrashAction gère automatiquement la restauration pour les dossiers partagés
-              moveToTrashAction(id, false).then(() => router.refresh());
-            }}
-            onDeletePermanent={(id: string, e: any) => {
-              setConfirmModal({
-                isOpen: true,
-                title: "Supprimer définitivement ?",
-                message: "Cette action est irréversible.",
-                isDestructive: true,
-                onConfirm: () => deleteFolderAction(id).then(() => { setConfirmModal(p => ({...p, isOpen: false})); router.refresh(); })
-              });
-            }}
-            onToggleFavorite={(id: string, curr: boolean, e: any) => toggleFavoriteAction(id, !curr).then(() => router.refresh())}
-          />
-        ))}
-      </div>
+                }}
+                onRestore={(id: string, e: any) => {
+                  // moveToTrashAction gère automatiquement la restauration pour les dossiers partagés
+                  moveToTrashAction(id, false).then(() => router.refresh());
+                }}
+                onDeletePermanent={(id: string, e: any) => {
+                  setConfirmModal({
+                    isOpen: true,
+                    title: "Supprimer définitivement ?",
+                    message: "Cette action est irréversible.",
+                    isDestructive: true,
+                    onConfirm: () => deleteFolderAction(id).then(() => { setConfirmModal(p => ({...p, isOpen: false})); router.refresh(); })
+                  });
+                }}
+                onToggleFavorite={(id: string, curr: boolean, e: any) => toggleFavoriteAction(id, !curr).then(() => router.refresh())}
+              />
+            ))}
+          </SortableContext>
+        </div>
+      </DndContext>
 
       <ShareModal 
         isOpen={isShareModalOpen} 
