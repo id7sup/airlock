@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { frFR } from "@clerk/localizations";
 import "./globals.css";
 import { defaultMetadata } from "@/lib/seo";
 
@@ -52,7 +53,7 @@ export default function RootLayout({
 }>) {
   try {
     return (
-      <ClerkProvider>
+      <ClerkProvider localization={frFR}>
         <html lang="fr" className={inter.variable} data-scroll-behavior="smooth">
           <body>
             {children}

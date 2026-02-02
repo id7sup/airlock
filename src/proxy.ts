@@ -17,7 +17,9 @@ const isPublicRoute = createRouteMatcher([
   "/mentions",           // Page mentions légales
   "/confidentialite",    // Page confidentialité
   "/login",              // Page de connexion personnalisée
+  "/login/sso-callback", // Callback SSO Google pour login
   "/register",           // Page d'inscription personnalisée
+  "/register/sso-callback", // Callback SSO Google pour register
   "/api/public(.*)",     // API publiques (partage)
   "/share(.*)",          // Pages de partage publiques
   "/manifest.json",      // Manifest PWA

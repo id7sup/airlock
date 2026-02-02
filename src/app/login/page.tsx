@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useSignIn } from "@clerk/nextjs";
+import { useSignIn, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { AuthCarousel } from "@/components/shared/AuthCarousel";
 import Link from "next/link";
@@ -31,6 +31,7 @@ const carouselTexts = [
 
 export default function LoginPage() {
   const { isLoaded, signIn, setActive } = useSignIn();
+  const { signOut } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = React.useState("");
@@ -38,6 +39,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
+
+  // Password reset states
+  const [showPasswordReset, setShowPasswordReset] = React.useState(false);
+  const [resetEmail, setResetEmail] = React.useState("");
+  const [resetCode, setResetCode] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("");
+  const [showNewPassword, setShowNewPassword] = React.useState(false);
+  const [resetStep, setResetStep] = React.useState<"email" | "code">("email");
+
 
   React.useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -55,13 +65,94 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     if (!isLoaded || !signIn) return;
     try {
+      // Clear any existing session to avoid "Session already exists" error
+      await signOut();
+
+      // Now authenticate with Google OAuth
       await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
-        redirectUrl: "/dashboard",
+        redirectUrl: "/login/sso-callback",
         redirectUrlComplete: "/dashboard",
       });
     } catch (err: any) {
-      setError(err?.errors?.[0]?.message ?? "Erreur lors de la connexion Google");
+      const errorMessage = err?.errors?.[0]?.message ?? "Erreur lors de la connexion Google";
+      setError(errorMessage);
+    }
+  };
+
+
+  const handlePasswordResetRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+
+    if (!isLoaded || !signIn) {
+      setError("Service non disponible");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      await signIn.create({
+        strategy: "reset_password_email_code",
+        identifier: resetEmail,
+      });
+      setResetStep("code");
+      setIsLoading(false);
+    } catch (err: any) {
+      const errorCode = err?.errors?.[0]?.code;
+      if (errorCode === "form_identifier_not_found") {
+        setError("Aucun compte trouvé avec cette adresse email.");
+      } else {
+        setError(err?.errors?.[0]?.message ?? "Erreur lors de la demande");
+      }
+      setIsLoading(false);
+    }
+  };
+
+  const handlePasswordResetVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+
+    if (!isLoaded || !signIn) {
+      setError("Service non disponible");
+      setIsLoading(false);
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError("Le mot de passe doit contenir au moins 8 caractères");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const resetAttempt = await signIn.attemptFirstFactor({
+        strategy: "reset_password_email_code",
+        code: resetCode,
+        password: newPassword,
+      });
+
+      if (resetAttempt.status === "complete") {
+        await setActive({ session: resetAttempt.createdSessionId });
+        router.push("/dashboard");
+        return;
+      }
+
+      setError("Réinitialisation incomplète. Veuillez réessayer.");
+      setIsLoading(false);
+    } catch (err: any) {
+      const errorCode = err?.errors?.[0]?.code;
+      if (errorCode === "verification_expired") {
+        setError("Le code a expiré. Veuillez recommencer.");
+        setResetStep("email");
+      } else if (errorCode === "incorrect_code") {
+        setError("Code incorrect. Veuillez réessayer.");
+      } else {
+        setError(err?.errors?.[0]?.message ?? "Code invalide");
+      }
+      setIsLoading(false);
     }
   };
 
@@ -204,65 +295,200 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Email/Password Form */}
-            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-4 md:space-y-5">
-              <div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Adresse email"
-                  required
-                  className="w-full h-12 px-4 rounded-full border border-black/10 focus:border-black/20 focus:ring-0 outline-none text-[17px] font-medium transition-all bg-white"
-                  disabled={isLoading}
-                />
-              </div>
+            {/* Email/Password Form or Password Reset Form */}
+            {!showPasswordReset ? (
+              <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-4 md:space-y-5">
+                <div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Adresse email"
+                    required
+                    className="w-full h-12 px-4 rounded-full border border-black/10 focus:border-black/20 focus:ring-0 outline-none text-[17px] font-medium transition-all bg-white"
+                    disabled={isLoading}
+                  />
+                </div>
 
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mot de passe"
-                  required
-                  className="w-full h-12 px-4 pr-12 rounded-full border border-black/10 focus:border-black/20 focus:ring-0 outline-none text-[17px] font-medium transition-all bg-white"
-                  disabled={isLoading}
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Mot de passe"
+                    required
+                    className="w-full h-12 px-4 pr-12 rounded-full border border-black/10 focus:border-black/20 focus:ring-0 outline-none text-[17px] font-medium transition-all bg-white"
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-black/30 hover:text-black/50 transition-colors"
+                    disabled={isLoading}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordReset(true);
+                      setResetEmail(email);
+                      setError(null);
+                    }}
+                    className="text-[13px] font-medium text-black/50 hover:text-black transition-colors"
+                    disabled={isLoading}
+                  >
+                    Mot de passe oublié ?
+                  </button>
+                </div>
+
+                {error && (
+                  <div className="p-3 rounded-full bg-red-50 border border-red-200">
+                    <p className="text-[13px] font-medium text-red-600 text-center">{error}</p>
+                  </div>
+                )}
+
                 <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-black/30 hover:text-black/50 transition-colors"
-                  disabled={isLoading}
+                  type="submit"
+                  disabled={isLoading || !isLoaded}
+                  className="w-full h-12 bg-black text-white rounded-full font-medium text-[17px] hover:bg-black/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
+                  {isLoading ? (
+                    "Chargement..."
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    <>
+                      Continuer
+                      <ArrowRight className="w-4 h-4" />
+                    </>
                   )}
                 </button>
-              </div>
+              </form>
+            ) : (
+              <>
+                {resetStep === "email" ? (
+                  <form onSubmit={handlePasswordResetRequest} className="space-y-4 sm:space-y-4 md:space-y-5">
+                    <div className="space-y-2">
+                      <p className="text-[17px] text-black/50 font-medium">
+                        Entrez votre adresse email pour réinitialiser votre mot de passe.
+                      </p>
+                      <input
+                        type="email"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        placeholder="Adresse email"
+                        required
+                        className="w-full h-12 px-4 rounded-full border border-black/10 focus:border-black/20 focus:ring-0 outline-none text-[17px] font-medium transition-all bg-white"
+                        disabled={isLoading}
+                      />
+                    </div>
 
-              {error && (
-                <div className="p-3 rounded-full bg-red-50 border border-red-200">
-                  <p className="text-[13px] font-medium text-red-600 text-center">{error}</p>
-                </div>
-              )}
+                    {error && (
+                      <div className="p-3 rounded-full bg-red-50 border border-red-200">
+                        <p className="text-[13px] font-medium text-red-600 text-center">{error}</p>
+                      </div>
+                    )}
 
-              <button
-                type="submit"
-                disabled={isLoading || !isLoaded}
-                className="w-full h-12 bg-black text-white rounded-full font-medium text-[17px] hover:bg-black/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  "Chargement..."
+                    <button
+                      type="submit"
+                      disabled={isLoading || !isLoaded}
+                      className="w-full h-12 bg-black text-white rounded-full font-medium text-[17px] hover:bg-black/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoading ? "Envoi..." : "Envoyer le code"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPasswordReset(false);
+                        setResetEmail("");
+                        setError(null);
+                      }}
+                      className="w-full text-[13px] font-medium text-black/50 hover:text-black transition-colors"
+                    >
+                      Retour à la connexion
+                    </button>
+                  </form>
                 ) : (
-                  <>
-                    Continuer
-                    <ArrowRight className="w-4 h-4" />
-                  </>
+                  <form onSubmit={handlePasswordResetVerification} className="space-y-4 sm:space-y-4 md:space-y-5">
+                    <div className="space-y-2">
+                      <p className="text-[17px] text-black/50 font-medium">
+                        Un code a été envoyé à <span className="text-black font-semibold">{resetEmail}</span>.
+                      </p>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={resetCode}
+                        onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ""))}
+                        placeholder="000000"
+                        required
+                        maxLength={6}
+                        className="w-full h-14 px-6 rounded-full border border-black/10 focus:border-black/20 focus:ring-0 outline-none text-[20px] font-semibold transition-all bg-white text-center tracking-[0.3em]"
+                        disabled={isLoading}
+                      />
+                    </div>
+
+                    <div className="relative">
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Nouveau mot de passe (min. 8 caractères)"
+                        required
+                        minLength={8}
+                        className="w-full h-12 px-4 pr-12 rounded-full border border-black/10 focus:border-black/20 focus:ring-0 outline-none text-[17px] font-medium transition-all bg-white"
+                        disabled={isLoading}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-black/30 hover:text-black/50 transition-colors"
+                        disabled={isLoading}
+                      >
+                        {showNewPassword ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
+
+                    {error && (
+                      <div className="p-3 rounded-full bg-red-50 border border-red-200">
+                        <p className="text-[13px] font-medium text-red-600 text-center">{error}</p>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={isLoading || !isLoaded}
+                      className="w-full h-12 bg-black text-white rounded-full font-medium text-[17px] hover:bg-black/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoading ? "Réinitialisation..." : "Réinitialiser le mot de passe"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResetStep("email");
+                        setResetCode("");
+                        setNewPassword("");
+                        setError(null);
+                      }}
+                      className="w-full text-[13px] font-medium text-black/50 hover:text-black transition-colors"
+                    >
+                      Retour
+                    </button>
+                  </form>
                 )}
-              </button>
-            </form>
+              </>
+            )}
 
             {/* Footer Link */}
             <div className="pt-4">
