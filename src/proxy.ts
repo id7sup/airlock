@@ -16,8 +16,6 @@ const isPublicRoute = createRouteMatcher([
   "/faq",                // Page FAQ
   "/mentions",           // Page mentions légales
   "/confidentialite",    // Page confidentialité
-  "/sign-in(.*)",        // Connexion
-  "/sign-up(.*)",        // Inscription
   "/login",              // Page de connexion personnalisée
   "/register",           // Page d'inscription personnalisée
   "/api/public(.*)",     // API publiques (partage)

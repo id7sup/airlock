@@ -83,27 +83,56 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!email) {
+      setError("Veuillez entrer une adresse email");
+      return;
+    }
+
     setIsLoading(true);
 
     if (!isLoaded || !signUp) {
+      setError("Erreur: Service d'inscription non disponible");
       setIsLoading(false);
       return;
     }
 
     try {
-      await signUp.create({
+      const signUpAttempt = await signUp.create({
         emailAddress: email,
         password,
       });
 
+      // Si signup complété directement
+      if (signUpAttempt.status === "complete") {
+        await setActive({ session: signUpAttempt.createdSessionId });
+        router.push("/dashboard");
+        return;
+      }
+
+      // Pour tous les autres cas, demander la vérification d'email
+      // (missing_requirements, unverified_secondary_identifier, etc.)
       await signUp.prepareEmailAddressVerification({
         strategy: "email_code",
       });
-
       setShowEmailCode(true);
       setIsLoading(false);
     } catch (err: any) {
-      setError(err?.errors?.[0]?.message ?? "Erreur lors de la création du compte");
+      const errorCode = err?.errors?.[0]?.code;
+      const errorMessage = err?.errors?.[0]?.message ?? "Erreur lors de la création du compte";
+
+      // Gère les erreurs spécifiques
+      if (errorCode === "email_exists") {
+        setError(
+          "Cet email est déjà utilisé. Veuillez vous connecter ou utiliser une autre adresse email."
+        );
+      } else if (errorCode === "password_too_weak") {
+        setError("Le mot de passe doit être plus sécurisé (8 caractères minimum).");
+      } else if (errorCode === "form_param_nil") {
+        setError("Veuillez remplir tous les champs.");
+      } else {
+        setError(errorMessage);
+      }
+
       setIsLoading(false);
     }
   };
@@ -114,6 +143,7 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     if (!isLoaded || !signUp) {
+      setError("Erreur: instance signUp non disponible");
       setIsLoading(false);
       return;
     }
@@ -129,10 +159,20 @@ export default function RegisterPage() {
         return;
       }
 
-      setError("Vérification incomplète");
+      setError("Vérification incomplète. Veuillez réessayer.");
       setIsLoading(false);
     } catch (err: any) {
-      setError(err?.errors?.[0]?.message ?? "Code invalide");
+      const errorCode = err?.errors?.[0]?.code;
+      const errorMessage = err?.errors?.[0]?.message ?? "Code invalide";
+
+      if (errorCode === "verification_expired") {
+        setError("Le code a expiré. Veuillez vous réinscrire.");
+      } else if (errorCode === "incorrect_code") {
+        setError("Code incorrect. Veuillez réessayer.");
+      } else {
+        setError(errorMessage);
+      }
+
       setIsLoading(false);
     }
   };
@@ -280,6 +320,8 @@ export default function RegisterPage() {
                       <p className="text-[13px] font-medium text-red-600 text-center">{error}</p>
                     </div>
                   )}
+
+                  <div id="clerk-captcha"></div>
 
                   <button
                     type="submit"
