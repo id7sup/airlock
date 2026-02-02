@@ -5,6 +5,7 @@ import { FolderOpen, Info, ChevronLeft, Lock } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import { FileList } from "@/components/shared/FileList";
 import { TrackEvent } from "@/components/shared/TrackEvent";
+import { DownloadFolderButton } from "@/components/shared/DownloadFolderButton";
 import Link from "next/link";
 import { getClientIP, getGeolocationFromIP, getCloudflareLocationHeaders } from "@/lib/geolocation";
 import { headers } from "next/headers";
@@ -356,15 +357,24 @@ export default async function PublicShareFolderPage({
                     <ChevronLeft className="w-6 h-6" />
                   </Link>
                 )}
-                <div className="w-14 h-14 bg-brand-primary/10 text-brand-primary rounded-2xl flex items-center justify-center shadow-xl shadow-brand-primary/20">
+                <div className="w-14 h-14 bg-brand-primary/10 text-brand-primary rounded-2xl flex items-center justify-center shadow-xl shadow-brand-primary/20 flex-shrink-0">
                   <FolderOpen className="w-8 h-8 fill-current" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <h1 className="text-2xl font-bold tracking-tight">{folderData.name || "Dossier"}</h1>
                   <p className="text-apple-secondary text-sm font-semibold uppercase tracking-widest mt-1 opacity-50">
                     {files.length} fichiers • {children.length} sous-dossiers • Partage Sécurisé
                   </p>
                   <p className="text-apple-secondary/60 text-xs font-medium mt-2">Explorez les sous-dossiers et fichiers de ce dossier partagé. Utilisez le bouton retour pour remonter dans la hiérarchie.</p>
+                </div>
+                <div className="flex-shrink-0 w-48">
+                  {link.allowDownload && (
+                    <DownloadFolderButton
+                      folderId={folderId}
+                      folderName={folderData.name || "Dossier"}
+                      token={token}
+                    />
+                  )}
                 </div>
               </div>
             </div>

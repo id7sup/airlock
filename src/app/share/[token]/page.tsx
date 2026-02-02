@@ -9,6 +9,7 @@ import { FolderOpen, Info, Lock } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import { FileList } from "@/components/shared/FileList";
 import { TrackEvent } from "@/components/shared/TrackEvent";
+import { DownloadFolderButton } from "@/components/shared/DownloadFolderButton";
 import crypto from "crypto";
 
 /**
@@ -455,25 +456,36 @@ export default async function PublicSharePage({
 
           <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl shadow-black/[0.03] border border-black/[0.01]">
             <div className="p-8 border-b border-black/[0.02] bg-gradient-to-br from-white to-apple-gray/[0.05]">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-brand-primary/10 text-brand-primary rounded-2xl flex items-center justify-center shadow-xl shadow-brand-primary/20">
-                  <FolderOpen className="w-8 h-8 fill-current" />
+              <div className="flex items-start justify-between gap-8">
+                <div className="flex items-center gap-4 flex-1">
+                  <div className="w-14 h-14 bg-brand-primary/10 text-brand-primary rounded-2xl flex items-center justify-center shadow-xl shadow-brand-primary/20 flex-shrink-0">
+                    <FolderOpen className="w-8 h-8 fill-current" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold tracking-tight">{folderName}</h1>
+                    <p className="text-apple-secondary text-sm font-semibold uppercase tracking-widest mt-1 opacity-50">
+                      {files.length} fichiers • Partage Sécurisé
+                    </p>
+                    <p className="text-apple-secondary/60 text-xs font-medium mt-2">Cliquez sur les dossiers pour explorer leur contenu ou téléchargez les fichiers directement.</p>
+                  </div>
                 </div>
-                <div>
-                  <h1 className="text-2xl font-bold tracking-tight">{folderName}</h1>
-                  <p className="text-apple-secondary text-sm font-semibold uppercase tracking-widest mt-1 opacity-50">
-                    {files.length} fichiers • Partage Sécurisé
-                  </p>
-                  <p className="text-apple-secondary/60 text-xs font-medium mt-2">Cliquez sur les dossiers pour explorer leur contenu ou téléchargez les fichiers directement.</p>
+                <div className="flex-shrink-0 w-48">
+                  {link.allowDownload && (
+                    <DownloadFolderButton
+                      folderId={link.folderId}
+                      folderName={folderName}
+                      token={token}
+                    />
+                  )}
                 </div>
               </div>
             </div>
 
-            <FileList 
-              files={files} 
+            <FileList
+              files={files}
               children={children}
-              shareLinkId={link.id} 
-              token={token} 
+              shareLinkId={link.id}
+              token={token}
             />
           </div>
           

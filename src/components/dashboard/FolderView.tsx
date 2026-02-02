@@ -44,6 +44,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
   const router = useRouter();
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [showCreateInput, setShowCreateInput] = useState(false);
@@ -134,6 +135,40 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
     });
   };
 
+  const handleDownloadFolder = async (folderIdToDownload?: string, folderNameToDownload?: string) => {
+    try {
+      setIsDownloading(true);
+
+      const idToDownload = folderIdToDownload || folder.id;
+      const nameToDownload = folderNameToDownload || folder.name;
+
+      const response = await fetch(`/api/folders/${idToDownload}/download`);
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erreur lors du téléchargement");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${nameToDownload}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error: any) {
+      setErrorModal({
+        isOpen: true,
+        title: "Erreur de téléchargement",
+        message: error.message || "Erreur lors du téléchargement du ZIP"
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   if (folder.isDeleted) {
     return (
       <div className="p-12 text-center text-black">
@@ -172,53 +207,73 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
     try {
       // Concurrence maximale pour optimiser la vitesse
       const CONCURRENCY = 50;
-      
-      // Préparer tous les presigned URLs en parallèle
+
+      // Préparer tous les presigned URLs en parallèle avec gestion d'erreur
       const uploadTasks = files.map(async (file) => {
+        try {
           const { uploadUrl, s3Key } = await getPresignedUploadUrlAction({
             name: file.name,
             size: file.size,
             mimeType: file.type,
-          folderId: targetFolderId,
-        });
-        return { file, uploadUrl, s3Key };
+            folderId: targetFolderId,
+          });
+          return { file, uploadUrl, s3Key, success: true };
+        } catch (error) {
+          console.error(`Erreur presigned URL pour ${file.name}:`, error);
+          return { file, uploadUrl: null, s3Key: null, success: false, error };
+        }
       });
 
       const preparedTasks = await Promise.all(uploadTasks);
-      
+      const validTasks = preparedTasks.filter(task => task.success);
+
       // Uploader les fichiers en parallèle avec concurrence maximale
-      for (let i = 0; i < preparedTasks.length; i += CONCURRENCY) {
-        const batch = preparedTasks.slice(i, i + CONCURRENCY);
-        await Promise.all(batch.map(async ({ file, uploadUrl, s3Key }) => {
-          // Upload vers S3 (bloquant pour la progression)
-          await fetch(uploadUrl, {
-            method: "PUT",
-            body: file,
-            headers: { "Content-Type": file.type || "application/octet-stream" },
-          });
+      for (let i = 0; i < validTasks.length; i += CONCURRENCY) {
+        const batch = validTasks.slice(i, i + CONCURRENCY);
+        await Promise.allSettled(batch.map(async ({ file, uploadUrl, s3Key }) => {
+          if (!uploadUrl || !s3Key) return;
 
-          // Mettre à jour la progression immédiatement après l'upload S3
-          uploadedCountRef.current++;
-          const current = uploadedCountRef.current;
-          
-          if (isLocalUpload) {
-            setUploadProgress({ current, total: files.length });
-          }
-          if (onProgress) {
-            onProgress(current, files.length);
-          }
+          try {
+            // Upload vers S3 (bloquant pour la progression)
+            await fetch(uploadUrl, {
+              method: "PUT",
+              body: file,
+              headers: { "Content-Type": file.type || "application/octet-stream" },
+            });
 
-          // Confirmer l'upload en arrière-plan (non-bloquant)
-          confirmFileUploadAction({
-            name: file.name,
-            size: file.size,
-            mimeType: file.type,
-            s3Key: s3Key,
-            folderId: targetFolderId,
-          }).catch(err => console.error("Erreur confirmation:", err));
+            // Mettre à jour la progression immédiatement après l'upload S3
+            uploadedCountRef.current++;
+            const current = uploadedCountRef.current;
+
+            if (isLocalUpload) {
+              setUploadProgress({ current, total: files.length });
+            }
+            if (onProgress) {
+              onProgress(current, files.length);
+            }
+
+            // Confirmer l'upload en arrière-plan (non-bloquant)
+            confirmFileUploadAction({
+              name: file.name,
+              size: file.size,
+              mimeType: file.type,
+              s3Key: s3Key,
+              folderId: targetFolderId,
+            }).catch(err => console.error("Erreur confirmation:", err));
+          } catch (error) {
+            console.error(`Erreur upload pour ${file.name}:`, error);
+            uploadedCountRef.current++;
+            const current = uploadedCountRef.current;
+            if (isLocalUpload) {
+              setUploadProgress({ current, total: files.length });
+            }
+            if (onProgress) {
+              onProgress(current, files.length);
+            }
+          }
         }));
       }
-      
+
       router.refresh();
     } catch (error) {
       setErrorModal({
@@ -454,6 +509,12 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
                 })
               );
             }
+          } else {
+            // Si webkitGetAsEntry() retourne null, essayer de récupérer le fichier directement via getAsFile()
+            const file = item.getAsFile();
+            if (file) {
+              files.push(file);
+            }
           }
         }
       }
@@ -610,7 +671,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
               </button>
             )}
             {canShare && (
-              <button 
+              <button
                 onClick={() => setIsShareModalOpen(true)}
                 className="h-10 px-4 bg-white border border-black/10 rounded-xl text-sm font-medium hover:bg-black/5 transition-all flex items-center gap-2 shadow-sm text-black"
               >
@@ -618,7 +679,16 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
                 <span>Partager</span>
               </button>
             )}
-            
+
+            <button
+              onClick={() => handleDownloadFolder()}
+              disabled={isDownloading}
+              className="h-10 px-4 bg-white border border-black/10 rounded-xl text-sm font-medium hover:bg-black/5 transition-all flex items-center gap-2 shadow-sm text-black disabled:opacity-50"
+            >
+              {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              <span>Télécharger ZIP</span>
+            </button>
+
             {canEdit && (
               <>
                 <input 
@@ -757,16 +827,24 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
                     {new Date(child.updatedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    {canEdit && (
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                      <button 
-                        onClick={(e) => handleDeleteSubFolder(child.id, e)}
-                        className="p-2 text-black/30 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                      <button
+                        onClick={() => handleDownloadFolder(child.id, child.name)}
+                        disabled={isDownloading}
+                        className="p-2 text-black/30 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all disabled:opacity-50"
+                        title="Télécharger le dossier en ZIP"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Download className="w-4 h-4" />
                       </button>
+                      {canEdit && (
+                        <button
+                          onClick={(e) => handleDeleteSubFolder(child.id, e)}
+                          className="p-2 text-black/30 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
-                    )}
                   </td>
                 </tr>
               ))}
@@ -911,8 +989,16 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
                   </div>
                 </div>
               </Link>
+              <button
+                onClick={() => handleDownloadFolder(child.id, child.name)}
+                disabled={isDownloading}
+                className="p-2 text-black/30 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all flex-shrink-0 disabled:opacity-50"
+                title="Télécharger le dossier en ZIP"
+              >
+                <Download className="w-4 h-4" />
+              </button>
               {canEdit && (
-              <button 
+              <button
                 onClick={(e) => handleDeleteSubFolder(child.id, e)}
                 className="p-2 text-black/30 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all flex-shrink-0"
               >

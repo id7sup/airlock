@@ -2,19 +2,33 @@
 
 import { FileIcon, Download, Eye, FolderOpen } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 import { TrackEvent } from "./TrackEvent";
+import { FileViewerModal } from "./FileViewerModal";
 
-export function FileListClient({ 
-  files, 
+export function FileListClient({
+  files,
   children,
-  shareLinkId, 
-  token 
-}: { 
-  files: any[]; 
+  shareLinkId,
+  token
+}: {
+  files: any[];
   children?: any[];
-  shareLinkId: string; 
+  shareLinkId: string;
   token: string;
 }) {
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [selectedFileId, setSelectedFileId] = useState<string | undefined>();
+
+  const handleViewFile = (fileId: string) => {
+    setSelectedFileId(fileId);
+    setViewerOpen(true);
+  };
+
+  const handleCloseViewer = () => {
+    setViewerOpen(false);
+    setSelectedFileId(undefined);
+  };
   // Ajouter la règle à tous les fichiers
   const filesWithRules = files.map((file: any) => ({
     ...file,
@@ -37,8 +51,9 @@ export function FileListClient({
   }
 
   return (
-    <div className="divide-y divide-black/[0.02]">
-      {allItems.map((item: any) => {
+    <>
+      <div className="divide-y divide-black/[0.02]">
+        {allItems.map((item: any) => {
         if (item.type === 'folder') {
           return (
             <Link
@@ -81,24 +96,38 @@ export function FileListClient({
             </div>
             
             {canDownload ? (
-              <a 
+              <a
                 href={`/api/public/download?fileId=${item.id}&token=${token}`}
                 className="p-3.5 bg-apple-primary text-white rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-apple-primary/20"
               >
                 <Download className="w-5 h-5" />
               </a>
             ) : (
-              <Link
-                href={`/share/${token}/view?fileId=${item.id}`}
+              <button
+                onClick={() => handleViewFile(item.id)}
                 className="p-3.5 bg-apple-primary text-white rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-apple-primary/20"
               >
                 <Eye className="w-5 h-5" />
-              </Link>
+              </button>
             )}
           </div>
         );
       })}
-    </div>
+      </div>
+
+      <FileViewerModal
+        isOpen={viewerOpen}
+        onClose={handleCloseViewer}
+        fileId={selectedFileId}
+        token={token}
+        files={filesWithRules.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          mimeType: f.mimeType,
+        }))}
+        onFileChange={(fileId) => setSelectedFileId(fileId)}
+      />
+    </>
   );
 }
 

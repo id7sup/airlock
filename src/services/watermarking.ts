@@ -128,22 +128,124 @@ export async function generateWatermarkedFile(
 }
 
 /**
- * Applique un watermark à un buffer (simulation)
- * Dans un vrai système, vous utiliseriez une bibliothèque appropriée
+ * Applique un watermark à un buffer selon le type de fichier
  */
 async function applyWatermarkToBuffer(
   buffer: Buffer,
   mimeType: string,
   watermarkText: string
 ): Promise<Buffer> {
-  // TODO: Implémenter le watermarking réel selon le type de fichier
-  // Pour l'instant, on retourne le buffer original
-  // Dans un vrai système:
-  // - Images: utiliser sharp pour ajouter du texte
-  // - PDFs: utiliser pdf-lib pour ajouter une couche de texte
-  // - Autres: créer une version avec overlay
-  
+  // Handle images with sharp
+  if (mimeType.startsWith("image/")) {
+    return await applyImageWatermark(buffer, watermarkText);
+  }
+
+  // Handle PDFs with pdf-lib
+  if (mimeType === "application/pdf") {
+    return await applyPdfWatermark(buffer, watermarkText);
+  }
+
+  // For other formats, return original (client-side watermark will be applied)
   return buffer;
+}
+
+/**
+ * Apply watermark to image using sharp
+ */
+async function applyImageWatermark(
+  buffer: Buffer,
+  watermarkText: string
+): Promise<Buffer> {
+  try {
+    const sharp = require("sharp");
+    const image = sharp(buffer);
+    const metadata = await image.metadata();
+
+    if (!metadata.width || !metadata.height) {
+      return buffer;
+    }
+
+    // Create SVG watermark with diagonal text pattern
+    const watermarkSvg = `
+      <svg width="${metadata.width}" height="${metadata.height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="watermark" x="0" y="0" width="400" height="400" patternUnits="userSpaceOnUse">
+            <text x="200" y="200"
+                  transform="rotate(-45 200 200)"
+                  font-size="24"
+                  font-family="Arial, sans-serif"
+                  fill="rgba(0,0,0,0.15)"
+                  font-weight="bold"
+                  text-anchor="middle">
+              ${watermarkText.replace(/</g, "&lt;").replace(/>/g, "&gt;")}
+            </text>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#watermark)" />
+      </svg>
+    `;
+
+    // Composite the watermark SVG onto the image
+    const composited = await image
+      .composite([
+        {
+          input: Buffer.from(watermarkSvg),
+          gravity: "center",
+        },
+      ])
+      .jpeg({ quality: 85, progressive: true })
+      .toBuffer();
+
+    return composited;
+  } catch (error) {
+    console.error("Error applying image watermark:", error);
+    // Fallback to original if watermarking fails
+    return buffer;
+  }
+}
+
+/**
+ * Apply watermark to PDF using pdf-lib
+ */
+async function applyPdfWatermark(
+  buffer: Buffer,
+  watermarkText: string
+): Promise<Buffer> {
+  try {
+    const { PDFDocument, rgb, degrees } = require("pdf-lib");
+
+    const pdfDoc = await PDFDocument.load(buffer);
+    const pages = pdfDoc.getPages();
+
+    // Add watermark to each page
+    for (const page of pages) {
+      const { width, height } = page.getSize();
+
+      // Calculate diagonal text positions for repeating pattern
+      const textSize = 48;
+      const spacing = 200;
+
+      for (let y = -height; y < height * 2; y += spacing) {
+        for (let x = -width; x < width * 2; x += spacing) {
+          page.drawText(watermarkText, {
+            x: x + width / 2,
+            y: y + height / 2,
+            size: textSize,
+            color: rgb(0, 0, 0),
+            opacity: 0.15,
+            rotate: degrees(-45),
+          });
+        }
+      }
+    }
+
+    const pdfBytes = await pdfDoc.save();
+    return Buffer.from(pdfBytes);
+  } catch (error) {
+    console.error("Error applying PDF watermark:", error);
+    // Fallback to original if watermarking fails
+    return buffer;
+  }
 }
 
 /**

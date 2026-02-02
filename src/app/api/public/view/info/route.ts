@@ -79,13 +79,64 @@ export async function GET(req: NextRequest) {
   // 4. Utiliser downloadDefault du lien (pas de règles par fichier)
   const downloadAllowed = link.downloadDefault ?? (link.allowDownload ?? true);
 
+  // Determine viewer type and support status based on MIME type
+  const mimeType = file.mimeType || "application/octet-stream";
+  const viewerInfo = getViewerInfo(mimeType);
+
   return NextResponse.json({
     id: file.id,
     name: file.name,
-    mimeType: file.mimeType || "application/octet-stream",
+    mimeType,
     size: file.size,
     downloadAllowed,
     linkId: link.id,
+    requiresWatermark: !downloadAllowed,
+    supportedForViewing: viewerInfo.supportedForViewing,
+    viewerType: viewerInfo.viewerType,
   });
+}
+
+/**
+ * Determine viewer type and support status based on MIME type
+ */
+function getViewerInfo(mimeType: string): {
+  supportedForViewing: boolean;
+  viewerType: "image" | "pdf" | "text" | "video" | "audio" | "unsupported";
+} {
+  // Images
+  if (mimeType.startsWith("image/")) {
+    const supportedImages = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    return {
+      supportedForViewing: supportedImages.includes(mimeType),
+      viewerType: "image",
+    };
+  }
+
+  // PDFs
+  if (mimeType === "application/pdf") {
+    return { supportedForViewing: true, viewerType: "pdf" };
+  }
+
+  // Text files
+  if (
+    mimeType.startsWith("text/") ||
+    mimeType === "application/json" ||
+    mimeType === "application/xml"
+  ) {
+    return { supportedForViewing: true, viewerType: "text" };
+  }
+
+  // Videos
+  if (mimeType.startsWith("video/")) {
+    return { supportedForViewing: true, viewerType: "video" };
+  }
+
+  // Audio
+  if (mimeType.startsWith("audio/")) {
+    return { supportedForViewing: true, viewerType: "audio" };
+  }
+
+  // Office files and others
+  return { supportedForViewing: false, viewerType: "unsupported" };
 }
 

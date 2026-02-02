@@ -12,13 +12,15 @@ import { hashIP, generateVisitorId, generateStableVisitorId, categorizeReferer }
 /**
  * Types d'événements trackés
  */
-export type EventType = 
-  | "LINK_PREVIEW"    // Prévisualisation par un bot (WhatsApp, iMessage, Slack, etc.)
-  | "OPEN_SHARE"      // Ouverture d'un partage (après interaction utilisateur)
-  | "OPEN_FOLDER"     // Ouverture d'un sous-dossier (après interaction utilisateur)
-  | "VIEW_FILE"       // Prévisualisation d'un fichier
-  | "DOWNLOAD_FILE"   // Téléchargement d'un fichier
-  | "ACCESS_DENIED";  // Accès refusé
+export type EventType =
+  | "LINK_PREVIEW"           // Prévisualisation par un bot (WhatsApp, iMessage, Slack, etc.)
+  | "OPEN_SHARE"             // Ouverture d'un partage (après interaction utilisateur)
+  | "OPEN_FOLDER"            // Ouverture d'un sous-dossier (après interaction utilisateur)
+  | "VIEW_FILE"              // Prévisualisation d'un fichier (original)
+  | "VIEW_FILE_WATERMARKED"  // Prévisualisation d'un fichier avec watermark (lecture seule)
+  | "DOWNLOAD_FILE"          // Téléchargement d'un fichier
+  | "DOWNLOAD_FOLDER"        // Téléchargement d'un dossier entier (ZIP)
+  | "ACCESS_DENIED";         // Accès refusé
 
 /**
  * Données de géolocalisation

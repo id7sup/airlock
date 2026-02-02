@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FolderOpen, History, Bookmark, Trash2, Settings2, LayoutList, Users, X } from "lucide-react";
+import { FolderOpen, History, Bookmark, Trash2, Settings2, LayoutList, Users, Menu } from "lucide-react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { Logo } from "@/components/shared/Logo";
 import { useSidebar } from "./SidebarProvider";
@@ -158,13 +158,13 @@ export function Sidebar({ storageUsed = 0 }: { storageUsed?: number }) {
               <span className="text-xl font-semibold tracking-tight text-black">Airlock</span>
             </Link>
             <motion.button
-              whileHover={{ scale: 1.1, rotate: 90 }}
+              whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={close}
               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/5 transition-colors group"
               aria-label="Fermer la barre latérale"
             >
-              <X className="w-4 h-4 text-black/40 group-hover:text-black/60 transition-colors" />
+              <Menu className="w-4 h-4 text-black/40 group-hover:text-black/60 transition-colors" />
             </motion.button>
           </motion.div>
 
