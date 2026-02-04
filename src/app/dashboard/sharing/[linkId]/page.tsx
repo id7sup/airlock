@@ -84,6 +84,7 @@ export default async function SharingDetailPage({
       blockedIps: Array.isArray(linkData.blockedIps) ? linkData.blockedIps : [],
       blockedDevices: Array.isArray(linkData.blockedDevices) ? linkData.blockedDevices : [],
       passwordHash: linkData.passwordHash || null,
+      fileDownloadExceptions: Array.isArray(linkData.fileDownloadExceptions) ? linkData.fileDownloadExceptions : [],
     };
 
     return <SharingDetailClient link={link} />;

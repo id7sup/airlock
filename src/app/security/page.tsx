@@ -232,7 +232,7 @@ export default function SecurityPage() {
                   className="relative lg:overflow-visible"
                 >
                   {/* Main Dashboard Image (oversized, cropped on the right) */}
-                  <div className="relative rounded-[24px] overflow-hidden shadow-2xl shadow-black/10 border border-black/5 lg:w-[140%] lg:ml-auto">
+                  <div className="relative rounded-[12px] overflow-hidden shadow-2xl shadow-black/10 border border-black/5 lg:w-[140%] lg:ml-auto">
                     <img
                       src="/assets/logsview.png"
                       alt="Airlock Security Dashboard"

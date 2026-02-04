@@ -1,32 +1,15 @@
-import { Inter } from "next/font/google";
-import "../globals.css";
-
 /**
  * Layout spécifique pour les pages de partage publiques
  * 
- * IMPORTANT: Ce layout ne contient PAS ClerkProvider pour éviter
- * les redirections d'authentification en production. Les pages de
- * partage doivent être accessibles sans authentification.
+ * Ce layout ne définit pas <html> et <body> car ils sont déjà
+ * définis dans le layout principal. Les pages de partage sont
+ * accessibles sans authentification via la configuration dans proxy.ts.
  */
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-inter",
-  display: "swap",
-  preload: true,
-});
 
 export default function ShareLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <html lang="fr" className={inter.variable} data-scroll-behavior="smooth">
-      <body>
-        {children}
-      </body>
-    </html>
-  );
+  return <>{children}</>;
 }

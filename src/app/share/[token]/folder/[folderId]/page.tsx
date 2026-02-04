@@ -1,8 +1,7 @@
 import { db } from "@/lib/firebase";
 import { validateShareLink } from "@/services/sharing";
 import { checkIfFolderIsChild } from "@/services/folders";
-import { FolderOpen, Info, ChevronLeft, Lock } from "lucide-react";
-import { Logo } from "@/components/shared/Logo";
+import { ChevronLeft, Info, Lock, AlertTriangle } from "lucide-react";
 import { FileList } from "@/components/shared/FileList";
 import { TrackEvent } from "@/components/shared/TrackEvent";
 import { DownloadFolderButton } from "@/components/shared/DownloadFolderButton";
@@ -11,43 +10,35 @@ import { getClientIP, getGeolocationFromIP, getCloudflareLocationHeaders } from 
 import { headers } from "next/headers";
 import { trackEvent } from "@/services/analytics";
 import { isPreviewBot } from "@/lib/visitor";
+import {
+  SharePageError,
+} from "@/components/shared/SharePageLayout";
+import { ShareFolderPageLayout } from "./ShareFolderPageLayout";
 
 /**
  * Page publique pour afficher un sous-dossier partagé
- * 
- * Permet de naviguer dans les sous-dossiers d'un partage.
- * Vérifie que le sous-dossier appartient bien au dossier partagé.
- * 
- * @param params - Paramètres de la route (token, folderId)
- * @param searchParams - Paramètres de requête (pwd pour mot de passe)
  */
-export default async function PublicShareFolderPage({ 
-  params, 
-  searchParams 
-}: { 
-  params: Promise<{ token: string; folderId: string }>, 
-  searchParams: Promise<{ pwd?: string }> 
+export default async function PublicShareFolderPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ token: string; folderId: string }>,
+  searchParams: Promise<{ pwd?: string }>
 }) {
   try {
     const { token, folderId } = await params;
     const { pwd } = await searchParams;
-    
+
     if (!token || !folderId) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-          <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Info className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2 tracking-tight">Paramètres invalides</h1>
-            <p className="text-apple-secondary font-medium">
-              Le lien de partage est invalide.
-            </p>
-          </div>
-        </div>
+        <SharePageError
+          title="Paramètres invalides"
+          message="Le lien de partage est invalide."
+          icon={Info}
+        />
       );
     }
-    
+
     // Paralléliser la validation du lien et la récupération du dossier
     let result;
     let folderDoc;
@@ -59,37 +50,29 @@ export default async function PublicShareFolderPage({
     } catch (error: any) {
       console.error("[SHARE_FOLDER] Error validating link:", error?.message);
       return (
-        <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-          <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Info className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2 tracking-tight">Erreur</h1>
-            <p className="text-apple-secondary font-medium">
-              Une erreur est survenue lors du chargement du partage.
-            </p>
-          </div>
-        </div>
+        <SharePageError
+          title="Erreur"
+          message="Une erreur est survenue lors du chargement du partage."
+          icon={AlertTriangle}
+        />
       );
     }
 
-    // 1. Gérer les erreurs de validation
+    // Gérer les erreurs de validation
     if (!result || (result as any).error) {
       const errorResult = result as any;
       return (
-        <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-          <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Info className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2 tracking-tight">Accès indisponible</h1>
-            <p className="text-apple-secondary font-medium">
-              {errorResult?.error === "EXPIRED" ? "Ce lien a expiré." : 
-               errorResult?.error === "QUOTA_EXCEEDED" ? "Le quota de vues a été atteint." :
-               "Ce lien n'est plus actif ou a été révoqué."}
-            </p>
-          </div>
-        </div>
+        <SharePageError
+          title="Accès indisponible"
+          message={
+            errorResult?.error === "EXPIRED"
+              ? "Ce lien a expiré."
+              : errorResult?.error === "QUOTA_EXCEEDED"
+              ? "Le quota de vues a été atteint."
+              : "Ce lien n'est plus actif ou a été révoqué."
+          }
+          icon={Info}
+        />
       );
     }
 
@@ -97,57 +80,36 @@ export default async function PublicShareFolderPage({
 
     if (!link || !link.folderId) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-          <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Info className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2 tracking-tight">Erreur</h1>
-            <p className="text-apple-secondary font-medium">
-              Les données du partage sont incomplètes.
-            </p>
-          </div>
-        </div>
+        <SharePageError
+          title="Erreur"
+          message="Les données du partage sont incomplètes."
+          icon={Info}
+        />
       );
     }
 
-    // 2. Vérifier que le sous-dossier appartient au dossier partagé (récursif)
-    // folderDoc a déjà été récupéré en parallèle
-
     if (!folderDoc.exists) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-          <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Info className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2 tracking-tight">Dossier introuvable</h1>
-            <p className="text-apple-secondary font-medium">
-              Ce dossier n'existe pas ou a été supprimé.
-            </p>
-          </div>
-        </div>
+        <SharePageError
+          title="Dossier introuvable"
+          message="Ce dossier n'existe pas ou a été supprimé."
+          icon={Info}
+        />
       );
     }
 
     const folderData = folderDoc.data();
     if (!folderData) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-          <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Info className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2 tracking-tight">Erreur</h1>
-            <p className="text-apple-secondary font-medium">
-              Les données du dossier sont incomplètes.
-            </p>
-          </div>
-        </div>
+        <SharePageError
+          title="Erreur"
+          message="Les données du dossier sont incomplètes."
+          icon={Info}
+        />
       );
     }
 
-    // 2. Vérifier la hiérarchie et récupérer les fichiers/sous-dossiers en parallèle
+    // Vérifier la hiérarchie et récupérer les fichiers/sous-dossiers en parallèle
     let files: any[] = [];
     let children: any[] = [];
     let isChildOfSharedFolder = false;
@@ -194,39 +156,25 @@ export default async function PublicShareFolderPage({
       children = childrenSnapshot.docs.map(doc => ({ id: doc.id, ...convertFirestoreData(doc.data()) }));
     } catch (error: any) {
       console.error("[SHARE_FOLDER] Error fetching files/children:", error?.message);
-      // Si c'est une erreur de hiérarchie, retourner l'erreur
       if (error?.message?.includes("hierarchy") || error?.message?.includes("checkIfFolderIsChild")) {
         return (
-          <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-            <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Info className="w-8 h-8" />
-              </div>
-              <h1 className="text-2xl font-bold mb-2 tracking-tight">Erreur</h1>
-              <p className="text-apple-secondary font-medium">
-                Impossible de vérifier l'accès au dossier.
-              </p>
-            </div>
-          </div>
+          <SharePageError
+            title="Erreur"
+            message="Impossible de vérifier l'accès au dossier."
+            icon={Info}
+          />
         );
       }
-      // Continuer avec des tableaux vides plutôt que de crasher
     }
 
     // Vérifier que le dossier est bien un enfant du dossier partagé
     if (!isChildOfSharedFolder) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-          <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Info className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2 tracking-tight">Accès refusé</h1>
-            <p className="text-apple-secondary font-medium">
-              Ce dossier n'appartient pas au partage.
-            </p>
-          </div>
-        </div>
+        <SharePageError
+          title="Accès refusé"
+          message="Ce dossier n'appartient pas au partage."
+          icon={Lock}
+        />
       );
     }
 
@@ -234,22 +182,21 @@ export default async function PublicShareFolderPage({
     if (link.blockVpn === true) {
       try {
         const headersList = await headers();
-        const clientIP = 
+        const clientIP =
           headersList.get("x-forwarded-for")?.split(",")[0].trim() ||
           headersList.get("x-real-ip") ||
           headersList.get("cf-connecting-ip") ||
           "unknown";
-        
+
         if (clientIP !== 'unknown') {
           const geolocation = await getGeolocationFromIP(clientIP);
           if (geolocation && (geolocation.isVPN === true || geolocation.isDatacenter === true)) {
-            // Tracker l'accès refusé
             try {
               const userAgent = headersList.get("user-agent") || undefined;
               const referer = headersList.get("referer") || undefined;
               const { generateVisitorId } = await import("@/lib/visitor");
               const visitorId = generateVisitorId(clientIP, userAgent);
-              
+
               await trackEvent({
                 linkId: link.id,
                 eventType: "ACCESS_DENIED",
@@ -263,43 +210,35 @@ export default async function PublicShareFolderPage({
             } catch (e) {
               console.error("Error tracking ACCESS_DENIED:", e);
             }
-            
+
             return (
-              <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-                <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-                  <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                    <Lock className="w-8 h-8" />
-                  </div>
-                  <h1 className="text-2xl font-bold mb-2 tracking-tight">Accès refusé</h1>
-                  <p className="text-apple-secondary font-medium">
-                    L'accès via VPN ou datacenter est bloqué pour ce lien.
-                  </p>
-                </div>
-              </div>
+              <SharePageError
+                title="Accès refusé"
+                message="L'accès via VPN ou datacenter est bloqué pour ce lien."
+                icon={Lock}
+              />
             );
           }
         }
       } catch (error) {
         console.error("Error checking VPN/Datacenter:", error);
-        // En cas d'erreur, on autorise l'accès pour ne pas bloquer les utilisateurs légitimes
       }
     }
 
-    // Tracker la prévisualisation (bot) côté serveur
+    // Tracker la prévisualisation
     (async () => {
       try {
         const headersList = await headers();
         const clientIP = getClientIP(headersList);
         const userAgent = headersList.get("user-agent") || undefined;
         const referer = headersList.get("referer") || undefined;
-        
+
         const { generateVisitorId } = await import("@/lib/visitor");
         const visitorId = generateVisitorId(clientIP, userAgent);
-        
+
         let geolocation;
         try {
           if (clientIP !== 'unknown') {
-            // Utiliser les headers Cloudflare si disponibles
             const cfHeaders = getCloudflareLocationHeaders(headersList);
             geolocation = await getGeolocationFromIP(clientIP, cfHeaders);
             if (geolocation) {
@@ -312,7 +251,6 @@ export default async function PublicShareFolderPage({
           console.error("Error getting geolocation:", error);
         }
 
-        // Détecter si c'est un bot de prévisualisation
         const isBot = isPreviewBot(userAgent, referer, geolocation?.isDatacenter);
 
         await trackEvent({
@@ -329,89 +267,77 @@ export default async function PublicShareFolderPage({
       }
     })().catch(() => {});
 
-    // Note: LINK_PREVIEW est tracké côté serveur, OPEN_FOLDER sera tracké côté client après interaction
+    // Déterminer le lien de retour
+    const backLink = folderData.parentId && folderData.parentId !== link.folderId
+      ? `/share/${token}/folder/${folderData.parentId}${pwd ? `?pwd=${encodeURIComponent(pwd)}` : ""}`
+      : `/share/${token}${pwd ? `?pwd=${encodeURIComponent(pwd)}` : ""}`;
+
+    const totalItems = files.length + children.length;
+    const folderDisplayName = folderData.name || "Dossier";
+
     return (
       <>
         <TrackEvent linkId={link.id} eventType="OPEN_FOLDER" folderId={folderId} />
-        <div className="min-h-screen bg-apple-gray py-12 px-6 text-apple-text animate-in fade-in duration-700">
-        <div className="max-w-4xl mx-auto">
-          <header className="flex items-center justify-center mb-12">
-            <Logo className="w-20 h-20" />
-          </header>
-
-          <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl shadow-black/[0.03] border border-black/[0.01]">
-            <div className="p-8 border-b border-black/[0.02] bg-gradient-to-br from-white to-apple-gray/[0.05]">
-              <div className="flex items-center gap-4">
-                {folderData.parentId && folderData.parentId !== link.folderId ? (
-                  <Link 
-                    href={`/share/${token}/folder/${folderData.parentId}`}
-                    className="w-12 h-12 flex items-center justify-center bg-apple-gray hover:bg-apple-gray/80 rounded-full transition-all text-apple-text active:scale-90"
-                  >
-                    <ChevronLeft className="w-6 h-6" />
-                  </Link>
-                ) : (
-                  <Link 
-                    href={`/share/${token}`}
-                    className="w-12 h-12 flex items-center justify-center bg-apple-gray hover:bg-apple-gray/80 rounded-full transition-all text-apple-text active:scale-90"
-                  >
-                    <ChevronLeft className="w-6 h-6" />
-                  </Link>
-                )}
-                <div className="w-14 h-14 bg-brand-primary/10 text-brand-primary rounded-2xl flex items-center justify-center shadow-xl shadow-brand-primary/20 flex-shrink-0">
-                  <FolderOpen className="w-8 h-8 fill-current" />
+        <ShareFolderPageLayout
+          folderName={folderDisplayName}
+          fileCount={files.length}
+          folderCount={children.length}
+          backLink={backLink}
+        >
+          {/* Hero Header with back button */}
+          <div className="mb-8 p-6 bg-gradient-to-br from-brand-primary/5 via-brand-primary/[0.02] to-transparent rounded-2xl border border-brand-primary/10">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4 min-w-0">
+                <Link
+                  href={backLink}
+                  className="w-10 h-10 flex items-center justify-center bg-white border border-black/10 hover:bg-black/5 rounded-xl transition-all text-black active:scale-95 flex-shrink-0 shadow-sm"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </Link>
+                <div className="w-14 h-14 bg-brand-primary rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-brand-primary/20">
+                  <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
+                  </svg>
                 </div>
-                <div className="flex-1">
-                  <h1 className="text-2xl font-bold tracking-tight">{folderData.name || "Dossier"}</h1>
-                  <p className="text-apple-secondary text-sm font-semibold uppercase tracking-widest mt-1 opacity-50">
-                    {files.length} fichiers • {children.length} sous-dossiers • Partage Sécurisé
+                <div className="min-w-0">
+                  <h1 className="text-2xl lg:text-3xl font-bold tracking-tight truncate text-black">{folderDisplayName}</h1>
+                  <p className="text-sm text-black/50 mt-1">
+                    {children.length > 0 && <span>{children.length} dossier{children.length > 1 ? 's' : ''}</span>}
+                    {children.length > 0 && files.length > 0 && <span> • </span>}
+                    {files.length > 0 && <span>{files.length} fichier{files.length > 1 ? 's' : ''}</span>}
                   </p>
-                  <p className="text-apple-secondary/60 text-xs font-medium mt-2">Explorez les sous-dossiers et fichiers de ce dossier partagé. Utilisez le bouton retour pour remonter dans la hiérarchie.</p>
-                </div>
-                <div className="flex-shrink-0 w-48">
-                  {link.allowDownload && (
-                    <DownloadFolderButton
-                      folderId={folderId}
-                      folderName={folderData.name || "Dossier"}
-                      token={token}
-                    />
-                  )}
                 </div>
               </div>
-            </div>
 
-            <FileList 
-              files={files} 
-              children={children}
-              shareLinkId={link.id} 
-              token={token} 
-            />
+              {/* Download button */}
+              {link.allowDownload && files.length > 0 && (
+                <DownloadFolderButton
+                  folderId={folderId}
+                  folderName={folderDisplayName}
+                  token={token}
+                />
+              )}
+            </div>
           </div>
-          
-          <div className="mt-16 flex flex-col items-center gap-4 opacity-30">
-            <Logo className="w-8 h-8 grayscale" />
-            <p className="text-center text-[9px] text-apple-secondary font-bold uppercase tracking-[0.3em]">
-              Airlock • Souveraineté Numérique
-            </p>
-          </div>
-        </div>
-      </div>
+
+          <FileList
+            files={files}
+            children={children}
+            shareLinkId={link.id}
+            token={token}
+            password={pwd}
+          />
+        </ShareFolderPageLayout>
       </>
     );
   } catch (error: any) {
     console.error("[SHARE_FOLDER] Critical error:", error?.message);
     return (
-      <div className="min-h-screen flex items-center justify-center bg-apple-gray text-apple-text">
-        <div className="apple-card p-12 text-center max-w-md shadow-2xl">
-          <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Info className="w-8 h-8" />
-          </div>
-          <h1 className="text-2xl font-bold mb-2 tracking-tight">Erreur</h1>
-          <p className="text-apple-secondary font-medium">
-            Une erreur inattendue est survenue. Veuillez réessayer plus tard.
-          </p>
-        </div>
-      </div>
+      <SharePageError
+        title="Erreur"
+        message="Une erreur inattendue est survenue. Veuillez réessayer plus tard."
+        icon={AlertTriangle}
+      />
     );
   }
 }
-

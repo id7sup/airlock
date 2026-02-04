@@ -469,6 +469,83 @@ export async function hasActivePublicLinkAction(folderId: string): Promise<boole
 }
 
 /**
+ * Récupère tous les fichiers d'un dossier partagé (incluant les sous-dossiers si allowFolderAccess)
+ * 
+ * @param linkId - ID du lien de partage
+ * @returns Liste des fichiers avec id, name, mimeType
+ */
+export async function getSharedFolderFilesAction(linkId: string): Promise<Array<{ id: string; name: string; mimeType: string; folderId: string }>> {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Non autorisé");
+
+  const linkDoc = await db.collection("shareLinks").doc(linkId).get();
+  if (!linkDoc.exists) throw new Error("Lien non trouvé");
+  const link = linkDoc.data()!;
+
+  // Vérifier que l'utilisateur est OWNER du dossier
+  const permSnapshot = await db.collection("permissions")
+    .where("folderId", "==", link.folderId)
+    .where("userId", "==", userId)
+    .where("role", "==", "OWNER")
+    .limit(1)
+    .get();
+
+  if (permSnapshot.empty) throw new Error("Non autorisé");
+
+  const files: Array<{ id: string; name: string; mimeType: string; folderId: string }> = [];
+
+  // Récupérer les fichiers du dossier principal
+  const filesSnapshot = await db.collection("files")
+    .where("folderId", "==", link.folderId)
+    .get();
+
+  filesSnapshot.docs.forEach(doc => {
+    const data = doc.data();
+    files.push({
+      id: doc.id,
+      name: data.name,
+      mimeType: data.mimeType || "application/octet-stream",
+      folderId: data.folderId,
+    });
+  });
+
+  // Si allowFolderAccess est activé, récupérer aussi les fichiers des sous-dossiers
+  if (link.allowFolderAccess === true) {
+    const allSubfolders = await getAllSubfoldersRecursive(link.folderId);
+    
+    // Récupérer les fichiers de chaque sous-dossier (par lots de 30 pour éviter les limites Firestore)
+    const BATCH_SIZE = 30;
+    for (let i = 0; i < allSubfolders.length; i += BATCH_SIZE) {
+      const folderBatch = allSubfolders.slice(i, i + BATCH_SIZE);
+      if (folderBatch.length === 0) continue;
+      
+      // Ignorer le dossier principal car déjà traité
+      const foldersToQuery = folderBatch.filter(fId => fId !== link.folderId);
+      if (foldersToQuery.length === 0) continue;
+
+      const subFilesSnapshot = await db.collection("files")
+        .where("folderId", "in", foldersToQuery)
+        .get();
+
+      subFilesSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        files.push({
+          id: doc.id,
+          name: data.name,
+          mimeType: data.mimeType || "application/octet-stream",
+          folderId: data.folderId,
+        });
+      });
+    }
+  }
+
+  // Trier par nom
+  files.sort((a, b) => a.name.localeCompare(b.name));
+
+  return files;
+}
+
+/**
  * Retire l'accès à un dossier partagé (pour les non-propriétaires)
  */
 export async function revokeSharedFolderAccessAction(folderId: string) {

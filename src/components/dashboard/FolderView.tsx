@@ -126,7 +126,14 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
             }
           }));
           setSelectedIds([]);
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
           router.refresh();
+        } catch (err) {
+          setErrorModal({
+            isOpen: true,
+            title: "Erreur",
+            message: err instanceof Error ? err.message : "Impossible de supprimer les éléments"
+          });
         } finally {
           setIsUploading(false);
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
@@ -420,7 +427,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOver(false);
-    
+
     if (!canEdit) {
       setErrorModal({
         isOpen: true,
@@ -440,28 +447,43 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
       return;
     }
 
-    const files: File[] = [];
+    // IMPORTANT: Capturer TOUS les entries de manière SYNCHRONE avant toute opération async
+    // Les DataTransferItem deviennent invalides après le premier await
+    const fileEntries: FileSystemFileEntry[] = [];
+    const directoryEntries: FileSystemDirectoryEntry[] = [];
+    const fallbackFiles: File[] = [];
+
+    for (const item of items) {
+      if (item.kind === "file") {
+        const entry = item.webkitGetAsEntry();
+        if (entry) {
+          if (entry.isFile) {
+            fileEntries.push(entry as FileSystemFileEntry);
+          } else if (entry.isDirectory) {
+            directoryEntries.push(entry as FileSystemDirectoryEntry);
+          }
+        } else {
+          // Si webkitGetAsEntry() retourne null, essayer de récupérer le fichier directement
+          const file = item.getAsFile();
+          if (file) {
+            fallbackFiles.push(file);
+          }
+        }
+      }
+    }
+
+    const files: File[] = [...fallbackFiles];
     const folderPromises: Promise<void>[] = [];
-    let totalFilesToUpload = 0;
+    let totalFilesToUpload = fileEntries.length + fallbackFiles.length;
 
     try {
-      // Compter d'abord tous les fichiers pour vérifier la limite
-      for (const item of items) {
-        if (item.kind === "file") {
-          const entry = item.webkitGetAsEntry();
-          if (entry) {
-            if (entry.isFile) {
-              totalFilesToUpload++;
-            } else if (entry.isDirectory) {
-              try {
-                const dirEntry = entry as FileSystemDirectoryEntry;
-                const folderFileCount = await countAllFilesInDirectory(dirEntry);
-                totalFilesToUpload += folderFileCount;
-              } catch (error) {
-                console.error("Erreur lors du comptage des fichiers du dossier:", error);
-              }
-            }
-          }
+      // Compter les fichiers dans les dossiers (maintenant on peut faire des await)
+      for (const dirEntry of directoryEntries) {
+        try {
+          const folderFileCount = await countAllFilesInDirectory(dirEntry);
+          totalFilesToUpload += folderFileCount;
+        } catch (error) {
+          console.error("Erreur lors du comptage des fichiers du dossier:", error);
         }
       }
 
@@ -481,42 +503,30 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
         setUploadProgress({ current: uploadedFilesCounter, total: totalFilesToUpload || uploadedFilesCounter });
       };
 
-      // Traiter tous les items pour lire les fichiers et créer les dossiers
-      for (const item of items) {
-        if (item.kind === "file") {
-          const entry = item.webkitGetAsEntry();
-          if (entry) {
-            if (entry.isFile) {
-              try {
-                const file = await new Promise<File>((resolve, reject) => {
-                  (entry as FileSystemFileEntry).file(resolve, reject);
-                });
-                files.push(file);
-              } catch (error) {
-                console.error("Erreur lors de la lecture du fichier:", error);
-              }
-            } else if (entry.isDirectory) {
-              // Créer le dossier et uploader son contenu récursivement
-              const dirEntry = entry as FileSystemDirectoryEntry;
-              folderPromises.push(
-                createFolderAndUploadContent(entry.name, folder.id, dirEntry, onFileUploaded).catch((error) => {
-                  console.error(`Erreur lors de la création du dossier "${entry.name}":`, error);
-                  setErrorModal({
-                    isOpen: true,
-                    title: "Erreur",
-                    message: error.message || `Erreur lors de la création du dossier "${entry.name}"`
-                  });
-                })
-              );
-            }
-          } else {
-            // Si webkitGetAsEntry() retourne null, essayer de récupérer le fichier directement via getAsFile()
-            const file = item.getAsFile();
-            if (file) {
-              files.push(file);
-            }
-          }
+      // Lire tous les fichiers depuis les entries capturés
+      for (const fileEntry of fileEntries) {
+        try {
+          const file = await new Promise<File>((resolve, reject) => {
+            fileEntry.file(resolve, reject);
+          });
+          files.push(file);
+        } catch (error) {
+          console.error("Erreur lors de la lecture du fichier:", error);
         }
+      }
+
+      // Créer les dossiers et uploader leur contenu
+      for (const dirEntry of directoryEntries) {
+        folderPromises.push(
+          createFolderAndUploadContent(dirEntry.name, folder.id, dirEntry, onFileUploaded).catch((error) => {
+            console.error(`Erreur lors de la création du dossier "${dirEntry.name}":`, error);
+            setErrorModal({
+              isOpen: true,
+              title: "Erreur",
+              message: error.message || `Erreur lors de la création du dossier "${dirEntry.name}"`
+            });
+          })
+        );
       }
 
       // Uploader les fichiers directement dans le dossier actuel
@@ -575,9 +585,15 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
       onConfirm: async () => {
         try {
           await deleteFileAction(fileId);
-          router.refresh();
-        } finally {
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          router.refresh();
+        } catch (err) {
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          setErrorModal({
+            isOpen: true,
+            title: "Erreur",
+            message: err instanceof Error ? err.message : "Impossible de supprimer le fichier"
+          });
         }
       }
     });

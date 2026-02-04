@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   FolderOpen,
   Eye,
@@ -27,12 +28,17 @@ import {
   AlertTriangle,
   RotateCcw,
   MoreVertical,
-  Share2
+  Share2,
+  FileImage,
+  FileVideo,
+  FileAudio,
+  FileArchive,
+  FileCode
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { revokeShareLinkAction, reactivateShareLinkAction, deleteShareLinkAction } from "@/lib/actions/sharing";
+import { revokeShareLinkAction, reactivateShareLinkAction, deleteShareLinkAction, getSharedFolderFilesAction } from "@/lib/actions/sharing";
 import { updateShareLinkAction } from "@/lib/actions/sharing_update";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { ErrorModal } from "@/components/shared/ErrorModal";
@@ -192,6 +198,312 @@ function PasswordManagerCard({ linkId, currentPasswordHash, onUpdate }: {
   );
 }
 
+// Utilitaire pour obtenir l'icône selon le type de fichier
+function getFileIcon(mimeType: string) {
+  if (mimeType.startsWith("image/")) return FileImage;
+  if (mimeType.startsWith("video/")) return FileVideo;
+  if (mimeType.startsWith("audio/")) return FileAudio;
+  if (mimeType.includes("pdf")) return FileText;
+  if (mimeType.includes("spreadsheet") || mimeType.includes("excel") || mimeType.includes("csv")) return FileSpreadsheet;
+  if (mimeType.includes("zip") || mimeType.includes("rar") || mimeType.includes("tar") || mimeType.includes("archive")) return FileArchive;
+  if (mimeType.includes("code") || mimeType.includes("javascript") || mimeType.includes("json") || mimeType.includes("html") || mimeType.includes("css")) return FileCode;
+  return File;
+}
+
+// Composant Modal pour gérer les exceptions de téléchargement par fichier
+function FileDownloadExceptionsModal({ 
+  isOpen, 
+  onClose, 
+  linkId,
+  initialExceptions,
+  onSave
+}: { 
+  isOpen: boolean; 
+  onClose: () => void;
+  linkId: string;
+  initialExceptions: string[];
+  onSave: (exceptions: string[]) => void;
+}) {
+  const [files, setFiles] = useState<Array<{ id: string; name: string; mimeType: string; folderId: string }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [exceptions, setExceptions] = useState<Set<string>>(new Set(initialExceptions));
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (isOpen) {
+      setExceptions(new Set(initialExceptions));
+      loadFiles();
+    }
+  }, [isOpen, initialExceptions]);
+
+  const loadFiles = async () => {
+    setLoading(true);
+    try {
+      const filesData = await getSharedFolderFilesAction(linkId);
+      setFiles(filesData);
+    } catch (error) {
+      console.error("Erreur lors du chargement des fichiers:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleFile = (fileId: string) => {
+    setExceptions(prev => {
+      const next = new Set(prev);
+      if (next.has(fileId)) {
+        next.delete(fileId);
+      } else {
+        next.add(fileId);
+      }
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      onSave(Array.from(exceptions));
+      onClose();
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const selectAll = () => {
+    setExceptions(new Set(files.map(f => f.id)));
+  };
+
+  const deselectAll = () => {
+    setExceptions(new Set());
+  };
+
+  const filteredFiles = files.filter(file => 
+    file.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen || !mounted) return null;
+
+  const modalContent = (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop - rendu via portal pour passer au-dessus de tout */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            style={{ 
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 99999,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              backdropFilter: 'blur(4px)',
+            }}
+          />
+          
+          {/* Container flex pour centrer le modal */}
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 100000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem',
+              pointerEvents: 'none',
+            }}
+          >
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              style={{ 
+                width: '100%',
+                maxWidth: '32rem',
+                maxHeight: 'calc(100vh - 2rem)',
+                pointerEvents: 'auto',
+              }}
+              className="bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+            >
+            {/* Header */}
+            <div className="p-6 border-b border-black/[0.05]">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xl font-bold text-black">Exceptions de téléchargement</h2>
+                <button
+                  onClick={onClose}
+                  className="w-8 h-8 rounded-full bg-black/[0.05] hover:bg-black/[0.1] flex items-center justify-center transition-colors"
+                >
+                  <X className="w-4 h-4 text-black/60" />
+                </button>
+              </div>
+              <p className="text-sm text-black/50">
+                Le téléchargement global est désactivé. Activez les fichiers que vous souhaitez rendre téléchargeables individuellement.
+              </p>
+            </div>
+
+            {/* Search & Actions */}
+            <div className="px-6 py-3 border-b border-black/[0.05] space-y-3">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Rechercher un fichier..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full px-4 py-2.5 pl-10 text-sm border border-black/[0.1] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary/30"
+                />
+                <Eye className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30" />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-black/50">
+                  {exceptions.size} fichier{exceptions.size > 1 ? "s" : ""} autorisé{exceptions.size > 1 ? "s" : ""} au téléchargement
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={selectAll}
+                    className="px-3 py-1.5 text-xs font-medium text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-colors"
+                  >
+                    Tout sélectionner
+                  </button>
+                  <button
+                    onClick={deselectAll}
+                    className="px-3 py-1.5 text-xs font-medium text-black/50 hover:text-black hover:bg-black/[0.05] rounded-lg transition-colors"
+                  >
+                    Tout désélectionner
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Files List */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
+                </div>
+              ) : filteredFiles.length === 0 ? (
+                <div className="text-center py-12">
+                  <File className="w-12 h-12 text-black/20 mx-auto mb-3" />
+                  <p className="text-sm text-black/50">
+                    {searchQuery ? "Aucun fichier trouvé" : "Aucun fichier dans ce dossier"}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredFiles.map((file) => {
+                    const isEnabled = exceptions.has(file.id);
+                    const FileIcon = getFileIcon(file.mimeType);
+                    
+                    return (
+                      <div
+                        key={file.id}
+                        className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                          isEnabled 
+                            ? "bg-brand-primary/5 border-brand-primary/20" 
+                            : "bg-white border-black/[0.05] hover:border-black/[0.1]"
+                        }`}
+                        onClick={() => toggleFile(file.id)}
+                      >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                          isEnabled ? "bg-brand-primary/10" : "bg-black/[0.03]"
+                        }`}>
+                          <FileIcon className={`w-5 h-5 ${isEnabled ? "text-brand-primary" : "text-black/40"}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate ${isEnabled ? "text-black" : "text-black/70"}`}>
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-black/40">
+                            {isEnabled ? "Téléchargement autorisé" : "Téléchargement bloqué"}
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFile(file.id);
+                          }}
+                          className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors duration-200 shrink-0 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary/30 ${
+                            isEnabled 
+                              ? "bg-brand-primary" 
+                              : "bg-black/15"
+                          }`}
+                        >
+                          <motion.span
+                            animate={{
+                              x: isEnabled ? 22 : 2,
+                            }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 500,
+                              damping: 30
+                            }}
+                            className="inline-block h-5 w-5 bg-white rounded-full shadow-sm transform"
+                          />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-black/[0.05] bg-black/[0.02]">
+              <div className="flex gap-3">
+                <button
+                  onClick={onClose}
+                  disabled={saving}
+                  className="flex-1 px-4 py-3 text-sm font-medium text-black/60 hover:text-black bg-white border border-black/[0.1] hover:border-black/[0.2] rounded-xl transition-colors disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving || loading}
+                  className="flex-1 px-4 py-3 text-sm font-medium text-white bg-black hover:bg-black/90 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Enregistrement...
+                    </>
+                  ) : (
+                    "Enregistrer"
+                  )}
+                </button>
+              </div>
+            </div>
+            </motion.div>
+          </div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+
+  // Utiliser un portail pour rendre le modal directement dans le body
+  // Cela permet de passer au-dessus de tous les éléments (sidebar, topbar, etc.)
+  return createPortal(modalContent, document.body);
+}
+
 interface SharedLink {
   id: string;
   token: string;
@@ -211,6 +523,7 @@ interface SharedLink {
   blockedIps?: string[];
   blockedDevices?: string[];
   passwordHash?: string | null;
+  fileDownloadExceptions?: string[]; // IDs des fichiers avec téléchargement autorisé même si allowDownload=false
 }
 
 interface ExtendedStats {
@@ -259,6 +572,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
     []
   );
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [showFileExceptionsModal, setShowFileExceptionsModal] = useState(false);
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -482,10 +796,45 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
   };
 
   const handleToggleDownload = async () => {
+    // Si on va désactiver le téléchargement, afficher la popup pour les exceptions
+    if (linkData.allowDownload) {
+      setShowFileExceptionsModal(true);
+      return;
+    }
+    
+    // Si on réactive le téléchargement, on met à jour directement et on efface les exceptions
     setUpdating(true);
     try {
-      await updateShareLinkAction(linkData.id, { allowDownload: !linkData.allowDownload, downloadDefault: !linkData.allowDownload });
-      setLinkData({ ...linkData, allowDownload: !linkData.allowDownload });
+      await updateShareLinkAction(linkData.id, { 
+        allowDownload: true, 
+        downloadDefault: true,
+        fileDownloadExceptions: [] // Effacer les exceptions car le téléchargement est autorisé pour tous
+      });
+      setLinkData({ ...linkData, allowDownload: true, fileDownloadExceptions: [] });
+    } catch (e) {
+      setErrorModal({
+        isOpen: true,
+        title: "Erreur",
+        message: "Erreur lors de la mise à jour",
+      });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleSaveFileExceptions = async (exceptions: string[]) => {
+    setUpdating(true);
+    try {
+      await updateShareLinkAction(linkData.id, { 
+        allowDownload: false, 
+        downloadDefault: false,
+        fileDownloadExceptions: exceptions
+      });
+      setLinkData({ 
+        ...linkData, 
+        allowDownload: false, 
+        fileDownloadExceptions: exceptions 
+      });
     } catch (e) {
       setErrorModal({
         isOpen: true,
@@ -1774,6 +2123,13 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
         onClose={() => setErrorModal((prev) => ({ ...prev, isOpen: false }))}
         title={errorModal.title}
         message={errorModal.message}
+      />
+      <FileDownloadExceptionsModal
+        isOpen={showFileExceptionsModal}
+        onClose={() => setShowFileExceptionsModal(false)}
+        linkId={linkData.id}
+        initialExceptions={linkData.fileDownloadExceptions || []}
+        onSave={handleSaveFileExceptions}
       />
     </div>
   );

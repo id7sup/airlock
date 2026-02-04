@@ -109,8 +109,16 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // 3. Utiliser downloadDefault du lien (pas de règles par fichier)
-  const downloadAllowed = link.allowDownload ?? link.downloadDefault ?? true;
+  // 3. Vérifier si le téléchargement est autorisé
+  // D'abord vérifier le paramètre global, puis les exceptions par fichier
+  const globalDownloadAllowed = link.allowDownload ?? link.downloadDefault ?? true;
+  const fileExceptions = link.fileDownloadExceptions || [];
+  const isFileException = fileExceptions.includes(fileId);
+  
+  // Téléchargement autorisé si :
+  // - Le téléchargement global est activé, OU
+  // - Le fichier est dans la liste des exceptions (téléchargement autorisé même si global désactivé)
+  const downloadAllowed = globalDownloadAllowed || isFileException;
 
   // 4. Vérifier si le téléchargement est autorisé
   if (!downloadAllowed) {

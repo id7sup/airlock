@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
   const viewerInfo = getViewerInfo(mimeType);
 
   return NextResponse.json({
-    id: file.id,
+    id: fileId, // Use the fileId from request params, not file.id which may be undefined
     name: file.name,
     mimeType,
     size: file.size,
@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
  */
 function getViewerInfo(mimeType: string): {
   supportedForViewing: boolean;
-  viewerType: "image" | "pdf" | "text" | "video" | "audio" | "unsupported";
+  viewerType: "image" | "pdf" | "text" | "video" | "audio" | "office" | "unsupported";
 } {
   // Images
   if (mimeType.startsWith("image/")) {
@@ -136,7 +136,20 @@ function getViewerInfo(mimeType: string): {
     return { supportedForViewing: true, viewerType: "audio" };
   }
 
-  // Office files and others
+  // Office files (Word, Excel, PowerPoint)
+  const officeFormats = [
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // DOCX
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // XLSX
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation", // PPTX
+    "application/msword", // DOC
+    "application/vnd.ms-excel", // XLS
+    "application/vnd.ms-powerpoint", // PPT
+  ];
+  if (officeFormats.includes(mimeType)) {
+    return { supportedForViewing: true, viewerType: "office" };
+  }
+
+  // Others unsupported
   return { supportedForViewing: false, viewerType: "unsupported" };
 }
 

@@ -1007,30 +1007,33 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
     setIsDraggingOver(false);
 
     const items = Array.from(e.dataTransfer.items || []);
+
+    // IMPORTANT: Capturer TOUS les entries de manière SYNCHRONE avant toute opération async
+    // Les DataTransferItem deviennent invalides après le premier await
     const folderEntries: { name: string; entry: FileSystemDirectoryEntry }[] = [];
+
+    for (const item of items) {
+      if (item.kind === "file") {
+        const entry = item.webkitGetAsEntry();
+        if (entry) {
+          if (entry.isDirectory) {
+            folderEntries.push({ name: entry.name, entry: entry as FileSystemDirectoryEntry });
+          }
+          // Ignorer les fichiers - on ne peut que créer des dossiers dans la vue générale
+        }
+      }
+    }
+
     let totalFilesToUpload = 0;
 
     try {
-      // Compter d'abord tous les fichiers pour vérifier la limite
-      for (const item of items) {
-        if (item.kind === "file") {
-          const entry = item.webkitGetAsEntry();
-          if (entry) {
-            if (entry.isDirectory) {
-              try {
-                const dirEntry = entry as FileSystemDirectoryEntry;
-                const folderFileCount = await countAllFilesInDirectory(dirEntry);
-                totalFilesToUpload += folderFileCount;
-                folderEntries.push({ name: entry.name, entry: dirEntry });
-              } catch (error) {
-                console.error("Erreur lors du comptage:", error);
-                // Ajouter quand même le dossier
-                folderEntries.push({ name: entry.name, entry: entry as FileSystemDirectoryEntry });
-              }
-            } else if (entry.isFile) {
-              // Ignorer les fichiers - on ne peut que créer des dossiers dans la vue générale
-            }
-          }
+      // Compter les fichiers dans les dossiers (maintenant on peut faire des await)
+      for (const { entry } of folderEntries) {
+        try {
+          const folderFileCount = await countAllFilesInDirectory(entry);
+          totalFilesToUpload += folderFileCount;
+        } catch (error) {
+          console.error("Erreur lors du comptage:", error);
         }
       }
 

@@ -403,7 +403,7 @@ export default function Home() {
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
             whileHover={{ scale: 1.02, transition: { duration: 0.3 } }}
-            className="relative z-10 w-[88%] md:w-[72%] max-w-6xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[8px] md:rounded-[24px] overflow-hidden border border-white/10"
+            className="relative z-10 w-[88%] md:w-[72%] max-w-6xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[4px] md:rounded-[12px] overflow-hidden border border-white/10"
           >
             <img src="/assets/dashboard.png" alt="Airlock Dashboard - Interface de gestion de fichiers avec workspace, dossiers et navigation intuitive" className="w-full h-auto pointer-events-none select-none" loading="lazy" />
           </motion.div>
@@ -455,7 +455,7 @@ export default function Home() {
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
             whileHover={{ scale: 1.02, transition: { duration: 0.3 } }}
-            className="relative z-10 w-[88%] md:w-[72%] max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[8px] md:rounded-[24px] overflow-hidden border border-white/10"
+            className="relative z-10 w-[88%] md:w-[72%] max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[4px] md:rounded-[12px] overflow-hidden border border-white/10"
           >
             <img src="/assets/dashboardtwo.png" alt="Airlock Règles de Partage - Configuration des paramètres de sécurité : mot de passe, expiration, quota de vues" className="w-full h-auto pointer-events-none select-none" loading="lazy" />
           </motion.div>
@@ -517,7 +517,7 @@ export default function Home() {
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
             whileHover={{ scale: 1.02, transition: { duration: 0.3 } }}
-            className="relative z-10 w-[88%] md:w-[72%] max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[8px] md:rounded-[24px] overflow-hidden border border-white/10"
+            className="relative z-10 w-[88%] md:w-[72%] max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-[4px] md:rounded-[12px] overflow-hidden border border-white/10"
           >
             <img src="/assets/dahboarddthree.png" alt="Airlock Analytics - Tableau de bord avec statistiques en temps réel : vues, téléchargements, sessions actives" className="w-full h-auto pointer-events-none select-none" loading="lazy" />
           </motion.div>

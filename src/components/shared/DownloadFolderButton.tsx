@@ -51,26 +51,26 @@ export function DownloadFolderButton({
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col items-start gap-2">
       <button
         onClick={handleDownload}
         disabled={isDownloading}
-        className="apple-button h-12 shadow-lg shadow-apple-primary/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="h-10 px-4 bg-white border border-black/10 rounded-xl text-sm font-medium hover:bg-black/5 transition-all flex items-center gap-2 shadow-sm text-black disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isDownloading ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
-            Téléchargement...
+            <span>Téléchargement...</span>
           </>
         ) : (
           <>
             <Download className="w-4 h-4" />
-            Télécharger en ZIP
+            <span>Télécharger ZIP</span>
           </>
         )}
       </button>
       {error && (
-        <div className="text-red-500 text-sm p-3 bg-red-50 rounded-lg border border-red-200">
+        <div className="text-red-600 text-xs p-2 bg-red-50 rounded-lg">
           {error}
         </div>
       )}

@@ -17,6 +17,7 @@ export async function updateShareLinkAction(linkId: string, data: {
   status?: "ACTIVE" | "REVOKED";
   notifications?: string[];
   password?: string | null;
+  fileDownloadExceptions?: string[]; // IDs des fichiers avec téléchargement autorisé même si allowDownload=false
 }) {
   const { userId } = await auth();
   if (!userId) throw new Error("Non autorisé");
@@ -54,6 +55,7 @@ export async function updateShareLinkAction(linkId: string, data: {
   if (data.maxViews !== undefined) updateData.maxViews = data.maxViews;
   if (data.status) updateData.isRevoked = data.status === "REVOKED";
   if (Array.isArray(data.notifications)) updateData.notifications = data.notifications;
+  if (Array.isArray(data.fileDownloadExceptions)) updateData.fileDownloadExceptions = data.fileDownloadExceptions;
   
   // Gérer le mot de passe
   if (data.password !== undefined) {

@@ -12,36 +12,45 @@ import { FileListClient } from "./FileListClient";
  * @param shareLinkId - ID du lien de partage
  * @param token - Token du lien de partage
  */
-export async function FileList({ 
-  files, 
+export async function FileList({
+  files,
   children,
-  shareLinkId, 
-  token 
-}: { 
-  files: any[]; 
+  shareLinkId,
+  token,
+  password
+}: {
+  files: any[];
   children?: any[];
-  shareLinkId: string; 
+  shareLinkId: string;
   token: string;
+  password?: string;
 }) {
   try {
     // Récupérer les règles de téléchargement depuis le lien
     const linkDoc = await db.collection("shareLinks").doc(shareLinkId).get();
     const linkData = linkDoc.exists ? linkDoc.data() : null;
-    const downloadAllowed = linkData?.downloadDefault ?? (linkData?.allowDownload ?? true);
+    const globalDownloadAllowed = linkData?.downloadDefault ?? (linkData?.allowDownload ?? true);
+    const fileDownloadExceptions: string[] = linkData?.fileDownloadExceptions || [];
 
     // Ajouter la règle de téléchargement à chaque fichier
+    // Un fichier peut être téléchargé si :
+    // - Le téléchargement global est autorisé, OU
+    // - Le fichier est dans la liste des exceptions (autorisé même si global désactivé)
     const filesWithRules = files.map((file: any) => ({
       ...file,
-      rule: { downloadAllowed },
+      rule: { 
+        downloadAllowed: globalDownloadAllowed || fileDownloadExceptions.includes(file.id) 
+      },
       type: 'file' as const
     }));
 
     return (
-      <FileListClient 
+      <FileListClient
         files={filesWithRules}
         children={children || []}
         shareLinkId={shareLinkId}
         token={token}
+        password={password}
       />
     );
   } catch (error: any) {
@@ -54,11 +63,12 @@ export async function FileList({
     }));
 
     return (
-      <FileListClient 
+      <FileListClient
         files={filesWithRules}
         children={children || []}
         shareLinkId={shareLinkId}
         token={token}
+        password={password}
       />
     );
   }

@@ -226,7 +226,10 @@ export async function deleteFileAction(fileId: string) {
   }
 
   const batch = db.batch();
-  
+
+  // Taille à déduire (évite NaN qui ferait planter Firestore)
+  const fileSize = Number(fileData.size) || 0;
+
   // 1. Supprimer de Firestore
   batch.delete(db.collection("files").doc(fileId));
 
@@ -235,7 +238,7 @@ export async function deleteFileAction(fileId: string) {
   const workspaceId = folderDoc.data()?.workspaceId;
   if (workspaceId) {
     batch.update(db.collection("workspaces").doc(workspaceId), {
-      totalStorageUsed: admin.firestore.FieldValue.increment(-fileData.size),
+      totalStorageUsed: admin.firestore.FieldValue.increment(-fileSize),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
   }
@@ -244,4 +247,5 @@ export async function deleteFileAction(fileId: string) {
 
   revalidatePath(`/dashboard/folder/${fileData.folderId}`);
   revalidatePath("/dashboard");
+  return { success: true };
 }
