@@ -98,7 +98,7 @@ export default function SecureOfficeViewer({
         // Render DOCX with docx-preview
         await renderDocx(arrayBuffer);
       } else if (docType.type === "xlsx") {
-        // Render XLSX with xlsx library
+        // Render XLSX with exceljs (via xlsx-to-html)
         await renderXlsx(arrayBuffer);
       } else if (docType.type === "pptx") {
         // PPTX - limited support
@@ -185,23 +185,11 @@ export default function SecureOfficeViewer({
     }
   };
 
-  // Render XLSX using xlsx library
+  // Render XLSX using exceljs (via xlsx-to-html)
   const renderXlsx = async (arrayBuffer: ArrayBuffer) => {
     try {
-      const XLSX = await import("xlsx");
-
-      const workbook = XLSX.read(arrayBuffer, { type: "array" });
-      const sheetData: { name: string; html: string }[] = [];
-
-      for (const sheetName of workbook.SheetNames) {
-        const worksheet = workbook.Sheets[sheetName];
-        const html = XLSX.utils.sheet_to_html(worksheet, {
-          editable: false,
-          header: "",
-          footer: "",
-        });
-        sheetData.push({ name: sheetName, html });
-      }
+      const { xlsxToHtmlSheets } = await import("@/lib/xlsx-to-html");
+      const sheetData = await xlsxToHtmlSheets(arrayBuffer);
 
       setSheets(sheetData);
 

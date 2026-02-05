@@ -125,7 +125,7 @@ export default function ConfidentialitePage() {
                 <li>Retirer votre consentement à tout moment</li>
               </ul>
               <p className="mt-4">
-                Pour exercer ces droits, contactez-nous à : <a href="mailto:privacy@airlck.com" className="text-[#96A982] hover:underline">privacy@airlck.com</a>
+                Pour exercer ces droits, contactez-nous à : <a href="mailto:contact@airlck.com" className="text-[#96A982] hover:underline">contact@airlck.com</a>
               </p>
             </section>
 
@@ -156,7 +156,7 @@ export default function ConfidentialitePage() {
                 Pour toute question concernant cette politique de confidentialité ou le traitement de vos données personnelles, contactez-nous à :
               </p>
               <div className="mt-4 space-y-2">
-                <p><strong>Email :</strong> <a href="mailto:privacy@airlck.com" className="text-[#96A982] hover:underline">privacy@airlck.com</a></p>
+                <p><strong>Email :</strong> <a href="mailto:contact@airlck.com" className="text-[#96A982] hover:underline">contact@airlck.com</a></p>
                 <p><strong>Airlock Technologies</strong></p>
               </div>
             </section>

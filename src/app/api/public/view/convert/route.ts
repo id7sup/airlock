@@ -4,7 +4,7 @@ import { db } from "@/lib/firebase";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { checkIfFolderIsChild } from "@/services/folders";
 import mammoth from "mammoth";
-import * as XLSX from "xlsx";
+import { xlsxToHtmlSheets } from "@/lib/xlsx-to-html";
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || "auto",
@@ -139,27 +139,19 @@ async function convertDocxToHtml(buffer: Buffer, title: string): Promise<string>
 }
 
 /**
- * Convert XLSX buffer to HTML table
+ * Convert XLSX buffer to HTML table (using exceljs)
  */
 async function convertXlsxToHtml(buffer: Buffer, title: string): Promise<string> {
   try {
-    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const sheets = await xlsxToHtmlSheets(buffer);
 
     let tablesHtml = "";
-
-    // Convert each sheet
-    for (const sheetName of workbook.SheetNames) {
-      const worksheet = workbook.Sheets[sheetName];
-      const htmlTable = XLSX.utils.sheet_to_html(worksheet, {
-        header: "",
-        editable: false
-      });
-
+    for (const sheet of sheets) {
       tablesHtml += `
         <div class="sheet">
-          <h2 class="sheet-title">${escapeHtml(sheetName)}</h2>
+          <h2 class="sheet-title">${escapeHtml(sheet.name)}</h2>
           <div class="table-wrapper">
-            ${htmlTable}
+            ${sheet.html}
           </div>
         </div>
       `;

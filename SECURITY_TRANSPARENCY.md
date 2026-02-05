@@ -217,7 +217,7 @@ R: Non. Jamais. Nous n'avons aucun incitatif commercial à vendre vos données.
 ## Contact & Support
 
 - **Sécurité** : security@airlck.com
-- **Confidentialité** : privacy@airlck.com
+- **Confidentialité** : contact@airlck.com
 - **Support** : contact@airlck.com
 - **Site** : https://airlck.com
 
