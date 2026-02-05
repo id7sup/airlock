@@ -4,11 +4,39 @@ import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { ChevronDown, Check, Compass, ShieldCheck, Activity } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/shared/Logo";
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function PricingPage() {
   const [isFeaturesHovered, setIsFeaturesHovered] = useState(false);
+  const [email, setEmail] = useState("");
+  const [waitlistStatus, setWaitlistStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [waitlistError, setWaitlistError] = useState("");
+
+  async function handleWaitlistSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setWaitlistStatus("loading");
+    setWaitlistError("");
+
+    try {
+      const res = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Une erreur est survenue.");
+      }
+
+      setWaitlistStatus("success");
+      setEmail("");
+    } catch (err) {
+      setWaitlistStatus("error");
+      setWaitlistError(err instanceof Error ? err.message : "Une erreur est survenue.");
+    }
+  }
 
   return (
     <div className="min-h-screen bg-white text-[#1d1d1f] font-sans selection:bg-black selection:text-white">
@@ -283,9 +311,32 @@ export default function PricingPage() {
                 <li className="flex items-center gap-3"><Check className="w-5 h-5 text-[#96A982]" /> Support prioritaire</li>
               </ul>
 
-              <button className="block w-full text-center py-4 bg-[#96A982] rounded-2xl font-medium hover:bg-[#B7C5A9] transition-all">
-                Rejoindre la liste d'attente
-              </button>
+              {waitlistStatus === "success" ? (
+                <div className="text-center py-4 bg-[#96A982]/20 rounded-2xl font-medium text-[#96A982] border border-[#96A982]/30">
+                  Vous êtes sur la liste !
+                </div>
+              ) : (
+                <form onSubmit={handleWaitlistSubmit} className="space-y-3">
+                  <input
+                    type="email"
+                    required
+                    placeholder="votre@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-3.5 bg-white/10 rounded-2xl font-medium text-white placeholder:text-white/30 border border-white/10 focus:border-[#96A982]/50 focus:outline-none transition-all"
+                  />
+                  {waitlistStatus === "error" && (
+                    <p className="text-red-400 text-sm font-medium">{waitlistError}</p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={waitlistStatus === "loading"}
+                    className="block w-full text-center py-4 bg-[#96A982] rounded-2xl font-medium hover:bg-[#B7C5A9] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {waitlistStatus === "loading" ? "Envoi..." : "Rejoindre la liste d'attente"}
+                  </button>
+                </form>
+              )}
             </motion.div>
           </div>
         </div>

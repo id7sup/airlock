@@ -417,17 +417,17 @@ export default function Home() {
               </div>
               <div className="space-y-6">
                 <h2 className="text-5xl md:text-[68px] font-medium tracking-tight text-black leading-[1.05]">Un espace de travail <br className="hidden md:block" /> qui se pilote au geste.</h2>
-                <p className="text-2xl md:text-[38px] font-medium tracking-tight text-black/20 leading-[1.15] max-w-5xl mx-auto">Crée, range et retrouve tes dossiers en quelques secondes. Tout est pensé pour une sensation “desktop” : glisser-déposer, sélection multiple, recherche instantanée.</p>
+                <p className="text-2xl md:text-[38px] font-medium tracking-tight text-black/20 leading-[1.15] max-w-5xl mx-auto">Créez, rangez et retrouvez vos dossiers en quelques secondes. Tout est pensé pour une sensation “desktop” : glisser-déposer, sélection multiple, recherche instantanée.</p>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-20 gap-y-24 md:gap-y-32">
               {[
                 { icon: <Compass className="w-6 h-6 text-[#96A982]" />, title: "Navigation claire", desc: "Tous les dossiers, Récents, Favoris, Corbeille." },
-                { icon: <Search className="w-6 h-6 text-[#96A982]" />, title: "Recherche instantanée", desc: "filtre en temps réel, sans rechargement." },
-                { icon: <MousePointer2 className="w-6 h-6 text-[#96A982]" />, title: "Rangement intelligent", desc: "glisse un dossier sur un autre pour le ranger." },
-                { icon: <Layers className="w-6 h-6 text-[#96A982]" />, title: "Ordre personnalisé", desc: "réorganise librement, l'ordre est mémorisé." },
-                { icon: <Database className="w-6 h-6 text-[#96A982]" />, title: "Quota visible", desc: "ton stockage est toujours sous contrôle (5 Go / espace)." },
-                { icon: <Zap className="w-6 h-6 text-[#96A982]" />, title: "Activité en direct", desc: "notifications quand un partage est consulté / téléchargé." }
+                { icon: <Search className="w-6 h-6 text-[#96A982]" />, title: "Recherche instantanée", desc: "Filtre en temps réel, sans rechargement." },
+                { icon: <MousePointer2 className="w-6 h-6 text-[#96A982]" />, title: "Rangement intelligent", desc: "Glissez un dossier pour le ranger facilement." },
+                { icon: <Layers className="w-6 h-6 text-[#96A982]" />, title: "Ordre personnalisé", desc: "Réorganisez librement : l’ordre est mémorisé." },
+                { icon: <Database className="w-6 h-6 text-[#96A982]" />, title: "Quota visible", desc: "Votre stockage reste sous contrôle (5 Go par espace)." },
+                { icon: <Zap className="w-6 h-6 text-[#96A982]" />, title: "Activité en direct", desc: "Notifications quand un partage est consulté ou téléchargé." }
               ].map((item, i) => (
                 <motion.div
                   key={i}
@@ -470,7 +470,7 @@ export default function Home() {
                 </div>
                 <div className="space-y-8">
                   <h2 className="text-5xl md:text-[64px] font-medium tracking-tight text-black leading-[1.05]">Un partage public. <br /> Des règles privées.</h2>
-                  <p className="text-xl md:text-[24px] text-black/45 leading-relaxed font-medium max-w-lg">Créez un lien en quelques secondes, puis ajustez précisément ce qu’il permet : consultation seule, téléchargement, mot de passe, expiration, quota de vues… Tout reste sous votre contrôle.</p>
+                  <p className="text-xl md:text-[24px] text-black/45 leading-relaxed font-medium max-w-lg">Créez un lien en quelques secondes, puis ajustez précisément ce qu’il permet : consultation seule, téléchargement, mot de passe, date d’expiration, quota de vues… Tout reste sous votre contrôle.</p>
                 </div>
                 <div className="pt-6">
                   <Link href="/dashboard" className="group inline-flex items-center gap-4 text-[18px] font-semibold text-black hover:text-[#96A982] transition-colors">Accéder au dashboard <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1.5" /></Link>
@@ -478,7 +478,7 @@ export default function Home() {
               </div>
               <div className="lg:w-[58%] space-y-8 w-full">
                 {[
-                  { icon: <Download className="w-6 h-6" />, title: "Lecture seule / téléchargement", desc: "activez ou bloquez le download en un clic.", detail: "Contrôlez si vos destinataires peuvent enregistrer localement vos documents." },
+                  { icon: <Download className="w-6 h-6" />, title: "Lecture seule / téléchargement", desc: "activez ou bloquez le téléchargement en un clic.", detail: "Contrôlez si vos destinataires peuvent enregistrer localement vos documents." },
                   { icon: <Lock className="w-6 h-6" />, title: "Mot de passe", desc: "ajoutez une protection simple, efficace.", detail: "Une barrière de sécurité supplémentaire pour vos fichiers sensibles." },
                   { icon: <Timer className="w-6 h-6" />, title: "Date d'expiration", desc: "définissez une durée de vie claire pour chaque lien.", detail: "Le lien s'autodétruit passée la date choisie." },
                   { icon: <Eye className="w-6 h-6" />, title: "Quota de vues", desc: "limite automatique pour éviter les partages qui traînent.", detail: "Idéal pour les documents à usage unique." },
