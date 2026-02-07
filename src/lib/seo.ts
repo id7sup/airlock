@@ -236,7 +236,7 @@ export const partageConfidentielsMetadata: Metadata = {
 };
 
 export const alternativeGoogleDriveMetadata: Metadata = {
-  title: "Alternative à Google Drive pour Professionnels | Airlock",
+  title: "Alternative à Google Drive pour Professionnels",
   description: "Découvrez Airlock, l'alternative à Google Drive pensée pour les professionnels. Contrôle d'accès granulaire, liens expirables, traçabilité et stockage souverain. Gratuit jusqu'à 5 Go.",
   openGraph: {
     title: "Alternative à Google Drive Pro | Airlock",
@@ -306,14 +306,6 @@ export const websiteSchema = {
   name: siteName,
   url: siteUrl,
   description: siteDescription,
-  potentialAction: {
-    "@type": "SearchAction",
-    target: {
-      "@type": "EntryPoint",
-      urlTemplate: `${siteUrl}/search?q={search_term_string}`,
-    },
-    "query-input": "required name=search_term_string",
-  },
 };
 
 export const softwareApplicationSchema = {
@@ -326,11 +318,6 @@ export const softwareApplicationSchema = {
     "@type": "Offer",
     price: "0",
     priceCurrency: "EUR",
-  },
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "5",
-    ratingCount: "1",
   },
   description: siteDescription,
   url: siteUrl,

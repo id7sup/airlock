@@ -3,13 +3,13 @@ import Link from "next/link";
 import { Logo } from "@/components/shared/Logo";
 import { ArrowLeft, ArrowRight, HelpCircle } from "lucide-react";
 import { StructuredData } from "@/components/shared/StructuredData";
-import { homeFaqStructuredData } from "@/lib/structured-data";
+import { fullFaqStructuredData } from "@/lib/structured-data";
 import { breadcrumbSchema } from "@/lib/seo";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://airlck.com";
 
 export const metadata: Metadata = {
-  title: "Questions Fréquentes (FAQ) | Airlock - Partage de Fichiers Sécurisé",
+  title: "Questions Fréquentes (FAQ) - Partage de Fichiers Sécurisé",
   description: "Trouvez les réponses à toutes vos questions sur Airlock : partage de fichiers sécurisé, liens expirables, chiffrement, RGPD, tarifs, et bien plus. FAQ complète pour comprendre comment utiliser Airlock.",
   openGraph: {
     title: "Questions Fréquentes (FAQ) | Airlock",
@@ -107,7 +107,7 @@ export default function FAQPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(homeFaqStructuredData),
+          __html: JSON.stringify(fullFaqStructuredData),
         }}
       />
       <script
