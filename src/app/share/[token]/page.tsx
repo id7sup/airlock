@@ -383,7 +383,7 @@ export default async function PublicSharePage({
                   </svg>
                 </div>
                 <div className="min-w-0">
-                  <h1 className="text-2xl lg:text-3xl font-bold tracking-tight truncate text-black">{folderName}</h1>
+                  <h1 className="text-2xl lg:text-3xl font-bold tracking-tight truncate text-black opacity-90">{folderName}</h1>
                   <p className="text-sm text-black/50 mt-1">
                     {children.length > 0 && <span>{children.length} dossier{children.length > 1 ? 's' : ''}</span>}
                     {children.length > 0 && files.length > 0 && <span> • </span>}

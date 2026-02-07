@@ -40,19 +40,19 @@ export default function ConfidentialitePage() {
 
       <main className="px-6 py-16 md:py-24">
         <div className="max-w-4xl mx-auto prose prose-lg">
-          <h1 className="text-5xl md:text-6xl font-medium tracking-tight text-black mb-8">Politique de Confidentialité</h1>
+          <h1 className="text-5xl md:text-6xl font-medium tracking-tight text-black mb-8 opacity-90">Politique de Confidentialité</h1>
           <p className="text-lg text-black/40 font-medium mb-12">Dernière mise à jour : 1er janvier 2025</p>
 
           <div className="space-y-12 text-black/60 font-medium leading-relaxed">
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">1. Introduction</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">1. Introduction</h2>
               <p>
                 Airlock Technologies ("nous", "notre", "nos") s'engage à protéger votre vie privée. Cette politique de confidentialité explique comment nous collectons, utilisons, stockons et protégeons vos informations personnelles lorsque vous utilisez notre service de partage de fichiers sécurisé.
               </p>
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">2. Informations que nous collectons</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">2. Informations que nous collectons</h2>
               <div className="space-y-4">
                 <div>
                   <h3 className="text-xl font-medium text-black mb-3">2.1 Informations de compte</h3>
@@ -77,7 +77,7 @@ export default function ConfidentialitePage() {
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">3. Comment nous utilisons vos informations</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">3. Comment nous utilisons vos informations</h2>
               <p>Nous utilisons vos informations pour :</p>
               <ul className="list-disc list-inside ml-4 space-y-2 mt-3">
                 <li>Fournir et améliorer notre service de partage de fichiers</li>
@@ -89,7 +89,7 @@ export default function ConfidentialitePage() {
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">4. Stockage et sécurité</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">4. Stockage et sécurité</h2>
               <div className="space-y-4">
                 <p>
                   Vos fichiers sont stockés de manière sécurisée sur des serveurs S3 compatibles. Nous utilisons des technologies de chiffrement pour protéger vos données en transit et au repos.
@@ -101,7 +101,7 @@ export default function ConfidentialitePage() {
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">5. Partage de vos informations</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">5. Partage de vos informations</h2>
               <p>
                 Nous ne vendons, ne louons ni ne partageons vos informations personnelles avec des tiers, sauf dans les cas suivants :
               </p>
@@ -114,7 +114,7 @@ export default function ConfidentialitePage() {
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">6. Vos droits</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">6. Vos droits</h2>
               <p>Conformément au RGPD et aux lois applicables, vous avez le droit de :</p>
               <ul className="list-disc list-inside ml-4 space-y-2 mt-3">
                 <li>Accéder à vos données personnelles</li>
@@ -130,28 +130,28 @@ export default function ConfidentialitePage() {
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">7. Conservation des données</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">7. Conservation des données</h2>
               <p>
                 Nous conservons vos données personnelles aussi longtemps que nécessaire pour fournir le service et respecter nos obligations légales. Lorsque vous supprimez votre compte, nous supprimons vos données personnelles dans un délai de 30 jours, sauf obligation légale de conservation.
               </p>
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">8. Cookies et technologies similaires</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">8. Cookies et technologies similaires</h2>
               <p>
                 Nous utilisons des cookies et technologies similaires pour améliorer votre expérience, analyser l'utilisation du service et assurer la sécurité. Vous pouvez gérer vos préférences de cookies dans les paramètres de votre navigateur.
               </p>
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">9. Modifications de cette politique</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">9. Modifications de cette politique</h2>
               <p>
                 Nous pouvons modifier cette politique de confidentialité de temps à autre. Nous vous informerons de tout changement important par e-mail ou via une notification dans le service. La date de dernière mise à jour est indiquée en haut de cette page.
               </p>
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">10. Contact</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">10. Contact</h2>
               <p>
                 Pour toute question concernant cette politique de confidentialité ou le traitement de vos données personnelles, contactez-nous à :
               </p>

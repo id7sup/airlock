@@ -646,7 +646,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl lg:text-3xl font-semibold tracking-tight truncate mb-1">{folder.name}</h1>
+            <h1 className="text-2xl lg:text-3xl font-semibold tracking-tight truncate mb-1 opacity-90">{folder.name}</h1>
             <div className="flex items-center gap-2 text-xs font-medium text-black/40">
               <span>{folder.files.length + folder.children.length} élément{folder.files.length + folder.children.length > 1 ? 's' : ''}</span>
             </div>

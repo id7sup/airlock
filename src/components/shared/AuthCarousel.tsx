@@ -63,7 +63,7 @@ export function AuthCarousel({ images, texts }: AuthCarouselProps) {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.5 }}
             >
-              <h2 className="text-4xl md:text-5xl lg:text-6xl font-semibold mb-4 leading-tight">
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-semibold mb-4 leading-tight opacity-90">
                 {displayTexts[currentIndex]?.title || displayTexts[0].title}
               </h2>
               <p className="text-lg md:text-xl text-white/90 font-medium">

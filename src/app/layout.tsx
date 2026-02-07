@@ -1,16 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import { ClerkProvider } from "@clerk/nextjs";
 import { frFR } from "@clerk/localizations";
 import "./globals.css";
 import { defaultMetadata } from "@/lib/seo";
 
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-inter",
+const openRunde = localFont({
+  src: [
+    { path: "../../public/fonts/OpenRunde-Regular.woff2", weight: "400" },
+    { path: "../../public/fonts/OpenRunde-Medium.woff2", weight: "500" },
+    { path: "../../public/fonts/OpenRunde-Semibold.woff2", weight: "600" },
+    { path: "../../public/fonts/OpenRunde-Bold.woff2", weight: "700" },
+  ],
+  variable: "--font-openrunde",
   display: "swap",
-  preload: true,
 });
 
 export const metadata: Metadata = {
@@ -54,7 +57,7 @@ export default function RootLayout({
   try {
     return (
       <ClerkProvider localization={frFR}>
-        <html lang="fr" className={inter.variable} data-scroll-behavior="smooth">
+        <html lang="fr" className={openRunde.variable} data-scroll-behavior="smooth">
           <body>
             {children}
           </body>

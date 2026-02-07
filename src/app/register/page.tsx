@@ -212,7 +212,7 @@ export default function RegisterPage() {
           <div className="w-full max-w-md space-y-4 sm:space-y-5 md:space-y-6 lg:space-y-8">
             {/* Title */}
             <div className="space-y-1 sm:space-y-2">
-              <h1 className="text-3xl sm:text-4xl md:text-4xl lg:text-5xl xl:text-[68px] font-medium text-black tracking-tight leading-[1.05]">
+              <h1 className="text-3xl sm:text-4xl md:text-4xl lg:text-5xl xl:text-[68px] font-medium text-black tracking-tight leading-[1.05] opacity-90">
                 Créez votre compte
               </h1>
               <p className="text-[15px] sm:text-[17px] text-black/50 font-medium leading-relaxed">

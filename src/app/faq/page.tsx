@@ -132,7 +132,7 @@ export default function FAQPage() {
             <div className="mb-12 text-center">
               <div className="inline-flex items-center gap-3 mb-6">
                 <HelpCircle className="w-8 h-8 text-[#96A982]" />
-                <h1 className="text-5xl md:text-6xl font-medium tracking-tight text-black">Questions Fréquentes</h1>
+                <h1 className="text-5xl md:text-6xl font-medium tracking-tight text-black opacity-90">Questions Fréquentes</h1>
               </div>
               <p className="text-lg text-black/40 font-medium">Trouvez rapidement les réponses à vos questions sur Airlock</p>
             </div>

@@ -291,7 +291,7 @@ export default function SecurityPage() {
               transition={{ duration: 0.7 }}
               className="text-center mb-16 md:mb-20"
             >
-              <h2 className="text-3xl md:text-[48px] font-medium tracking-tight text-black leading-tight mb-4">
+              <h2 className="text-3xl md:text-[48px] font-medium tracking-tight text-black leading-tight mb-4 opacity-90">
                 Sécurité à chaque couche.
               </h2>
               <p className="text-lg md:text-xl text-black/40 font-medium max-w-2xl mx-auto">
@@ -363,7 +363,7 @@ export default function SecurityPage() {
               transition={{ duration: 0.7 }}
               className="text-center mb-16"
             >
-              <h2 className="text-3xl md:text-[48px] font-medium tracking-tight text-black leading-tight mb-4">
+              <h2 className="text-3xl md:text-[48px] font-medium tracking-tight text-black leading-tight mb-4 opacity-90">
                 Tout ce qu'il faut pour sécuriser vos partages.
               </h2>
               <p className="text-lg md:text-xl text-black/40 font-medium max-w-2xl mx-auto">
@@ -533,7 +533,7 @@ export default function SecurityPage() {
               transition={{ duration: 0.7 }}
               className="text-center mb-16"
             >
-              <h2 className="text-3xl md:text-[48px] font-medium tracking-tight text-black leading-tight mb-4">
+              <h2 className="text-3xl md:text-[48px] font-medium tracking-tight text-black leading-tight mb-4 opacity-90">
                 Protection en trois étapes.
               </h2>
               <p className="text-lg md:text-xl text-black/40 font-medium max-w-2xl mx-auto">
@@ -596,7 +596,7 @@ export default function SecurityPage() {
               transition={{ duration: 0.7 }}
               className="text-center mb-16"
             >
-              <h2 className="text-3xl md:text-[48px] font-medium tracking-tight text-black leading-tight mb-4">
+              <h2 className="text-3xl md:text-[48px] font-medium tracking-tight text-black leading-tight mb-4 opacity-90">
                 Nos partenaires de confiance.
               </h2>
               <p className="text-lg md:text-xl text-black/40 font-medium max-w-2xl mx-auto">

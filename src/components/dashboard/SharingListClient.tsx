@@ -302,7 +302,7 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
       {/* Page Header Simplifié */}
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
         <div className="space-y-1">
-          <h1 className="text-4xl font-medium tracking-tight text-black">Flux de Partage</h1>
+          <h1 className="text-4xl font-medium tracking-tight text-black opacity-90">Flux de Partage</h1>
           <p className="text-black/40 text-base font-medium">Gestion granulaire et analytics en direct.</p>
         </div>
         

@@ -52,7 +52,7 @@ export default function SettingsPage() {
   return (
     <div className="p-4 sm:p-6 md:p-10 max-w-5xl mx-auto text-black animate-in fade-in duration-700 select-none -ml-2 sm:-ml-4 md:-ml-6">
       <div className="mb-6 sm:mb-8 md:mb-12">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-medium tracking-tight text-black">Paramètres</h1>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-medium tracking-tight text-black opacity-90">Paramètres</h1>
         <p className="text-black/40 text-sm sm:text-base font-medium mt-1 sm:mt-2">Gérez votre identité et vos préférences de sécurité.</p>
       </div>
 
@@ -86,7 +86,7 @@ export default function SettingsPage() {
                       <img src={user.imageUrl} alt={user.fullName || ""} className="w-full h-full object-cover" />
                     </div>
                     <div className="space-y-1 min-w-0 flex-1">
-                      <h2 className="text-xl sm:text-2xl md:text-3xl font-medium tracking-tight text-black truncate">{user.fullName}</h2>
+                      <h2 className="text-xl sm:text-2xl md:text-3xl font-medium tracking-tight text-black truncate opacity-90">{user.fullName}</h2>
                       <p className="text-[10px] sm:text-[11px] font-bold text-black/20 uppercase tracking-[0.2em] break-all sm:break-normal">{user.primaryEmailAddress?.emailAddress}</p>
                     </div>
                   </div>

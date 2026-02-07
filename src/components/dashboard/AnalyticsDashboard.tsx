@@ -196,7 +196,7 @@ export function AnalyticsDashboard({ linkId }: AnalyticsDashboardProps) {
       <div className="space-y-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h2 className="text-3xl font-light tracking-tight text-black">Activité en temps réel</h2>
+            <h2 className="text-3xl font-light tracking-tight text-black opacity-90">Activité en temps réel</h2>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-primary/8 rounded-full border border-brand-primary/15">
               <div className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
               <span className="text-[8px] font-bold text-brand-primary uppercase tracking-[0.3em]">Live</span>

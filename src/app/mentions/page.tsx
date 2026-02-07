@@ -40,12 +40,12 @@ export default function MentionsPage() {
 
       <main className="px-6 py-16 md:py-24">
         <div className="max-w-4xl mx-auto prose prose-lg">
-          <h1 className="text-5xl md:text-6xl font-medium tracking-tight text-black mb-8">Mentions Légales</h1>
+          <h1 className="text-5xl md:text-6xl font-medium tracking-tight text-black mb-8 opacity-90">Mentions Légales</h1>
           <p className="text-lg text-black/40 font-medium mb-12">Dernière mise à jour : 24 janvier 2026</p>
 
           <div className="space-y-12 text-black/60 font-medium leading-relaxed">
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">1. Éditeur du site</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">1. Éditeur du site</h2>
               <div className="space-y-2">
                 <p><strong>Nom :</strong> Joseph Michaut</p>
                 <p><strong>Adresse :</strong> 1 rue Saint-Laud, 49100 Angers, France</p>
@@ -55,7 +55,7 @@ export default function MentionsPage() {
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">2. Hébergement</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">2. Hébergement</h2>
               <div className="space-y-2">
                 <p>Le site est hébergé par :</p>
                 <p><strong>IONOS SE</strong></p>
@@ -67,7 +67,7 @@ export default function MentionsPage() {
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">3. Propriété intellectuelle</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">3. Propriété intellectuelle</h2>
               <p>
                 L'ensemble des éléments du site Airlock (textes, images, logos, icônes, graphismes, code, etc.) est protégé par le droit de la propriété intellectuelle.
               </p>
@@ -80,7 +80,7 @@ export default function MentionsPage() {
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">4. Accès et utilisation du service</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">4. Accès et utilisation du service</h2>
               <p className="mb-4">
                 L'accès à la plateforme Airlock est réservé aux utilisateurs disposant d'un compte.
               </p>
@@ -96,7 +96,7 @@ export default function MentionsPage() {
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">5. Responsabilité</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">5. Responsabilité</h2>
               <div className="space-y-4">
                 <p>
                   Le service est fourni « en l'état ». Des interruptions temporaires peuvent survenir, notamment pour des raisons de maintenance ou de mise à jour.
@@ -111,14 +111,14 @@ export default function MentionsPage() {
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">6. Données personnelles</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">6. Données personnelles</h2>
               <p>
                 Le traitement des données personnelles est régi par la <Link href="/confidentialite" className="text-[#96A982] hover:underline">Politique de Confidentialité</Link> accessible sur le site.
               </p>
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">7. Liens externes</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">7. Liens externes</h2>
               <p>
                 La plateforme peut contenir des liens vers des sites tiers.
               </p>
@@ -128,7 +128,7 @@ export default function MentionsPage() {
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">8. Modification des mentions légales</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">8. Modification des mentions légales</h2>
               <p>
                 Les présentes mentions légales peuvent être modifiées à tout moment.
               </p>
@@ -138,14 +138,14 @@ export default function MentionsPage() {
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">9. Droit applicable</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">9. Droit applicable</h2>
               <p>
                 Les présentes mentions légales sont soumises au droit français.
               </p>
             </section>
 
             <section>
-              <h2 className="text-3xl font-medium text-black mb-6">10. Contact</h2>
+              <h2 className="text-3xl font-medium text-black mb-6 opacity-90">10. Contact</h2>
               <p>
                 Pour toute question concernant la plateforme ou les présentes mentions légales :
               </p>

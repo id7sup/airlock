@@ -374,8 +374,8 @@ export default function Home() {
           <div className="max-w-5xl mx-auto space-y-10 md:space-y-14">
             <div className="space-y-6 md:space-y-8">
               <h1 className="font-medium tracking-tight text-[#1d1d1f] flex flex-col items-center gap-2 md:gap-3">
-                <span className="text-5xl md:text-[88px] leading-none">Partagez des dossiers.</span>
-                <span className="text-4xl md:text-[76px] leading-none opacity-90">Gardez le contrôle.</span>
+                <span className="text-4xl md:text-[76px] leading-none opacity-90">Partagez des dossiers.</span>
+                <span className="text-4xl md:text-[66px] leading-none opacity-90">Gardez le contrôle.</span>
               </h1>
               <p className="text-lg md:text-[22px] text-black/45 font-medium max-w-2xl mx-auto leading-relaxed px-4">
                 Liens expirables, lecture seule, mot de passe, quota de vues. <br className="hidden md:block" /> Une data room simple, sécurisée et souveraine.
@@ -416,7 +416,7 @@ export default function Home() {
                 <span className="text-[12px] font-semibold text-black/40 uppercase tracking-[0.2em]">Workspace</span>
               </div>
               <div className="space-y-6">
-                <h2 className="text-5xl md:text-[68px] font-medium tracking-tight text-black leading-[1.05]">Un espace de travail <br className="hidden md:block" /> qui se pilote au geste.</h2>
+                <h2 className="text-5xl md:text-[68px] font-medium tracking-tight text-black leading-[1.05] opacity-90">Un espace de travail <br className="hidden md:block" /> qui se pilote au geste.</h2>
                 <p className="text-2xl md:text-[38px] font-medium tracking-tight text-black/20 leading-[1.15] max-w-5xl mx-auto">Créez, rangez et retrouvez vos dossiers en quelques secondes. Tout est pensé pour une sensation “desktop” : glisser-déposer, sélection multiple, recherche instantanée.</p>
               </div>
             </div>
@@ -469,7 +469,7 @@ export default function Home() {
                   <span className="text-[11px] font-bold text-[#96A982] uppercase tracking-[0.2em]">Règles de Partage</span>
                 </div>
                 <div className="space-y-8">
-                  <h2 className="text-5xl md:text-[64px] font-medium tracking-tight text-black leading-[1.05]">Un partage public. <br /> Des règles privées.</h2>
+                  <h2 className="text-5xl md:text-[64px] font-medium tracking-tight text-black leading-[1.05] opacity-90">Un partage public. <br /> Des règles privées.</h2>
                   <p className="text-xl md:text-[24px] text-black/45 leading-relaxed font-medium max-w-lg">Créez un lien en quelques secondes, puis ajustez précisément ce qu’il permet : consultation seule, téléchargement, mot de passe, date d’expiration, quota de vues… Tout reste sous votre contrôle.</p>
                 </div>
                 <div className="pt-6">
@@ -531,7 +531,7 @@ export default function Home() {
                   <span className="text-[11px] font-bold text-[#96A982] uppercase tracking-[0.2em]">Pilotage & Analytics</span>
                 </div>
                 <div className="space-y-6">
-                  <h2 className="text-5xl md:text-[68px] font-medium tracking-tight text-black leading-[1.05]">Pilotez vos partages. <br /> Suivez chaque accès.</h2>
+                  <h2 className="text-5xl md:text-[68px] font-medium tracking-tight text-black leading-[1.05] opacity-90">Pilotez vos partages. <br /> Suivez chaque accès.</h2>
                   <p className="text-xl md:text-[24px] text-black/45 leading-relaxed font-medium">Centralisez tous vos liens publics au même endroit. Voyez ce qui est actif, ce qui expire, et ce qui a été consulté.</p>
                 </div>
               </div>
@@ -600,7 +600,7 @@ export default function Home() {
                 <span className="text-[11px] font-bold text-[#96A982] uppercase tracking-[0.2em]">Expérience Desktop</span>
               </div>
               <div className="space-y-4">
-                <h2 className="text-4xl md:text-[56px] font-medium tracking-tight text-black leading-tight">Le processus Airlock.</h2>
+                <h2 className="text-4xl md:text-[56px] font-medium tracking-tight text-black leading-tight opacity-90">Le processus Airlock.</h2>
                 <p className="text-xl md:text-[28px] font-medium tracking-tight text-black/20 leading-tight max-w-3xl mx-auto">De l'upload au contrôle total, <br className="hidden md:block" /> découvrez la fluidité en mouvement.</p>
               </div>
                     </div>
@@ -612,7 +612,7 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-6 text-left">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-24">
               <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-40 h-fit">
-                <h2 className="text-5xl md:text-[60px] font-medium tracking-tight text-black leading-tight">Questions <br /> fréquentes.</h2>
+                <h2 className="text-5xl md:text-[60px] font-medium tracking-tight text-black leading-tight opacity-90">Questions <br /> fréquentes.</h2>
                 <p className="text-xl text-black/40 font-medium">Tout ce qu'il faut savoir sur Airlock.</p>
                     </div>
               <div className="lg:col-span-8 space-y-0">
