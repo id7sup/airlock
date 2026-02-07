@@ -4,7 +4,7 @@ import { faqSchema } from "./seo";
 export const homeFaqStructuredData = faqSchema([
   {
     question: "Quelle est la différence avec Google Drive / Dropbox ?",
-    answer: "Airlock est pensé pour le partage sensible : liens expirables, lecture seule, mot de passe, quota de vues, révocation immédiate, et suivi des accès — sans complexité. Contrairement à Google Drive ou Dropbox, Airlock offre un contrôle total sur vos fichiers avec chiffrement sécurisé et stockage souverain.",
+    answer: "Airlock est pensé pour le partage sensible : liens expirables, lecture seule, mot de passe, quota de vues, révocation immédiate, et suivi des accès — sans complexité. Contrairement à Google Drive ou Dropbox, Airlock offre un contrôle total sur vos fichiers avec chiffrement en transit et au repos, et un stockage souverain sur Cloudflare R2.",
   },
   {
     question: "Est-ce que je peux partager un dossier sans créer de compte pour l'autre personne ?",

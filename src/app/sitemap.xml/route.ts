@@ -55,6 +55,36 @@ function generateSitemap(): string {
       changefreq: "monthly",
       priority: "0.7",
     },
+    {
+      url: `${baseUrl}/data-room-virtuelle`,
+      lastmod: currentDate,
+      changefreq: "monthly",
+      priority: "0.8",
+    },
+    {
+      url: `${baseUrl}/partage-dossier-securise`,
+      lastmod: currentDate,
+      changefreq: "monthly",
+      priority: "0.8",
+    },
+    {
+      url: `${baseUrl}/partage-documents-confidentiels`,
+      lastmod: currentDate,
+      changefreq: "monthly",
+      priority: "0.8",
+    },
+    {
+      url: `${baseUrl}/alternative-google-drive-pro`,
+      lastmod: currentDate,
+      changefreq: "monthly",
+      priority: "0.8",
+    },
+    {
+      url: `${baseUrl}/pour-avocats`,
+      lastmod: currentDate,
+      changefreq: "monthly",
+      priority: "0.8",
+    },
   ];
 
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>

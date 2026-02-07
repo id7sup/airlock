@@ -92,7 +92,7 @@ export default function ConfidentialitePage() {
               <h2 className="text-3xl font-medium text-black mb-6 opacity-90">4. Stockage et sécurité</h2>
               <div className="space-y-4">
                 <p>
-                  Vos fichiers sont stockés de manière sécurisée sur des serveurs S3 compatibles. Nous utilisons des technologies de chiffrement pour protéger vos données en transit et au repos.
+                  Vos fichiers sont stockés de manière sécurisée sur Cloudflare R2 (API compatible S3), avec chiffrement en transit (TLS 1.3) et au repos. Les accès sont contrôlés via des URLs présignées temporaires.
                 </p>
                 <p>
                   Nous mettons en œuvre des mesures de sécurité techniques et organisationnelles appropriées pour protéger vos informations personnelles contre tout accès non autorisé, perte, destruction ou altération.

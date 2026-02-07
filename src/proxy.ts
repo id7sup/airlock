@@ -14,6 +14,11 @@ const isPublicRoute = createRouteMatcher([
   "/pricing",            // Page tarifs
   "/security",           // Page sécurité
   "/faq",                // Page FAQ
+  "/data-room-virtuelle",          // Page SEO
+  "/partage-dossier-securise",     // Page SEO
+  "/partage-documents-confidentiels", // Page SEO
+  "/alternative-google-drive-pro", // Page SEO
+  "/pour-avocats",                 // Page SEO
   "/mentions",           // Page mentions légales
   "/confidentialite",    // Page confidentialité
   "/login",              // Page de connexion personnalisée

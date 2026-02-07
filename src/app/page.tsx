@@ -472,8 +472,9 @@ export default function Home() {
                   <h2 className="text-5xl md:text-[64px] font-medium tracking-tight text-black leading-[1.05] opacity-90">Un partage public. <br /> Des règles privées.</h2>
                   <p className="text-xl md:text-[24px] text-black/45 leading-relaxed font-medium max-w-lg">Créez un lien en quelques secondes, puis ajustez précisément ce qu’il permet : consultation seule, téléchargement, mot de passe, date d’expiration, quota de vues… Tout reste sous votre contrôle.</p>
                 </div>
-                <div className="pt-6">
+                <div className="pt-6 flex flex-col sm:flex-row gap-4">
                   <Link href="/dashboard" className="group inline-flex items-center gap-4 text-[18px] font-semibold text-black hover:text-[#96A982] transition-colors">Accéder au dashboard <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1.5" /></Link>
+                  <Link href="/partage-dossier-securise" className="inline-flex items-center gap-2 text-[15px] font-medium text-black/40 hover:text-[#96A982] transition-colors">En savoir plus <ArrowRight className="w-4 h-4" /></Link>
                 </div>
               </div>
               <div className="lg:w-[58%] space-y-8 w-full">
@@ -639,6 +640,7 @@ export default function Home() {
             </div>
           </div>
         </section>
+
       </main>
 
       <footer className="px-6 bg-white">
@@ -652,7 +654,7 @@ export default function Home() {
                   <p className="text-lg text-black/40 font-medium">Développé pour les équipes qui exigent un contrôle total sur leurs données.</p>
                 </div>
               </div>
-              <div className="md:col-span-5 grid grid-cols-2 gap-12 md:justify-items-end text-left">
+              <div className="md:col-span-5 grid grid-cols-3 gap-10 md:justify-items-end text-left">
                 <div className="space-y-8">
                   <h4 className="text-sm font-bold text-black uppercase tracking-[0.2em]">Produit</h4>
                   <ul className="space-y-5 text-[17px] text-black/40 font-medium">
@@ -660,6 +662,15 @@ export default function Home() {
                     <li><Link href="/#rules" className="hover:text-black transition-colors">Partages</Link></li>
                     <li><Link href="/security" className="hover:text-black transition-colors">Sécurité</Link></li>
                     <li><Link href="/faq" className="hover:text-black transition-colors">FAQ</Link></li>
+                  </ul>
+                </div>
+                <div className="space-y-8">
+                  <h4 className="text-sm font-bold text-black uppercase tracking-[0.2em]">Solutions</h4>
+                  <ul className="space-y-5 text-[17px] text-black/40 font-medium">
+                    <li><Link href="/data-room-virtuelle" className="hover:text-black transition-colors">Data Room</Link></li>
+                    <li><Link href="/partage-dossier-securise" className="hover:text-black transition-colors">Partage Sécurisé</Link></li>
+                    <li><Link href="/pour-avocats" className="hover:text-black transition-colors">Pour Avocats</Link></li>
+                    <li><Link href="/alternative-google-drive-pro" className="hover:text-black transition-colors">Alternative Drive</Link></li>
                   </ul>
                 </div>
                 <div className="space-y-8">

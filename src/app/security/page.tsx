@@ -747,7 +747,7 @@ export default function SecurityPage() {
                   </p>
                 </div>
               </div>
-              <div className="md:col-span-5 grid grid-cols-2 gap-12 md:justify-items-end text-left">
+              <div className="md:col-span-5 grid grid-cols-3 gap-10 md:justify-items-end text-left">
                 <div className="space-y-8">
                   <h4 className="text-sm font-bold text-black uppercase tracking-[0.2em]">Produit</h4>
                   <ul className="space-y-5 text-[17px] text-black/40 font-medium">
@@ -755,6 +755,15 @@ export default function SecurityPage() {
                     <li><Link href="/#rules" className="hover:text-black transition-colors">Partages</Link></li>
                     <li><Link href="/security" className="hover:text-black transition-colors">Sécurité</Link></li>
                     <li><Link href="/faq" className="hover:text-black transition-colors">FAQ</Link></li>
+                  </ul>
+                </div>
+                <div className="space-y-8">
+                  <h4 className="text-sm font-bold text-black uppercase tracking-[0.2em]">Solutions</h4>
+                  <ul className="space-y-5 text-[17px] text-black/40 font-medium">
+                    <li><Link href="/data-room-virtuelle" className="hover:text-black transition-colors">Data Room</Link></li>
+                    <li><Link href="/partage-dossier-securise" className="hover:text-black transition-colors">Partage Sécurisé</Link></li>
+                    <li><Link href="/pour-avocats" className="hover:text-black transition-colors">Pour Avocats</Link></li>
+                    <li><Link href="/alternative-google-drive-pro" className="hover:text-black transition-colors">Alternative Drive</Link></li>
                   </ul>
                 </div>
                 <div className="space-y-8">

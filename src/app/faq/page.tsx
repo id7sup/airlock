@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/shared/Logo";
-import { ArrowLeft, HelpCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, HelpCircle } from "lucide-react";
 import { StructuredData } from "@/components/shared/StructuredData";
 import { homeFaqStructuredData } from "@/lib/structured-data";
 import { breadcrumbSchema } from "@/lib/seo";
@@ -29,7 +29,8 @@ const breadcrumbData = breadcrumbSchema([
 const faqs = [
   {
     question: "Quelle est la différence avec Google Drive / Dropbox ?",
-    answer: "Airlock est pensé pour le partage sensible : liens expirables, lecture seule, mot de passe, quota de vues, révocation immédiate, et suivi des accès — sans complexité. Contrairement à Google Drive ou Dropbox, Airlock offre un contrôle total sur vos fichiers avec une architecture zero-knowledge et un stockage souverain.",
+    answer: "Airlock est pensé pour le partage sensible : liens expirables, lecture seule, mot de passe, quota de vues, révocation immédiate, et suivi des accès — sans complexité. Contrairement à Google Drive ou Dropbox, Airlock offre un contrôle total sur vos fichiers avec un chiffrement en transit et au repos, et un stockage souverain sur Cloudflare R2.",
+    link: { href: "/alternative-google-drive-pro", label: "Découvrir l'alternative à Google Drive" },
   },
   {
     question: "Est-ce que je peux partager un dossier sans créer de compte pour l'autre personne ?",
@@ -58,6 +59,7 @@ const faqs = [
   {
     question: "Qu'est-ce qu'une data room et comment Airlock s'en rapproche ?",
     answer: "Une data room est un espace sécurisé pour partager des documents sensibles. Airlock reproduit cette fonctionnalité avec des liens expirables, un contrôle d'accès granulaire, et un suivi complet des interactions, le tout dans une interface simple et intuitive.",
+    link: { href: "/data-room-virtuelle", label: "En savoir plus sur la Data Room Airlock" },
   },
   {
     question: "Airlock est-il conforme au RGPD ?",
@@ -70,6 +72,7 @@ const faqs = [
   {
     question: "Comment créer un lien de partage sécurisé sur Airlock ?",
     answer: "Pour créer un lien de partage, sélectionnez un dossier dans votre workspace, cliquez sur 'Partager', puis configurez les règles de sécurité (mot de passe, expiration, quota de vues). Le lien est généré instantanément et prêt à être partagé.",
+    link: { href: "/partage-dossier-securise", label: "En savoir plus sur le partage sécurisé" },
   },
   {
     question: "Puis-je révoquer un lien de partage après l'avoir créé ?",
@@ -160,6 +163,11 @@ export default function FAQPage() {
                   </summary>
                   <div className="mt-6 pt-6 border-t border-black/[0.03]">
                     <p className="text-lg text-black/60 leading-relaxed font-medium">{faq.answer}</p>
+                    {faq.link && (
+                      <Link href={faq.link.href} className="inline-flex items-center gap-2 mt-4 text-[#96A982] hover:text-[#7d9169] font-medium transition-colors text-base">
+                        {faq.link.label} <ArrowRight className="w-4 h-4" />
+                      </Link>
+                    )}
                   </div>
                 </details>
               ))}

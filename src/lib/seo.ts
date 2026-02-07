@@ -183,6 +183,92 @@ export const legalMetadata: Metadata = {
   },
 };
 
+// Pages SEO "money keywords"
+export const dataRoomMetadata: Metadata = {
+  title: "Data Room Virtuelle | Partage Sécurisé de Documents",
+  description: "Créez votre data room virtuelle avec Airlock. Partagez des documents confidentiels avec contrôle d'accès, traçabilité complète et liens expirables. Alternative simple aux data rooms traditionnelles.",
+  openGraph: {
+    title: "Data Room Virtuelle | Airlock",
+    description: "Créez votre data room virtuelle avec Airlock. Contrôle d'accès, traçabilité et liens expirables.",
+    url: `${siteUrl}/data-room-virtuelle`,
+  },
+  twitter: {
+    title: "Data Room Virtuelle | Airlock",
+    description: "Créez votre data room virtuelle avec contrôle d'accès et traçabilité complète.",
+  },
+  alternates: {
+    canonical: `${siteUrl}/data-room-virtuelle`,
+  },
+};
+
+export const partageDossierMetadata: Metadata = {
+  title: "Partage de Dossier Sécurisé | Liens Protégés et Traçables",
+  description: "Partagez vos dossiers en toute sécurité avec Airlock. Liens expirables, mot de passe, quota de vues, révocation instantanée. Gardez le contrôle total sur vos fichiers partagés.",
+  openGraph: {
+    title: "Partage de Dossier Sécurisé | Airlock",
+    description: "Partagez vos dossiers en toute sécurité. Liens expirables, mot de passe et traçabilité.",
+    url: `${siteUrl}/partage-dossier-securise`,
+  },
+  twitter: {
+    title: "Partage de Dossier Sécurisé | Airlock",
+    description: "Partagez vos dossiers avec liens protégés, mot de passe et traçabilité complète.",
+  },
+  alternates: {
+    canonical: `${siteUrl}/partage-dossier-securise`,
+  },
+};
+
+export const partageConfidentielsMetadata: Metadata = {
+  title: "Partage de Documents Confidentiels | Chiffrement et Contrôle",
+  description: "Envoyez et partagez des documents confidentiels en toute sécurité. Chiffrement en transit et au repos, accès restreint, suivi des consultations. Conforme RGPD.",
+  openGraph: {
+    title: "Partage de Documents Confidentiels | Airlock",
+    description: "Partagez des documents confidentiels avec chiffrement, accès restreint et suivi des consultations.",
+    url: `${siteUrl}/partage-documents-confidentiels`,
+  },
+  twitter: {
+    title: "Partage de Documents Confidentiels | Airlock",
+    description: "Envoyez des documents confidentiels avec chiffrement et contrôle d'accès.",
+  },
+  alternates: {
+    canonical: `${siteUrl}/partage-documents-confidentiels`,
+  },
+};
+
+export const alternativeGoogleDriveMetadata: Metadata = {
+  title: "Alternative à Google Drive pour Professionnels | Airlock",
+  description: "Découvrez Airlock, l'alternative à Google Drive pensée pour les professionnels. Contrôle d'accès granulaire, liens expirables, traçabilité et stockage souverain. Gratuit jusqu'à 5 Go.",
+  openGraph: {
+    title: "Alternative à Google Drive Pro | Airlock",
+    description: "L'alternative à Google Drive pensée pour les professionnels. Contrôle d'accès et stockage souverain.",
+    url: `${siteUrl}/alternative-google-drive-pro`,
+  },
+  twitter: {
+    title: "Alternative à Google Drive Pro | Airlock",
+    description: "L'alternative pro à Google Drive avec contrôle d'accès et stockage souverain.",
+  },
+  alternates: {
+    canonical: `${siteUrl}/alternative-google-drive-pro`,
+  },
+};
+
+export const pourAvocatsMetadata: Metadata = {
+  title: "Partage de Fichiers pour Avocats | Data Room Juridique",
+  description: "Airlock pour les avocats et cabinets juridiques. Partagez des pièces, dossiers clients et documents confidentiels avec traçabilité, mot de passe et conformité RGPD.",
+  openGraph: {
+    title: "Airlock pour Avocats | Data Room Juridique",
+    description: "Partagez des dossiers clients et documents confidentiels avec traçabilité et conformité RGPD.",
+    url: `${siteUrl}/pour-avocats`,
+  },
+  twitter: {
+    title: "Airlock pour Avocats | Data Room Juridique",
+    description: "La solution de partage sécurisé pour avocats et cabinets juridiques.",
+  },
+  alternates: {
+    canonical: `${siteUrl}/pour-avocats`,
+  },
+};
+
 // Données structurées JSON-LD
 export const organizationSchema = {
   "@context": "https://schema.org",
