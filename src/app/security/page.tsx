@@ -271,7 +271,7 @@ export default function SecurityPage() {
                       </div>
                       <div>
                         <p className="text-[11px] font-bold text-black/40 uppercase tracking-wider">Partages suivis</p>
-                        <p className="text-sm font-semibold text-green-600">Vues & téléchargements</p>
+                        <p className="text-sm font-semibold text-black">Vues & téléchargements</p>
                       </div>
                     </div>
                   </motion.div>
