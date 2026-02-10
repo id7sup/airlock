@@ -194,7 +194,7 @@ export function ShareModal({
                       </div>
                       <h3 className="text-base font-medium text-black mb-1">Interne</h3>
                       <p className="text-xs text-black/40 font-medium leading-relaxed">
-                        Par compte
+                        Invitez des collaborateurs par email. Ils devront se connecter pour accéder au dossier.
                       </p>
                     </motion.button>
 
@@ -213,9 +213,9 @@ export function ShareModal({
                       <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center mb-4 shadow-lg">
                         <Network className="w-6 h-6 text-white" />
                       </div>
-                      <h3 className="text-base font-medium text-black mb-1">Public</h3>
+                      <h3 className="text-base font-medium text-black mb-1">Lien de partage</h3>
                       <p className="text-xs text-black/40 font-medium leading-relaxed">
-                        Lien sécurisé
+                        Toute personne disposant du lien pourra accéder au dossier. Protégeable par mot de passe.
                       </p>
                     </motion.button>
                   </div>

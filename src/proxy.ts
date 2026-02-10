@@ -19,6 +19,11 @@ const isPublicRoute = createRouteMatcher([
   "/partage-documents-confidentiels", // Page SEO
   "/alternative-google-drive-pro", // Page SEO
   "/pour-avocats",                 // Page SEO
+  "/pour/(.*)",                    // Pages pSEO par métier
+  "/alternative/(.*)",             // Pages pSEO alternatives
+  "/cas-usage",                    // Hub cas d'usage
+  "/cas-usage/(.*)",               // Pages pSEO cas d'usage
+  "/glossaire/(.*)",               // Pages pSEO glossaire
   "/mentions",           // Page mentions légales
   "/confidentialite",    // Page confidentialité
   "/login",              // Page de connexion personnalisée

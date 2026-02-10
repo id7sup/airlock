@@ -33,7 +33,14 @@ import {
   FileVideo,
   FileAudio,
   FileArchive,
-  FileCode
+  FileCode,
+  Settings,
+  Globe,
+  Activity,
+  Users,
+  RotateCw,
+  TrendingUp,
+  Sliders,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -42,10 +49,25 @@ import { revokeShareLinkAction, reactivateShareLinkAction, deleteShareLinkAction
 import { updateShareLinkAction } from "@/lib/actions/sharing_update";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { ErrorModal } from "@/components/shared/ErrorModal";
-import { AnalyticsDashboard } from "./AnalyticsDashboard";
+import { AnalyticsDashboard, PREFS_KEY, defaultPrefs } from "./AnalyticsDashboard";
+import type { DashboardPrefs } from "./AnalyticsDashboard";
 import { LogsPageClient } from "@/components/dashboard/LogsPageClient";
 import { getNotificationsAction, getLinkLogsAction } from "@/lib/actions/notifications";
 import type { NotificationType } from "@/services/notifications";
+
+/** Format a local Date as YYYY-MM-DD without UTC conversion */
+function formatDateLocal(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/** Parse a YYYY-MM-DD string as a local-timezone Date at midnight */
+function parseDateLocal(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
 
 // Composant pour gérer le mot de passe
 function PasswordManagerCard({ linkId, currentPasswordHash, onUpdate }: { 
@@ -549,7 +571,10 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
   const [updating, setUpdating] = useState(false);
   const [exportingFormat, setExportingFormat] = useState<"CSV" | "PDF" | null>(null);
   const [localMaxViews, setLocalMaxViews] = useState<string>(link.maxViews?.toString() || "");
-  const [localExpiry, setLocalExpiry] = useState<string>(link.expiresAt ? new Date(link.expiresAt).toISOString().split('T')[0] : "");
+  const [localExpiry, setLocalExpiry] = useState<string>(() => {
+    if (!link.expiresAt) return "";
+    return formatDateLocal(new Date(link.expiresAt));
+  });
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     if (link.expiresAt) {
@@ -573,6 +598,64 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
   );
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [showFileExceptionsModal, setShowFileExceptionsModal] = useState(false);
+
+  // Dashboard widget preferences — always init with defaults to avoid hydration mismatch
+  const [showWidgetPanel, setShowWidgetPanel] = useState(false);
+  const [dashboardPrefs, setDashboardPrefs] = useState<DashboardPrefs>(defaultPrefs);
+  const [prefsHydrated, setPrefsHydrated] = useState(false);
+
+  // Load prefs from localStorage after mount (client-only)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(PREFS_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setDashboardPrefs({
+          visibleCards: { ...defaultPrefs.visibleCards, ...parsed.visibleCards },
+          visibleSections: { ...defaultPrefs.visibleSections, ...parsed.visibleSections },
+        });
+      }
+    } catch {}
+    setPrefsHydrated(true);
+  }, []);
+
+  // Persist prefs changes to localStorage (skip first render)
+  useEffect(() => {
+    if (!prefsHydrated) return;
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(dashboardPrefs));
+    } catch {}
+  }, [dashboardPrefs]);
+
+  const toggleWidgetCard = (label: string) => {
+    setDashboardPrefs(prev => ({
+      ...prev,
+      visibleCards: { ...prev.visibleCards, [label]: !prev.visibleCards[label] },
+    }));
+  };
+
+  const toggleWidgetSection = (key: string) => {
+    setDashboardPrefs(prev => ({
+      ...prev,
+      visibleSections: { ...prev.visibleSections, [key]: !prev.visibleSections[key] },
+    }));
+  };
+
+  const resetWidgetPrefs = () => setDashboardPrefs(defaultPrefs);
+
+  const widgetItems = [
+    { key: "Visiteurs", type: "card" as const, icon: <Users className="w-5 h-5" />, label: "Visiteurs", desc: "Visiteurs uniques" },
+    { key: "Vues", type: "card" as const, icon: <Eye className="w-5 h-5" />, label: "Vues", desc: "Ouvertures de liens" },
+    { key: "Téléchargements", type: "card" as const, icon: <Download className="w-5 h-5" />, label: "Téléchargements", desc: "Fichiers téléchargés" },
+    { key: "Événements", type: "card" as const, icon: <Activity className="w-5 h-5" />, label: "Événements", desc: "Toutes les interactions" },
+    { key: "activity", type: "section" as const, icon: <Clock className="w-5 h-5" />, label: "Activité temps réel", desc: "Graphique d'activité live" },
+    { key: "traffic", type: "section" as const, icon: <Globe className="w-5 h-5" />, label: "Sources de trafic", desc: "Origine des visiteurs" },
+    { key: "controls", type: "section" as const, icon: <Sliders className="w-5 h-5" />, label: "Contrôles", desc: "Téléchargement, quota, expiration" },
+    { key: "restrictions", type: "section" as const, icon: <Lock className="w-5 h-5" />, label: "Restrictions", desc: "Blocage VPN / datacenter" },
+    { key: "export", type: "section" as const, icon: <FileSpreadsheet className="w-5 h-5" />, label: "Export", desc: "CSV et PDF" },
+    { key: "security", type: "section" as const, icon: <Shield className="w-5 h-5" />, label: "Sécurité & anomalies", desc: "Surveillance des accès" },
+    { key: "funnel", type: "section" as const, icon: <TrendingUp className="w-5 h-5" />, label: "Funnel d'engagement", desc: "Taux de conversion" },
+  ];
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -604,7 +687,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
   // Synchroniser les états locaux avec linkData
   useEffect(() => {
     setLocalMaxViews(linkData.maxViews?.toString() || "");
-    setLocalExpiry(linkData.expiresAt ? new Date(linkData.expiresAt).toISOString().split('T')[0] : "");
+    setLocalExpiry(linkData.expiresAt ? formatDateLocal(new Date(linkData.expiresAt)) : "");
     if (linkData.expiresAt) {
       const date = new Date(linkData.expiresAt);
       setCalendarMonth(new Date(date.getFullYear(), date.getMonth(), 1));
@@ -852,7 +935,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
     }
     setUpdating(true);
     try {
-      const newDate = new Date(dateStr);
+      const newDate = parseDateLocal(dateStr);
       await updateShareLinkAction(linkData.id, { expiresAt: newDate });
       setLinkData({ ...linkData, expiresAt: newDate.toISOString() });
       setLocalExpiry(dateStr);
@@ -870,7 +953,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
 
   const handleDateSelect = (day: number) => {
     const selectedDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
-    const dateStr = selectedDate.toISOString().split('T')[0];
+    const dateStr = formatDateLocal(selectedDate);
     setLocalExpiry(dateStr);
     handleUpdateExpiry(dateStr);
   };
@@ -890,7 +973,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
   const goToToday = () => {
     const today = new Date();
     setCalendarMonth(new Date(today.getFullYear(), today.getMonth(), 1));
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = formatDateLocal(today);
     setLocalExpiry(todayStr);
     handleUpdateExpiry(todayStr);
   };
@@ -1309,7 +1392,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                   >
                     <MoreVertical className="w-4 h-4" />
                   </button>
-                  
+
                   <AnimatePresence>
                     {showActionsMenu && menuPosition && (
                       <>
@@ -1331,6 +1414,19 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                             right: `${menuPosition.right}px`,
                           }}
                         >
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              closeActionsMenu();
+                              setShowWidgetPanel(prev => !prev);
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
+                          >
+                            <Settings className="w-4 h-4" />
+                            Personnaliser
+                          </button>
+                          <div className="h-px bg-black/[0.05]" />
                           <button
                             onClick={handleShare}
                             className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
@@ -1494,7 +1590,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                     <MoreVertical className="w-4 h-4" />
                     <span className="hidden lg:inline">Actions</span>
                   </button>
-                  
+
                   <AnimatePresence>
                     {showActionsMenu && menuPosition && (
                       <>
@@ -1516,6 +1612,19 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                             right: `${menuPosition.right}px`,
                           }}
                         >
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              closeActionsMenu();
+                              setShowWidgetPanel(prev => !prev);
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
+                          >
+                            <Settings className="w-4 h-4" />
+                            Personnaliser le tableau de bord
+                          </button>
+                          <div className="h-px bg-black/[0.05]" />
                           <button
                             onClick={handleShare}
                             className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
@@ -1594,10 +1703,25 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
         {/* Contenu principal */}
         <div>
 
-        {activeTab === "Vue globale" && (
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-5 items-start">
+        {activeTab === "Vue globale" && (() => {
+          const widgetAnim = { duration: 0.3, ease: [0.23, 1, 0.32, 1] as const };
+          const activeWidgetCount = widgetItems.filter(w => w.type === "card" ? dashboardPrefs.visibleCards[w.key] : dashboardPrefs.visibleSections[w.key]).length;
+          const hasLeftColumn = dashboardPrefs.visibleSections.controls || dashboardPrefs.visibleSections.restrictions || dashboardPrefs.visibleSections.export || dashboardPrefs.visibleSections.security || dashboardPrefs.visibleSections.funnel;
+          return (
+          <div className={`grid gap-4 sm:gap-5 items-start ${hasLeftColumn ? "grid-cols-1 xl:grid-cols-3" : "grid-cols-1"}`}>
             {/* Colonne gauche : paramètres du lien */}
+            {hasLeftColumn && (
             <div className="space-y-3 sm:space-y-4">
+              <AnimatePresence>
+              {dashboardPrefs.visibleSections.controls && (
+              <motion.div
+                key="controls-widget"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={widgetAnim}
+                className="overflow-hidden"
+              >
               <div className="p-3 sm:p-4 rounded-2xl border border-black/[0.06] bg-white shadow-sm space-y-3">
                 <h2 className="text-base font-semibold text-black">Contrôles</h2>
                 {[ 
@@ -1754,7 +1878,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                       >
                         <span className={localExpiry ? "text-black" : "text-black/40"}>
                           {localExpiry
-                            ? new Date(localExpiry).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
+                            ? parseDateLocal(localExpiry).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
                             : "Sélectionner une date"}
                         </span>
                         <Calendar className="w-4 h-4 text-black/40 group-hover:text-black/60 transition-colors shrink-0" />
@@ -1820,7 +1944,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                                 today.setHours(0, 0, 0, 0);
                                 const isToday = date.getTime() === today.getTime();
                                 const isPast = date < today;
-                                const isSelected = localExpiry && date.toISOString().split('T')[0] === localExpiry;
+                                const isSelected = localExpiry && formatDateLocal(date) === localExpiry;
 
                                 return (
                                   <button
@@ -1876,7 +2000,8 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                   </div>
                 </div>
 
-                {/* Restrictions */}
+                {/* Restrictions — inside controls card but only if restrictions enabled */}
+                {dashboardPrefs.visibleSections.restrictions && (
                 <div className="space-y-3 pt-2 border-t border-black/[0.04]">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-black">Restrictions</p>
@@ -1934,8 +2059,22 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                     </div>
                   </div>
                 </div>
+                )}
               </div>
+              </motion.div>
+              )}
+              </AnimatePresence>
 
+              <AnimatePresence>
+              {dashboardPrefs.visibleSections.export && (
+              <motion.div
+                key="export-widget"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={widgetAnim}
+                className="overflow-hidden"
+              >
               <div className="p-3 sm:p-4 rounded-2xl border border-black/[0.05] bg-white hover:border-black/10 transition-all">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center">
@@ -1977,6 +2116,9 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                   ))}
                 </div>
               </div>
+              </motion.div>
+              )}
+              </AnimatePresence>
 
               {loadingStats && (
                 <div className="text-xs text-black/50 px-1">Chargement des statistiques...</div>
@@ -2012,7 +2154,16 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                 </div>
               )}
 
-              {stats && (
+              <AnimatePresence>
+              {dashboardPrefs.visibleSections.security && stats && (
+              <motion.div
+                key="security-widget"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={widgetAnim}
+                className="overflow-hidden"
+              >
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-black/[0.04] flex items-center justify-center">
@@ -2023,7 +2174,7 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                       <p className="text-xs text-black/40">Surveillance des accès</p>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-3">
                     <div className="flex items-center justify-between p-3 sm:p-4 rounded-2xl bg-white border border-black/[0.05] hover:border-black/[0.1] transition-colors group">
                       <div className="flex items-center gap-3">
@@ -2046,12 +2197,23 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                     }} />
                   </div>
                 </div>
+              </motion.div>
               )}
+              </AnimatePresence>
 
-              {stats && stats.funnel && (
+              <AnimatePresence>
+              {dashboardPrefs.visibleSections.funnel && stats && stats.funnel && (
+              <motion.div
+                key="funnel-widget"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={widgetAnim}
+                className="overflow-hidden"
+              >
                 <div className="p-3 sm:p-4 rounded-2xl border border-black/[0.06] bg-white shadow-sm space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-base font-semibold text-black">Funnel d'engagement</h3>
+                    <h3 className="text-base font-semibold text-black">Funnel d&apos;engagement</h3>
                     <span className="text-[11px] text-black/40 uppercase tracking-[0.18em]">Conversion</span>
                   </div>
                   <div className="space-y-3">
@@ -2075,15 +2237,123 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                     ))}
                   </div>
                 </div>
+              </motion.div>
               )}
+              </AnimatePresence>
             </div>
+            )}
 
-            {/* Analytics : span deux colonnes à droite */}
-            <div className="space-y-5 xl:col-span-2">
-              <AnalyticsDashboard linkId={linkData.id} />
+            {/* Colonne droite : analytics */}
+            <div className={`space-y-5 ${hasLeftColumn ? "xl:col-span-2" : ""}`}>
+              {/* Panel de gestion des widgets */}
+              <AnimatePresence>
+                {showWidgetPanel && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-5 sm:p-6 bg-white border border-black/[0.08] rounded-2xl shadow-sm space-y-5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-black/[0.04] flex items-center justify-center">
+                            <Settings className="w-5 h-5 text-black/50" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-black">Personnalisation</h3>
+                            <p className="text-xs text-black/40 mt-0.5">{activeWidgetCount} widget{activeWidgetCount > 1 ? "s" : ""} actif{activeWidgetCount > 1 ? "s" : ""} sur {widgetItems.length}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setShowWidgetPanel(false)}
+                          className="w-8 h-8 rounded-xl hover:bg-black/5 flex items-center justify-center transition-colors"
+                        >
+                          <X className="w-4 h-4 text-black/40" />
+                        </button>
+                      </div>
+
+                      {/* Aperçu */}
+                      <div className="space-y-2.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/30">Aperçu</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {widgetItems.filter(w => w.type === "card").map((widget) => {
+                            const isActive = dashboardPrefs.visibleCards[widget.key];
+                            return (
+                              <button
+                                key={widget.key}
+                                onClick={() => toggleWidgetCard(widget.key)}
+                                className={`relative flex flex-col items-center gap-2 p-3.5 rounded-xl border transition-all duration-200 text-center group ${
+                                  isActive
+                                    ? "bg-white text-black border-black/15 shadow-sm"
+                                    : "bg-black/[0.02] text-black/30 border-transparent hover:border-black/[0.08] hover:text-black/50"
+                                }`}
+                              >
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                                  isActive ? "bg-brand-primary/10 text-brand-primary" : "bg-black/[0.04] text-black/20"
+                                }`}>
+                                  {widget.icon}
+                                </div>
+                                <p className="text-xs font-semibold">{widget.label}</p>
+                                <div className={`absolute top-2 right-2 w-2 h-2 rounded-full transition-colors ${isActive ? "bg-brand-primary" : "bg-black/10"}`} />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Sections */}
+                      <div className="space-y-2.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/30">Sections</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                          {widgetItems.filter(w => w.type === "section").map((widget) => {
+                            const isActive = dashboardPrefs.visibleSections[widget.key];
+                            return (
+                              <button
+                                key={widget.key}
+                                onClick={() => toggleWidgetSection(widget.key)}
+                                className={`flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 text-left ${
+                                  isActive
+                                    ? "bg-white text-black border-black/15 shadow-sm"
+                                    : "bg-black/[0.02] text-black/30 border-transparent hover:border-black/[0.08] hover:text-black/50"
+                                }`}
+                              >
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                                  isActive ? "bg-brand-primary/10 text-brand-primary" : "bg-black/[0.04] text-black/20"
+                                }`}>
+                                  {widget.icon}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-semibold truncate">{widget.label}</p>
+                                  <p className={`text-[11px] truncate ${isActive ? "text-black/40" : ""}`}>{widget.desc}</p>
+                                </div>
+                                <div className={`w-2 h-2 rounded-full shrink-0 transition-colors ${isActive ? "bg-brand-primary" : "bg-black/10"}`} />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end pt-2 border-t border-black/[0.04]">
+                        <button
+                          onClick={resetWidgetPrefs}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-black/40 hover:text-black hover:bg-black/5 rounded-lg transition-all"
+                        >
+                          <RotateCw className="w-3 h-3" />
+                          Réinitialiser
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnalyticsDashboard linkId={linkData.id} prefs={dashboardPrefs} />
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {activeTab === "Logs" && (
           <div>

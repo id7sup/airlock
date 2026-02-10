@@ -72,7 +72,7 @@ export function SharePageLayout({
       {/* Footer compact */}
       <footer className="border-t border-black/[0.05] bg-white/50 mt-auto">
         <div className="max-w-5xl mx-auto px-4 sm:px-5 lg:px-8 py-3">
-          <div className="flex items-center justify-between text-xs text-black/30">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-0 text-center sm:text-left text-xs text-black/30">
             <span>© {new Date().getFullYear()} Airlock</span>
             <div className="flex items-center gap-3">
               <Link href="/security" className="hover:text-black/60 transition-colors">Sécurité</Link>
@@ -134,7 +134,7 @@ export function SharePageError({
       {/* Footer compact */}
       <footer className="border-t border-black/[0.05] bg-white/50 mt-auto">
         <div className="max-w-5xl mx-auto px-4 sm:px-5 lg:px-8 py-3">
-          <div className="flex items-center justify-between text-xs text-black/30">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-0 text-center sm:text-left text-xs text-black/30">
             <span>© {new Date().getFullYear()} Airlock</span>
             <div className="flex items-center gap-3">
               <Link href="/security" className="hover:text-black/60 transition-colors">Sécurité</Link>
@@ -215,7 +215,7 @@ export function SharePasswordForm({
       {/* Footer compact */}
       <footer className="border-t border-black/[0.05] bg-white/50 mt-auto">
         <div className="max-w-5xl mx-auto px-4 sm:px-5 lg:px-8 py-3">
-          <div className="flex items-center justify-between text-xs text-black/30">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-0 text-center sm:text-left text-xs text-black/30">
             <span>© {new Date().getFullYear()} Airlock</span>
             <div className="flex items-center gap-3">
               <Link href="/security" className="hover:text-black/60 transition-colors">Sécurité</Link>

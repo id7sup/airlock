@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/shared/Logo";
+import { Footer } from "@/components/shared/Footer";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -153,6 +154,12 @@ export default function PartageDocumentsConfidentielsPage() {
                 />
               </button>
               <Link
+                href="/cas-usage"
+                className="text-white/70 hover:text-white transition-colors"
+              >
+                Cas d&apos;usage
+              </Link>
+              <Link
                 href="/pricing"
                 className="text-white/70 hover:text-white transition-colors"
               >
@@ -215,6 +222,7 @@ export default function PartageDocumentsConfidentielsPage() {
                   <Link href="/#workspace" onClick={() => setIsMobileMenuOpen(false)} className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2">Workspace</Link>
                   <Link href="/#rules" onClick={() => setIsMobileMenuOpen(false)} className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2">Règles</Link>
                   <Link href="/#analytics" onClick={() => setIsMobileMenuOpen(false)} className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2">Analytics</Link>
+                  <Link href="/cas-usage" onClick={() => setIsMobileMenuOpen(false)} className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2">Cas d&apos;usage</Link>
                   <Link href="/pricing" onClick={() => setIsMobileMenuOpen(false)} className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2">Facturation</Link>
                   <Link href="/security" onClick={() => setIsMobileMenuOpen(false)} className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2">Sécurité</Link>
                   <div className="pt-2 mt-2 border-t border-white/5 flex flex-col gap-2">
@@ -620,65 +628,7 @@ export default function PartageDocumentsConfidentielsPage() {
 
       </main>
 
-      {/* Footer */}
-      <footer className="px-6 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-[#f5f5f7] rounded-t-[48px] p-12 md:p-24 border-x border-t border-black/[0.03] space-y-24">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-16 md:gap-8">
-              <div className="md:col-span-7 space-y-10 text-left">
-                <div className="flex items-center gap-4">
-                  <Logo className="w-12 h-12" />
-                  <span className="text-3xl font-semibold tracking-tighter">Airlock</span>
-                </div>
-                <div className="space-y-6 max-w-md">
-                  <p className="text-2xl font-medium text-black/80 leading-tight">La nouvelle norme du partage de fichiers sécurisé et souverain.</p>
-                  <p className="text-lg text-black/40 font-medium">Développé pour les équipes qui exigent un contrôle total sur leurs données.</p>
-                </div>
-              </div>
-              <div className="md:col-span-5 grid grid-cols-3 gap-10 md:justify-items-end text-left">
-                <div className="space-y-8">
-                  <h4 className="text-sm font-bold text-black uppercase tracking-[0.2em]">Produit</h4>
-                  <ul className="space-y-5 text-[17px] text-black/40 font-medium">
-                    <li><Link href="/#workspace" className="hover:text-black transition-colors">Workspace</Link></li>
-                    <li><Link href="/#rules" className="hover:text-black transition-colors">Partages</Link></li>
-                    <li><Link href="/security" className="hover:text-black transition-colors">Sécurité</Link></li>
-                    <li><Link href="/faq" className="hover:text-black transition-colors">FAQ</Link></li>
-                  </ul>
-                </div>
-                <div className="space-y-8">
-                  <h4 className="text-sm font-bold text-black uppercase tracking-[0.2em]">Solutions</h4>
-                  <ul className="space-y-5 text-[17px] text-black/40 font-medium">
-                    <li><Link href="/data-room-virtuelle" className="hover:text-black transition-colors">Data Room</Link></li>
-                    <li><Link href="/partage-dossier-securise" className="hover:text-black transition-colors">Partage Sécurisé</Link></li>
-                    <li><Link href="/pour-avocats" className="hover:text-black transition-colors">Pour Avocats</Link></li>
-                    <li><Link href="/alternative-google-drive-pro" className="hover:text-black transition-colors">Alternative Drive</Link></li>
-                  </ul>
-                </div>
-                <div className="space-y-8">
-                  <h4 className="text-sm font-bold text-black uppercase tracking-[0.2em]">Légal</h4>
-                  <ul className="space-y-5 text-[17px] text-black/40 font-medium">
-                    <li><Link href="/confidentialite" className="hover:text-black transition-colors">Confidentialité</Link></li>
-                    <li><Link href="/mentions" className="hover:text-black transition-colors">Mentions</Link></li>
-                    <li><Link href="/pricing" className="hover:text-black transition-colors">Facturation</Link></li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-            <div className="pt-12 border-t border-black/5 flex flex-col md:flex-row justify-between items-center gap-10">
-              <div className="flex items-center gap-3 text-black/40 font-medium bg-white/50 px-4 py-2 rounded-full border border-black/[0.03]">
-                <Compass className="w-4 h-4 text-[#96A982]" />
-                <span>Français</span>
-                <ChevronDown className="w-3 h-3 opacity-50" />
-              </div>
-              <div className="flex items-center gap-8 text-black/40">
-                <a href="https://linkedin.com/company/airlck" target="_blank" rel="noopener noreferrer" className="hover:text-black transition-colors font-semibold">LinkedIn</a>
-                <a href="https://twitter.com/airlck" target="_blank" rel="noopener noreferrer" className="hover:text-black transition-colors font-semibold">X (Twitter)</a>
-              </div>
-              <p className="text-black/20 text-[11px] font-bold uppercase tracking-[0.4em]">&copy; 2025 AIRLOCK TECHNOLOGIES</p>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

@@ -1,91 +1,77 @@
 import { NextResponse } from "next/server";
-import { MetadataRoute } from "next";
+import { secteurs } from "@/data/pseo/secteurs";
+import { alternatives } from "@/data/pseo/alternatives";
+import { casUsage } from "@/data/pseo/cas-usage";
+import { glossaire } from "@/data/pseo/glossaire";
 
 /**
  * Route API explicite pour le sitemap.xml (SEO)
- * 
+ *
  * Cette route garantit que le sitemap est toujours accessible publiquement,
  * même si le middleware d'authentification tente de l'intercepter.
- * 
- * Next.js génère automatiquement /sitemap.xml à partir de sitemap.ts,
- * mais cette route explicite prend le dessus pour garantir l'accessibilité.
+ *
+ * Inclut les pages statiques + les pages pSEO générées dynamiquement.
  */
 export const dynamic = 'force-dynamic';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://airlck.com";
 
+interface SitemapUrl {
+  url: string;
+  lastmod: string;
+  changefreq: string;
+  priority: string;
+}
+
 function generateSitemap(): string {
   const baseUrl = siteUrl;
   const currentDate = new Date().toISOString();
 
-  const urls = [
-    {
-      url: baseUrl,
-      lastmod: currentDate,
-      changefreq: "weekly",
-      priority: "1.0",
-    },
-    {
-      url: `${baseUrl}/pricing`,
-      lastmod: currentDate,
-      changefreq: "monthly",
-      priority: "0.9",
-    },
-    {
-      url: `${baseUrl}/security`,
-      lastmod: currentDate,
-      changefreq: "monthly",
-      priority: "0.9",
-    },
-    {
-      url: `${baseUrl}/faq`,
-      lastmod: currentDate,
-      changefreq: "weekly",
-      priority: "0.9",
-    },
-    {
-      url: `${baseUrl}/confidentialite`,
-      lastmod: currentDate,
-      changefreq: "monthly",
-      priority: "0.7",
-    },
-    {
-      url: `${baseUrl}/mentions`,
-      lastmod: currentDate,
-      changefreq: "monthly",
-      priority: "0.7",
-    },
-    {
-      url: `${baseUrl}/data-room-virtuelle`,
-      lastmod: currentDate,
-      changefreq: "monthly",
-      priority: "0.8",
-    },
-    {
-      url: `${baseUrl}/partage-dossier-securise`,
-      lastmod: currentDate,
-      changefreq: "monthly",
-      priority: "0.8",
-    },
-    {
-      url: `${baseUrl}/partage-documents-confidentiels`,
-      lastmod: currentDate,
-      changefreq: "monthly",
-      priority: "0.8",
-    },
-    {
-      url: `${baseUrl}/alternative-google-drive-pro`,
-      lastmod: currentDate,
-      changefreq: "monthly",
-      priority: "0.8",
-    },
-    {
-      url: `${baseUrl}/pour-avocats`,
-      lastmod: currentDate,
-      changefreq: "monthly",
-      priority: "0.8",
-    },
+  // Pages statiques
+  const staticUrls: SitemapUrl[] = [
+    { url: baseUrl, lastmod: currentDate, changefreq: "weekly", priority: "1.0" },
+    { url: `${baseUrl}/pricing`, lastmod: currentDate, changefreq: "monthly", priority: "0.9" },
+    { url: `${baseUrl}/security`, lastmod: currentDate, changefreq: "monthly", priority: "0.9" },
+    { url: `${baseUrl}/faq`, lastmod: currentDate, changefreq: "weekly", priority: "0.9" },
+    { url: `${baseUrl}/confidentialite`, lastmod: currentDate, changefreq: "monthly", priority: "0.7" },
+    { url: `${baseUrl}/mentions`, lastmod: currentDate, changefreq: "monthly", priority: "0.7" },
+    { url: `${baseUrl}/data-room-virtuelle`, lastmod: currentDate, changefreq: "monthly", priority: "0.8" },
+    { url: `${baseUrl}/partage-dossier-securise`, lastmod: currentDate, changefreq: "monthly", priority: "0.8" },
+    { url: `${baseUrl}/partage-documents-confidentiels`, lastmod: currentDate, changefreq: "monthly", priority: "0.8" },
+    { url: `${baseUrl}/alternative-google-drive-pro`, lastmod: currentDate, changefreq: "monthly", priority: "0.8" },
+    { url: `${baseUrl}/pour-avocats`, lastmod: currentDate, changefreq: "monthly", priority: "0.8" },
+    { url: `${baseUrl}/cas-usage`, lastmod: currentDate, changefreq: "weekly", priority: "0.9" },
   ];
+
+  // Pages pSEO générées dynamiquement
+  const pseoUrls: SitemapUrl[] = [
+    ...secteurs.map((s) => ({
+      url: `${baseUrl}/pour/${s.slug}`,
+      lastmod: currentDate,
+      changefreq: "monthly",
+      priority: "0.7",
+    })),
+    ...alternatives.map((a) => ({
+      url: `${baseUrl}/alternative/${a.slug}`,
+      lastmod: currentDate,
+      changefreq: "monthly",
+      priority: "0.7",
+    })),
+    ...casUsage.map((c) => ({
+      url: `${baseUrl}/cas-usage/${c.slug}`,
+      lastmod: currentDate,
+      changefreq: "monthly",
+      priority: "0.7",
+    })),
+    ...glossaire.map((g) => ({
+      url: `${baseUrl}/glossaire/${g.slug}`,
+      lastmod: currentDate,
+      changefreq: "monthly",
+      priority: "0.6",
+    })),
+  ];
+
+  const urls = [...staticUrls, ...pseoUrls];
 
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

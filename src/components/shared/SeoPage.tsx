@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Logo } from "@/components/shared/Logo";
-import { ArrowLeft, ArrowRight, ChevronDown, Compass } from "lucide-react";
+import { SEONavbar } from "@/components/shared/SEONavbar";
+import { Footer } from "@/components/shared/Footer";
+import { ArrowRight, ChevronDown } from "lucide-react";
 
 interface SeoFaq {
   question: string;
@@ -38,172 +40,243 @@ export function SeoPage({
   relatedPages,
 }: SeoPageProps) {
   return (
-    <div className="min-h-screen bg-white">
-      <header className="px-6 py-8 border-b border-black/[0.03]">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <Logo className="w-10 h-10" />
-            <span className="text-2xl font-semibold tracking-tighter">Airlock</span>
-          </Link>
-          <Link href="/" className="flex items-center gap-2 text-black/40 hover:text-black transition-colors font-medium">
-            <ArrowLeft className="w-4 h-4" />
-            <span>Retour</span>
-          </Link>
-        </div>
-      </header>
+    <div className="min-h-screen bg-white text-[#1d1d1f] font-sans selection:bg-black selection:text-white">
+      {/* Dynamic Island Navbar */}
+      <SEONavbar />
 
-      <main className="px-6 py-16 md:py-24">
-        <div className="max-w-4xl mx-auto">
-          {/* Hero */}
-          <div className="mb-16 md:mb-24">
-            <h1 className="text-4xl md:text-[56px] font-medium tracking-tight text-black leading-tight opacity-90 mb-6">{title}</h1>
-            <p className="text-xl md:text-2xl text-black/50 font-medium max-w-2xl">{subtitle}</p>
+      <main className="relative bg-white">
+        {/* Hero */}
+        <section className="pt-36 md:pt-44 pb-16 md:pb-24 px-6">
+          <div className="max-w-4xl mx-auto">
+            <h1 className="text-4xl md:text-[56px] font-medium tracking-tight text-black leading-tight opacity-90 mb-6">
+              {title}
+            </h1>
+            <p className="text-xl md:text-2xl text-black/50 font-medium max-w-2xl leading-relaxed mb-10">
+              {subtitle}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Link
+                href="/register"
+                className="inline-flex items-center gap-2 bg-[#B7C5A9] text-white px-7 py-3.5 rounded-full font-medium text-[15px] hover:bg-[#96A982] transition-all"
+              >
+                Commencer gratuitement <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link
+                href="/security"
+                className="inline-flex items-center gap-2 text-black/50 px-4 py-3.5 font-medium text-[15px] hover:text-black transition-colors"
+              >
+                Notre sécurité <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
+        </section>
 
-          {/* Probleme / Contexte */}
-          <section className="mb-16">
-            <h2 className="text-2xl md:text-3xl font-medium tracking-tight text-black opacity-90 mb-6">{problemTitle}</h2>
-            <p className="text-lg text-black/60 leading-relaxed">{problemContent}</p>
-          </section>
+        {/* Problème / Contexte */}
+        <section className="py-20 md:py-28 px-6">
+          <div className="max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+              <div>
+                <h2 className="text-3xl md:text-[48px] font-medium tracking-tight text-black leading-tight opacity-90">
+                  {problemTitle}
+                </h2>
+              </div>
+              <div>
+                <p className="text-lg text-black/50 font-medium leading-relaxed">
+                  {problemContent}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
 
-          {/* Solution */}
-          <section className="mb-16">
-            <h2 className="text-2xl md:text-3xl font-medium tracking-tight text-black opacity-90 mb-6">{solutionTitle}</h2>
-            <p className="text-lg text-black/60 leading-relaxed">{solutionContent}</p>
-          </section>
+        {/* Solution */}
+        <section className="py-0 md:py-8 px-6">
+          <div className="max-w-5xl mx-auto">
+            <div className="bg-[#96A982]/[0.06] rounded-3xl p-8 md:p-14 border border-[#96A982]/10">
+              <h2 className="text-2xl md:text-[40px] font-medium tracking-tight text-black leading-tight opacity-90 mb-6">
+                {solutionTitle}
+              </h2>
+              <p className="text-lg text-black/50 font-medium leading-relaxed">
+                {solutionContent}
+              </p>
+            </div>
+          </div>
+        </section>
 
-          {/* Fonctionnalites cles */}
-          <section className="mb-16">
-            <h2 className="text-2xl md:text-3xl font-medium tracking-tight text-black opacity-90 mb-8">Fonctionnalités clés</h2>
+        {/* Fonctionnalités clés */}
+        <section className="py-20 md:py-28 px-6">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-3xl md:text-[48px] font-medium tracking-tight text-black leading-tight opacity-90 mb-16">
+              Fonctionnalités clés
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {features.map((f, i) => (
-                <div key={i} className="bg-[#f5f5f7] rounded-3xl p-8 border border-black/[0.03]">
-                  <h3 className="text-lg font-medium text-black mb-3">{f.title}</h3>
-                  <p className="text-black/50 font-medium leading-relaxed">{f.description}</p>
+                <div
+                  key={i}
+                  className="bg-[#f5f5f7] rounded-3xl p-8 border border-black/[0.03] hover:border-[#96A982]/15 transition-all duration-300"
+                >
+                  <h3 className="text-lg font-semibold text-black mb-3">{f.title}</h3>
+                  <p className="text-black/40 font-medium leading-relaxed text-[15px]">
+                    {f.description}
+                  </p>
                 </div>
               ))}
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* Cas d'usage */}
-          <section className="mb-16">
-            <h2 className="text-2xl md:text-3xl font-medium tracking-tight text-black opacity-90 mb-8">Cas d'usage</h2>
+        {/* Cas d'usage */}
+        <section className="py-0 md:py-8 px-6">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl md:text-[48px] font-medium tracking-tight text-black leading-tight opacity-90 mb-16">
+              Cas d&apos;usage
+            </h2>
             <div className="space-y-4">
               {useCases.map((uc, i) => (
-                <div key={i} className="flex gap-4 items-start">
-                  <div className="w-2 h-2 rounded-full bg-[#96A982] mt-2.5 flex-shrink-0" />
+                <div
+                  key={i}
+                  className="flex items-start gap-6 bg-white rounded-2xl p-6 border border-black/[0.04] hover:border-[#96A982]/15 transition-all"
+                >
+                  <div className="w-10 h-10 shrink-0 bg-[#96A982]/10 rounded-xl flex items-center justify-center">
+                    <span className="text-[#96A982] text-sm font-bold">{String(i + 1).padStart(2, "0")}</span>
+                  </div>
                   <div>
-                    <h3 className="text-lg font-medium text-black">{uc.title}</h3>
-                    <p className="text-black/50 font-medium">{uc.description}</p>
+                    <h3 className="text-[17px] font-semibold text-black mb-1">{uc.title}</h3>
+                    <p className="text-black/40 font-medium text-[15px] leading-relaxed">
+                      {uc.description}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* Securite */}
-          <section className="mb-16 bg-[#f5f5f7] rounded-3xl p-8 md:p-12 border border-black/[0.03]">
-            <h2 className="text-2xl md:text-3xl font-medium tracking-tight text-black opacity-90 mb-6">Sécurité et contrôle</h2>
-            <p className="text-lg text-black/60 leading-relaxed mb-6">
-              Vos fichiers sont stockés sur Cloudflare R2 (API compatible S3), avec chiffrement en transit (TLS 1.3) et au repos. Chaque accès est contrôlé via des URLs présignées temporaires et des tokens hashés SHA-256. Airlock est conforme au RGPD.
-            </p>
-            <Link href="/security" className="inline-flex items-center gap-2 text-[#96A982] hover:text-[#7d9169] font-medium transition-colors">
-              En savoir plus sur notre sécurité <ArrowRight className="w-4 h-4" />
-            </Link>
-          </section>
+        {/* Sécurité */}
+        <section className="py-20 md:py-28 px-6">
+          <div className="max-w-5xl mx-auto">
+            <div className="bg-gradient-to-br from-[#0a0a0a] via-[#111] to-[#0d1a0a] rounded-3xl p-10 md:p-16 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[#96A982]/10 rounded-full blur-3xl" />
+              <div className="relative z-10">
+                <h2 className="text-3xl md:text-[44px] font-medium tracking-tight text-white leading-tight mb-8 opacity-90">
+                  Sécurité et conformité
+                </h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                  {[
+                    { label: "Chiffrement TLS 1.3", desc: "En transit" },
+                    { label: "Cloudflare R2", desc: "Au repos" },
+                    { label: "SHA-256 Tokens", desc: "Accès sécurisé" },
+                    { label: "Conforme RGPD", desc: "Europe" },
+                  ].map((badge, i) => (
+                    <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
+                      <p className="text-white text-[14px] font-semibold mb-1">{badge.label}</p>
+                      <p className="text-white/30 text-[12px] font-medium">{badge.desc}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-lg text-white/40 font-medium leading-relaxed mb-6 max-w-2xl">
+                  Vos fichiers sont stockés avec chiffrement en transit et au repos. Airlock n&apos;analyse et n&apos;exploite jamais le contenu de vos documents.
+                </p>
+                <Link
+                  href="/security"
+                  className="inline-flex items-center gap-2 text-[#96A982] hover:text-[#b8d4a0] font-medium transition-colors"
+                >
+                  En savoir plus <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
 
-          {/* FAQ */}
-          <section className="mb-16">
-            <h2 className="text-2xl md:text-3xl font-medium tracking-tight text-black opacity-90 mb-8">Questions fréquentes</h2>
-            <div className="space-y-4">
+        {/* FAQ */}
+        <section className="py-16 md:py-24 px-6">
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-3xl md:text-[48px] font-medium tracking-tight text-black leading-tight opacity-90 mb-12">
+              Questions fréquentes
+            </h2>
+            <div className="space-y-3">
               {faqs.map((faq, i) => (
-                <details key={i} className="group bg-white border border-black/[0.04] rounded-2xl p-6 hover:border-black/[0.08] transition-all">
+                <details
+                  key={i}
+                  className="group bg-white border border-black/[0.04] rounded-2xl p-6 hover:border-black/[0.08] transition-all"
+                >
                   <summary className="flex items-center justify-between cursor-pointer list-none">
-                    <h3 className="text-lg font-medium text-black pr-8 group-open:text-[#96A982] transition-colors">{faq.question}</h3>
+                    <h3 className="text-[17px] font-medium text-black pr-8 group-open:text-[#96A982] transition-colors">
+                      {faq.question}
+                    </h3>
                     <ChevronDown className="w-5 h-5 text-black/30 group-open:rotate-180 transition-transform flex-shrink-0" />
                   </summary>
-                  <p className="mt-4 text-black/50 font-medium leading-relaxed">{faq.answer}</p>
+                  <p className="mt-4 text-black/50 font-medium leading-relaxed">
+                    {faq.answer}
+                  </p>
                 </details>
               ))}
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* CTA */}
-          <section className="mb-16 text-center bg-black rounded-3xl p-12 md:p-16">
-            <h2 className="text-3xl md:text-4xl font-medium tracking-tight text-white mb-4">Démarrez gratuitement</h2>
-            <p className="text-white/60 text-lg font-medium mb-8 max-w-lg mx-auto">5 Go de stockage offerts. Aucune carte bancaire requise.</p>
-            <Link href="/register" className="inline-flex items-center gap-2 bg-white text-black px-8 py-4 rounded-full font-semibold hover:bg-white/90 transition-colors">
-              Créer un compte gratuit <ArrowRight className="w-4 h-4" />
-            </Link>
-          </section>
+        {/* CTA */}
+        <section className="py-16 md:py-24 px-6">
+          <div className="max-w-5xl mx-auto">
+            <div className="bg-black rounded-3xl p-12 md:p-20 text-center relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-black via-black to-[#0d1a0a]" />
+              <div className="relative z-10 space-y-8">
+                <h2 className="text-3xl md:text-[48px] font-medium tracking-tight text-white leading-tight opacity-90">
+                  Démarrez gratuitement
+                </h2>
+                <p className="text-lg text-white/40 font-medium max-w-lg mx-auto">
+                  5 Go offerts. Aucune carte bancaire requise. Conforme RGPD.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <Link
+                    href="/register"
+                    className="inline-flex items-center justify-center gap-2 bg-[#96A982] text-white px-8 py-4 rounded-full font-medium text-[16px] hover:bg-[#86997a] transition-all"
+                  >
+                    Créer un compte gratuit <ArrowRight className="w-4 h-4" />
+                  </Link>
+                  <Link
+                    href="/pricing"
+                    className="inline-flex items-center justify-center gap-2 bg-white/10 text-white px-8 py-4 rounded-full font-medium text-[16px] hover:bg-white/20 transition-all border border-white/10"
+                  >
+                    Voir les tarifs
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-          {/* Lire aussi */}
-          <section>
-            <h2 className="text-xl font-medium tracking-tight text-black opacity-90 mb-6">Lire aussi</h2>
+        {/* Lire aussi */}
+        <section className="py-16 md:py-24 px-6">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-xl font-medium tracking-tight text-black opacity-90 mb-6">
+              Lire aussi
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {relatedPages.map((page, i) => (
-                <Link key={i} href={page.href} className="group bg-[#f5f5f7] rounded-2xl p-6 border border-black/[0.03] hover:border-black/[0.08] transition-all">
-                  <span className="text-base font-medium text-black group-hover:text-[#96A982] transition-colors">{page.label}</span>
+                <Link
+                  key={i}
+                  href={page.href}
+                  className="group bg-[#f5f5f7] rounded-2xl p-6 border border-black/[0.03] hover:border-[#96A982]/15 transition-all"
+                >
+                  <span className="text-base font-medium text-black group-hover:text-[#96A982] transition-colors">
+                    {page.label}
+                  </span>
                   <ArrowRight className="w-4 h-4 text-black/30 mt-3 group-hover:translate-x-1 transition-transform" />
                 </Link>
               ))}
             </div>
-          </section>
-        </div>
+            <Link
+              href="/cas-usage"
+              className="inline-flex items-center gap-2 text-[#96A982] hover:text-[#7d9169] font-medium mt-8 transition-colors"
+            >
+              Explorer tous les cas d&apos;usage <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </section>
       </main>
 
-      {/* Footer */}
-      <footer className="px-6 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-[#f5f5f7] rounded-t-[48px] p-12 md:p-24 border-x border-t border-black/[0.03] space-y-24">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-16 md:gap-8">
-              <div className="md:col-span-7 space-y-10 text-left">
-                <div className="flex items-center gap-4"><Logo className="w-12 h-12" /><span className="text-3xl font-semibold tracking-tighter">Airlock</span></div>
-                <div className="space-y-6 max-w-md">
-                  <p className="text-2xl font-medium text-black/80 leading-tight">La nouvelle norme du partage de fichiers sécurisé et souverain.</p>
-                  <p className="text-lg text-black/40 font-medium">Développé pour les équipes qui exigent un contrôle total sur leurs données.</p>
-                </div>
-              </div>
-              <div className="md:col-span-5 grid grid-cols-3 gap-10 md:justify-items-end text-left">
-                <div className="space-y-8">
-                  <h4 className="text-sm font-bold text-black uppercase tracking-[0.2em]">Produit</h4>
-                  <ul className="space-y-5 text-[17px] text-black/40 font-medium">
-                    <li><Link href="/#workspace" className="hover:text-black transition-colors">Workspace</Link></li>
-                    <li><Link href="/#rules" className="hover:text-black transition-colors">Partages</Link></li>
-                    <li><Link href="/security" className="hover:text-black transition-colors">Sécurité</Link></li>
-                    <li><Link href="/faq" className="hover:text-black transition-colors">FAQ</Link></li>
-                  </ul>
-                </div>
-                <div className="space-y-8">
-                  <h4 className="text-sm font-bold text-black uppercase tracking-[0.2em]">Solutions</h4>
-                  <ul className="space-y-5 text-[17px] text-black/40 font-medium">
-                    <li><Link href="/data-room-virtuelle" className="hover:text-black transition-colors">Data Room</Link></li>
-                    <li><Link href="/partage-dossier-securise" className="hover:text-black transition-colors">Partage Sécurisé</Link></li>
-                    <li><Link href="/pour-avocats" className="hover:text-black transition-colors">Pour Avocats</Link></li>
-                    <li><Link href="/alternative-google-drive-pro" className="hover:text-black transition-colors">Alternative Drive</Link></li>
-                  </ul>
-                </div>
-                <div className="space-y-8">
-                  <h4 className="text-sm font-bold text-black uppercase tracking-[0.2em]">Légal</h4>
-                  <ul className="space-y-5 text-[17px] text-black/40 font-medium">
-                    <li><Link href="/confidentialite" className="hover:text-black transition-colors">Confidentialité</Link></li>
-                    <li><Link href="/mentions" className="hover:text-black transition-colors">Mentions</Link></li>
-                    <li><Link href="/pricing" className="hover:text-black transition-colors">Facturation</Link></li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-            <div className="pt-12 border-t border-black/5 flex flex-col md:flex-row justify-between items-center gap-10">
-              <div className="flex items-center gap-3 text-black/40 font-medium bg-white/50 px-4 py-2 rounded-full border border-black/[0.03]"><Compass className="w-4 h-4 text-[#96A982]" /><span>Français</span><ChevronDown className="w-3 h-3 opacity-50" /></div>
-              <div className="flex items-center gap-8 text-black/40">
-                <a href="https://linkedin.com/company/airlck" target="_blank" rel="noopener noreferrer" className="hover:text-black transition-colors font-semibold">LinkedIn</a>
-                <a href="https://twitter.com/airlck" target="_blank" rel="noopener noreferrer" className="hover:text-black transition-colors font-semibold">X (Twitter)</a>
-              </div>
-              <p className="text-black/20 text-[11px] font-bold uppercase tracking-[0.4em]">&copy; 2025 AIRLOCK TECHNOLOGIES</p>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
