@@ -39,8 +39,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   // Création automatique si nécessaire
   if (workspaceSnapshot.empty) {
-    const admin = await import("firebase-admin");
-    const newWSRef = await db.collection("workspaces").add({
+    await db.collection("workspaces").add({
       name: "Mon Espace",
       memberIds: [userId],
       totalStorageUsed: 0,
