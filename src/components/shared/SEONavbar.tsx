@@ -22,7 +22,7 @@ export function SEONavbar() {
     <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-full px-4 flex justify-center">
       <nav
         onMouseLeave={() => setIsFeaturesHovered(false)}
-        className="bg-black text-white px-6 py-3 shadow-2xl border border-white/10 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] rounded-[32px] scale-90 md:scale-100 overflow-hidden w-full max-w-[620px]"
+        className="bg-black text-white px-6 py-3 shadow-2xl border border-white/10 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] rounded-[32px] scale-90 md:scale-100 overflow-hidden w-full max-w-[750px]"
       >
         <div className="flex items-center justify-between h-10 w-full">
           <Link href="/" className="flex items-center shrink-0">

@@ -140,7 +140,7 @@ export default function AlternativeGoogleDrivePage() {
       <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-full px-4 flex justify-center">
         <nav
           onMouseLeave={() => setIsFeaturesHovered(false)}
-          className="bg-black text-white px-6 py-3 shadow-2xl border border-white/10 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] rounded-[32px] scale-90 md:scale-100 overflow-hidden w-full max-w-[620px]"
+          className="bg-black text-white px-6 py-3 shadow-2xl border border-white/10 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] rounded-[32px] scale-90 md:scale-100 overflow-hidden w-full max-w-[750px]"
         >
           <div className="flex items-center justify-between h-10 w-full">
             <Link href="/" className="flex items-center shrink-0">
@@ -156,6 +156,7 @@ export default function AlternativeGoogleDrivePage() {
                   className={`w-3 h-3 opacity-50 transition-transform duration-500 ${isFeaturesHovered ? "rotate-180" : ""}`}
                 />
               </button>
+              <Link href="/cas-usage" className="text-white/70 hover:text-white transition-colors">Cas d&apos;usage</Link>
               <Link href="/pricing" className="text-white/70 hover:text-white transition-colors">Facturation</Link>
               <Link href="/security" className="text-white/70 hover:text-white transition-colors">Sécurité</Link>
             </div>
@@ -190,6 +191,7 @@ export default function AlternativeGoogleDrivePage() {
                   <Link href="/#workspace" onClick={() => setIsMobileMenuOpen(false)} className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2">Workspace</Link>
                   <Link href="/#rules" onClick={() => setIsMobileMenuOpen(false)} className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2">Règles</Link>
                   <Link href="/#analytics" onClick={() => setIsMobileMenuOpen(false)} className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2">Analytics</Link>
+                  <Link href="/cas-usage" onClick={() => setIsMobileMenuOpen(false)} className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2">Cas d&apos;usage</Link>
                   <Link href="/pricing" onClick={() => setIsMobileMenuOpen(false)} className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2">Facturation</Link>
                   <Link href="/security" onClick={() => setIsMobileMenuOpen(false)} className="text-white/70 hover:text-white transition-colors text-[13px] font-medium py-2 px-2">Sécurité</Link>
                   <div className="pt-2 mt-2 border-t border-white/5 flex flex-col gap-2">
