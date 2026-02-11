@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { 
-  FileText, 
-  FolderOpen, 
-  Plus, 
-  Search, 
-  ArrowUpRight, 
-  ChevronLeft, 
-  Download, 
+import {
+  FileText,
+  FolderOpen,
+  Plus,
+  Search,
+  ArrowUpRight,
+  ChevronLeft,
+  Download,
   Trash2,
   Upload,
   Loader2,
@@ -22,11 +22,9 @@ import {
   AlertTriangle
 } from "lucide-react";
 import Link from "next/link";
-import { 
-  getPresignedUploadUrlAction, 
-  confirmFileUploadAction, 
-  getFileDownloadUrlAction, 
-  deleteFileAction 
+import {
+  getFileDownloadUrlAction,
+  deleteFileAction
 } from "@/lib/actions/files";
 import { createFolderAction, deleteFolderAction } from "@/lib/actions/folders";
 import { ShareModal } from "@/components/dashboard/ShareModal";
@@ -35,6 +33,7 @@ import { ErrorModal } from "@/components/shared/ErrorModal";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
+import { useUploadContext } from "@/components/dashboard/UploadProvider";
 
 const MAX_FILES_PER_UPLOAD = 500; // Limite de fichiers par upload
 
@@ -42,10 +41,9 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
   const canEdit = userRole === "OWNER" || userRole === "EDITOR";
   const canShare = userRole === "OWNER" || userRole === "EDITOR";
   const router = useRouter();
+  const { uploadFiles: contextUploadFiles, addFiles: contextAddFiles, isUploading } = useUploadContext();
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [showCreateInput, setShowCreateInput] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
@@ -115,7 +113,6 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
       message: "Les éléments sélectionnés seront définitivement supprimés.",
       isDestructive: true,
       onConfirm: async () => {
-        setIsUploading(true);
         try {
           await Promise.all(selectedIds.map(async (id) => {
             const isFile = folder.files.some((f: any) => f.id === id);
@@ -135,7 +132,6 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
             message: err instanceof Error ? err.message : "Impossible de supprimer les éléments"
           });
         } finally {
-          setIsUploading(false);
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
         }
       }
@@ -191,96 +187,16 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
     );
   }
 
-  const uploadFiles = async (files: File[], targetFolderId: string = folder.id, onProgress?: (current: number, total: number) => void) => {
+  const uploadFiles = async (files: File[], targetFolderId: string = folder.id) => {
     if (files.length === 0) return;
 
-    // Vérifier la limite de fichiers
     if (files.length > MAX_FILES_PER_UPLOAD) {
       setLimitModal({ isOpen: true, selectedCount: files.length });
       return;
     }
 
-    // Si onProgress est fourni, on ne gère pas l'état local (utilisé pour les dossiers)
-    // Sinon, on gère l'état local (upload direct de fichiers)
-    const isLocalUpload = !onProgress;
-    
-    if (isLocalUpload) {
-    setIsUploading(true);
-      setUploadProgress({ current: 0, total: files.length });
-    }
-    
-    const uploadedCountRef = { current: 0 };
-    
     try {
-      // Concurrence maximale pour optimiser la vitesse
-      const CONCURRENCY = 50;
-
-      // Préparer tous les presigned URLs en parallèle avec gestion d'erreur
-      const uploadTasks = files.map(async (file) => {
-        try {
-          const { uploadUrl, s3Key } = await getPresignedUploadUrlAction({
-            name: file.name,
-            size: file.size,
-            mimeType: file.type,
-            folderId: targetFolderId,
-          });
-          return { file, uploadUrl, s3Key, success: true };
-        } catch (error) {
-          console.error(`Erreur presigned URL pour ${file.name}:`, error);
-          return { file, uploadUrl: null, s3Key: null, success: false, error };
-        }
-      });
-
-      const preparedTasks = await Promise.all(uploadTasks);
-      const validTasks = preparedTasks.filter(task => task.success);
-
-      // Uploader les fichiers en parallèle avec concurrence maximale
-      for (let i = 0; i < validTasks.length; i += CONCURRENCY) {
-        const batch = validTasks.slice(i, i + CONCURRENCY);
-        await Promise.allSettled(batch.map(async ({ file, uploadUrl, s3Key }) => {
-          if (!uploadUrl || !s3Key) return;
-
-          try {
-            // Upload vers S3 (bloquant pour la progression)
-            await fetch(uploadUrl, {
-              method: "PUT",
-              body: file,
-              headers: { "Content-Type": file.type || "application/octet-stream" },
-            });
-
-            // Mettre à jour la progression immédiatement après l'upload S3
-            uploadedCountRef.current++;
-            const current = uploadedCountRef.current;
-
-            if (isLocalUpload) {
-              setUploadProgress({ current, total: files.length });
-            }
-            if (onProgress) {
-              onProgress(current, files.length);
-            }
-
-            // Confirmer l'upload en arrière-plan (non-bloquant)
-            confirmFileUploadAction({
-              name: file.name,
-              size: file.size,
-              mimeType: file.type,
-              s3Key: s3Key,
-              folderId: targetFolderId,
-            }).catch(err => console.error("Erreur confirmation:", err));
-          } catch (error) {
-            console.error(`Erreur upload pour ${file.name}:`, error);
-            uploadedCountRef.current++;
-            const current = uploadedCountRef.current;
-            if (isLocalUpload) {
-              setUploadProgress({ current, total: files.length });
-            }
-            if (onProgress) {
-              onProgress(current, files.length);
-            }
-          }
-        }));
-      }
-
+      await contextUploadFiles(files, targetFolderId);
       router.refresh();
     } catch (error) {
       setErrorModal({
@@ -289,11 +205,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
         message: "Erreur lors de l'upload des fichiers"
       });
     } finally {
-      if (isLocalUpload) {
-        setIsUploading(false);
-        setUploadProgress({ current: 0, total: 0 });
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -361,35 +273,22 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
   const createFolderAndUploadContent = async (
     folderName: string,
     parentFolderId: string,
-    directoryEntry: FileSystemDirectoryEntry,
-    onFileUploaded: () => void
+    directoryEntry: FileSystemDirectoryEntry
   ): Promise<void> => {
     try {
-      // Créer le dossier
       const newFolderId = await createFolderAction(folderName, parentFolderId);
-      
-      // Lire le contenu du dossier
       const { files, subFolders } = await readDirectoryEntries(directoryEntry);
-      
-      // Uploader les fichiers et créer les sous-dossiers en parallèle pour optimiser
-      const uploadPromise = files.length > 0 ? (async () => {
-        let lastProgress = 0;
-        await uploadFiles(files, newFolderId, (current, total) => {
-          // Pour chaque nouveau fichier uploadé depuis le dernier appel, appeler onFileUploaded
-          const newFilesCount = current - lastProgress;
-          for (let i = 0; i < newFilesCount; i++) {
-            onFileUploaded();
-          }
-          lastProgress = current;
-        });
-      })() : Promise.resolve();
-      
-      // Créer récursivement les sous-dossiers en parallèle (optimisation maximale)
+
+      // Upload files via context (adds to global modal)
+      const uploadPromise = files.length > 0
+        ? contextAddFiles(files, newFolderId)
+        : Promise.resolve();
+
+      // Créer récursivement les sous-dossiers en parallèle
       const subFolderPromises = subFolders.map(subFolder =>
-        createFolderAndUploadContent(subFolder.name, newFolderId, subFolder.entry, onFileUploaded)
+        createFolderAndUploadContent(subFolder.name, newFolderId, subFolder.entry)
       );
-      
-      // Attendre que les fichiers ET les sous-dossiers soient traités en parallèle
+
       await Promise.all([uploadPromise, ...subFolderPromises]);
     } catch (error: any) {
       console.error(`Erreur lors de la création du dossier "${folderName}":`, error);
@@ -493,16 +392,6 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
         return;
       }
 
-      // Initialiser l'upload
-      setIsUploading(true);
-      setUploadProgress({ current: 0, total: totalFilesToUpload || 1 });
-
-      let uploadedFilesCounter = 0;
-      const onFileUploaded = () => {
-        uploadedFilesCounter++;
-        setUploadProgress({ current: uploadedFilesCounter, total: totalFilesToUpload || uploadedFilesCounter });
-      };
-
       // Lire tous les fichiers depuis les entries capturés
       for (const fileEntry of fileEntries) {
         try {
@@ -518,7 +407,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
       // Créer les dossiers et uploader leur contenu
       for (const dirEntry of directoryEntries) {
         folderPromises.push(
-          createFolderAndUploadContent(dirEntry.name, folder.id, dirEntry, onFileUploaded).catch((error) => {
+          createFolderAndUploadContent(dirEntry.name, folder.id, dirEntry).catch((error) => {
             console.error(`Erreur lors de la création du dossier "${dirEntry.name}":`, error);
             setErrorModal({
               isOpen: true,
@@ -531,15 +420,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
 
       // Uploader les fichiers directement dans le dossier actuel
       if (files.length > 0) {
-        let lastCount = 0;
-        await uploadFiles(files, folder.id, (current, total) => {
-          // Pour chaque nouveau fichier uploadé, appeler onFileUploaded
-          const newFiles = current - lastCount;
-          for (let i = 0; i < newFiles; i++) {
-            onFileUploaded();
-          }
-          lastCount = current;
-        });
+        await uploadFiles(files, folder.id);
       }
 
       // Attendre que tous les dossiers soient créés
@@ -555,9 +436,6 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
         title: "Erreur",
         message: error.message || "Erreur lors du dépôt des fichiers"
       });
-    } finally {
-      setIsUploading(false);
-      setUploadProgress({ current: 0, total: 0 });
     }
   };
 
@@ -722,24 +600,6 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
                   {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                   {isUploading ? "Envoi..." : "Ajouter"}
                 </button>
-                {isUploading && uploadProgress.total > 0 && (
-                  <div className="w-full sm:w-auto min-w-[200px] bg-black/5 rounded-xl p-2.5">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-medium text-black/60">
-                        {uploadProgress.current} / {uploadProgress.total} fichiers
-                      </span>
-                      <span className="text-xs font-medium text-black/60">
-                        {Math.round((uploadProgress.current / uploadProgress.total) * 100)}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-black/10 rounded-full h-2 overflow-hidden">
-                      <div 
-                        className="h-full bg-brand-primary transition-all duration-300 ease-out rounded-full"
-                        style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
               </>
             )}
           </div>

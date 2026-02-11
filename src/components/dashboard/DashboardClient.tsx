@@ -9,11 +9,10 @@ import {
   ArrowUpRight, 
   Trash2, 
   Edit2, 
-  Loader2, 
+ 
   Star,
   RefreshCw,
   Folder,
-  Upload,
   FolderPlus,
   Move,
   X,
@@ -27,7 +26,6 @@ import {
 import { ShareModal } from "@/components/dashboard/ShareModal";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { ErrorModal } from "@/components/shared/ErrorModal";
-import { UploadModal } from "@/components/dashboard/UploadModal";
 import {
   createFolderAction,
   deleteFolderAction,
@@ -37,7 +35,7 @@ import {
   renameFolderAction,
   updateFoldersOrderAction
 } from "@/lib/actions/folders";
-import { getPresignedUploadUrlAction, confirmFileUploadAction } from "@/lib/actions/files";
+import { useUploadContext } from "@/components/dashboard/UploadProvider";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -482,16 +480,8 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
     currentY: number;
     isAdditive: boolean;
   } | null>(null);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [uploadFiles, setUploadFiles] = useState<Array<{
-    name: string;
-    size: number;
-    progress: number;
-    status: "pending" | "uploading" | "success" | "error";
-    error?: string;
-  }>>([]);
+  const { uploadFiles: contextUploadFiles, addFiles: contextAddFiles } = useUploadContext();
   const [isDraggingOver, setIsDraggingOver] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, isUploading: false });
   const [limitModal, setLimitModal] = useState<{
     isOpen: boolean;
     selectedCount: number;
@@ -511,6 +501,11 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
     title: "",
     message: ""
   });
+  const [dropToast, setDropToast] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+  }>({ isOpen: false, title: "", message: "" });
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -719,6 +714,13 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
     }
   }, [initialFolders]);
 
+  // Auto-dismiss drop toast after 5s
+  useEffect(() => {
+    if (!dropToast.isOpen) return;
+    const t = setTimeout(() => setDropToast(p => ({ ...p, isOpen: false })), 5000);
+    return () => clearTimeout(t);
+  }, [dropToast.isOpen]);
+
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
     setIsCreating(true);
@@ -876,62 +878,6 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
     });
   };
 
-  // Fonction pour uploader des fichiers dans un dossier
-  const uploadFilesToFolder = async (files: File[], targetFolderId: string, onProgress?: (current: number, total: number) => void) => {
-    if (files.length === 0) return;
-
-    try {
-      // Concurrence maximale pour optimiser la vitesse
-      const CONCURRENCY = 50;
-      const uploadedCountRef = { current: 0 };
-      
-      // Préparer tous les presigned URLs en parallèle
-      const uploadTasks = files.map(async (file) => {
-        const { uploadUrl, s3Key } = await getPresignedUploadUrlAction({
-          name: file.name,
-          size: file.size,
-          mimeType: file.type,
-          folderId: targetFolderId,
-        });
-        return { file, uploadUrl, s3Key };
-      });
-
-      const preparedTasks = await Promise.all(uploadTasks);
-      
-      // Uploader les fichiers en parallèle avec concurrence maximale
-      for (let i = 0; i < preparedTasks.length; i += CONCURRENCY) {
-        const batch = preparedTasks.slice(i, i + CONCURRENCY);
-        await Promise.all(batch.map(async ({ file, uploadUrl, s3Key }) => {
-          // Upload vers S3 (bloquant pour la progression)
-          await fetch(uploadUrl, {
-            method: "PUT",
-            body: file,
-            headers: { "Content-Type": file.type || "application/octet-stream" },
-          });
-
-          // Mettre à jour la progression immédiatement après l'upload S3
-          uploadedCountRef.current++;
-          const current = uploadedCountRef.current;
-          if (onProgress) {
-            onProgress(current, files.length);
-          }
-
-          // Confirmer l'upload en arrière-plan (non-bloquant)
-          confirmFileUploadAction({
-            name: file.name,
-            size: file.size,
-            mimeType: file.type,
-            s3Key: s3Key,
-            folderId: targetFolderId,
-          }).catch(err => console.error("Erreur confirmation:", err));
-        }));
-      }
-    } catch (error) {
-      console.error("Erreur lors de l'upload des fichiers:", error);
-      throw error;
-    }
-  };
-
   // Fonction récursive pour compter tous les fichiers dans un dossier
   const countAllFilesInDirectory = async (
     directoryEntry: FileSystemDirectoryEntry
@@ -947,38 +893,23 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
     return totalCount;
   };
 
-  // Fonction récursive pour créer un dossier et uploader son contenu (fichiers et sous-dossiers)
+  // Fonction récursive pour créer un dossier et uploader son contenu
   const createFolderAndUploadContent = async (
     folderName: string,
     parentFolderId: string | null,
-    directoryEntry: FileSystemDirectoryEntry,
-    onFileUploaded: () => void
+    directoryEntry: FileSystemDirectoryEntry
   ): Promise<void> => {
-    // Créer le dossier
     const newFolderId = await createFolderAction(folderName, parentFolderId);
-    
-    // Lire le contenu du dossier
     const { files, subFolders } = await readDirectoryEntries(directoryEntry);
-    
-    // Uploader les fichiers et créer les sous-dossiers en parallèle pour optimiser
-    const uploadPromise = files.length > 0 ? (async () => {
-      let lastProgress = 0;
-      await uploadFilesToFolder(files, newFolderId, (current, total) => {
-        // Pour chaque nouveau fichier uploadé depuis le dernier appel, appeler onFileUploaded
-        const newFilesCount = current - lastProgress;
-        for (let i = 0; i < newFilesCount; i++) {
-          onFileUploaded();
-        }
-        lastProgress = current;
-      });
-    })() : Promise.resolve();
-    
-    // Créer récursivement les sous-dossiers en parallèle (optimisation maximale)
+
+    const uploadPromise = files.length > 0
+      ? contextAddFiles(files, newFolderId)
+      : Promise.resolve();
+
     const subFolderPromises = subFolders.map(subFolder =>
-      createFolderAndUploadContent(subFolder.name, newFolderId, subFolder.entry, onFileUploaded)
+      createFolderAndUploadContent(subFolder.name, newFolderId, subFolder.entry)
     );
-    
-    // Attendre que les fichiers ET les sous-dossiers soient traités en parallèle
+
     await Promise.all([uploadPromise, ...subFolderPromises]);
   };
 
@@ -1011,6 +942,7 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
     // IMPORTANT: Capturer TOUS les entries de manière SYNCHRONE avant toute opération async
     // Les DataTransferItem deviennent invalides après le premier await
     const folderEntries: { name: string; entry: FileSystemDirectoryEntry }[] = [];
+    let hasFileEntries = false;
 
     for (const item of items) {
       if (item.kind === "file") {
@@ -1018,10 +950,29 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
         if (entry) {
           if (entry.isDirectory) {
             folderEntries.push({ name: entry.name, entry: entry as FileSystemDirectoryEntry });
+          } else {
+            hasFileEntries = true;
           }
-          // Ignorer les fichiers - on ne peut que créer des dossiers dans la vue générale
         }
       }
+    }
+
+    // Afficher une erreur si des fichiers sont déposés au niveau workspace
+    if (hasFileEntries && folderEntries.length === 0) {
+      setDropToast({
+        isOpen: true,
+        title: "Action impossible",
+        message: "Impossible d'ajouter des fichiers dans le workspace. Déposez-les dans un dossier."
+      });
+      return;
+    }
+
+    if (hasFileEntries && folderEntries.length > 0) {
+      setDropToast({
+        isOpen: true,
+        title: "Fichiers ignorés",
+        message: "Les fichiers hors dossier ont été ignorés. Seuls les dossiers sont traités."
+      });
     }
 
     let totalFilesToUpload = 0;
@@ -1043,34 +994,12 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
         return;
       }
 
-      // Initialiser l'upload
-      if (folderEntries.length > 0) {
-        // Si totalFilesToUpload est 0, on va le mettre à jour dynamiquement
-        setUploadProgress({ current: 0, total: totalFilesToUpload || 1, isUploading: true });
-      }
-
-      let uploadedFilesCounter = 0;
-      let dynamicTotal = totalFilesToUpload || 1;
-      
-      const onFileUploaded = () => {
-        uploadedFilesCounter++;
-        // Mettre à jour le total si nécessaire
-        if (uploadedFilesCounter > dynamicTotal) {
-          dynamicTotal = uploadedFilesCounter;
-        }
-        setUploadProgress({ 
-          current: uploadedFilesCounter, 
-          total: dynamicTotal,
-          isUploading: true 
-        });
-      };
-
       const folderPromises: Promise<void>[] = [];
 
       // Créer les dossiers et uploader leur contenu
       for (const { name, entry } of folderEntries) {
         folderPromises.push(
-          createFolderAndUploadContent(name, null, entry, onFileUploaded).catch((error) => {
+          createFolderAndUploadContent(name, null, entry).catch((error) => {
             console.error(`Erreur lors de la création du dossier "${name}":`, error);
             setErrorModal({
               isOpen: true,
@@ -1093,8 +1022,6 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
         title: "Erreur",
         message: error.message || "Erreur lors du dépôt des dossiers"
       });
-    } finally {
-      setUploadProgress({ current: 0, total: 0, isUploading: false });
     }
   };
 
@@ -1202,28 +1129,6 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
             <p className="text-lg font-semibold text-black text-center">Déposez vos dossiers ici</p>
             <p className="text-sm text-black/40 text-center mt-2">Seuls les dossiers seront créés</p>
           </div>
-        </div>
-      )}
-      {uploadProgress.isUploading && uploadProgress.total > 0 && (
-        <div className="fixed bottom-6 right-6 bg-white rounded-2xl p-4 sm:p-6 shadow-2xl border border-black/10 z-50 min-w-[280px] sm:min-w-[320px]">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Loader2 className="w-4 h-4 text-brand-primary animate-spin" />
-              <span className="text-sm font-semibold text-black">Upload en cours</span>
-            </div>
-            <span className="text-sm font-semibold text-black/60">
-              {Math.round((uploadProgress.current / uploadProgress.total) * 100)}%
-            </span>
-          </div>
-          <div className="w-full bg-black/10 rounded-full h-2 overflow-hidden mb-2">
-            <div 
-              className="h-full bg-brand-primary transition-all duration-300 ease-out rounded-full"
-              style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
-            />
-          </div>
-          <p className="text-xs text-black/40 text-center">
-            {uploadProgress.current} / {uploadProgress.total} fichiers
-          </p>
         </div>
       )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8 lg:mb-12">
@@ -1376,15 +1281,6 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
         folderName={selectedFolder?.name || ""} 
       />
 
-      <UploadModal
-        isOpen={isUploadModalOpen}
-        onClose={() => {
-          setIsUploadModalOpen(false);
-          setUploadFiles([]);
-        }}
-        files={uploadFiles}
-      />
-
       <AnimatePresence>
         {selectionBox && (
           <motion.div
@@ -1419,6 +1315,37 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
       />
 
       {/* Modal pour la limite de fichiers */}
+      {/* Toast bottom-right pour erreurs de drop */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {dropToast.isOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              className="fixed bottom-5 right-5 z-[10000] w-[360px] bg-white rounded-2xl shadow-2xl border border-black/[0.06] overflow-hidden"
+            >
+              <div className="px-4 py-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-red-50 text-red-500">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium text-black">{dropToast.title}</p>
+                  <p className="text-[11px] text-black/40 mt-0.5">{dropToast.message}</p>
+                </div>
+                <button
+                  onClick={() => setDropToast(p => ({ ...p, isOpen: false }))}
+                  className="w-7 h-7 flex items-center justify-center hover:bg-black/5 rounded-lg transition-colors text-black/30 shrink-0"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
       {limitModal.isOpen && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/20" onClick={() => setLimitModal({ isOpen: false, selectedCount: 0 })}>
           <motion.div
