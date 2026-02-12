@@ -54,7 +54,15 @@ export async function createShareLinkAction(data: {
     userId: userId,
     allowDownload: data.allowDownload ?? true, // Utilisé pour downloadDefault
   });
-  
+
+  // Compteur global de liens créés (métrique admin, ne décrémente jamais)
+  try {
+    await db.doc("_admin/stats").set(
+      { totalLinksCreated: admin.firestore.FieldValue.increment(1) },
+      { merge: true }
+    );
+  } catch {}
+
   revalidatePath(`/dashboard`);
   revalidatePath(`/dashboard/sharing`);
   return result;

@@ -83,7 +83,7 @@ export default function PourAvocatsPage() {
     {
       icon: <Globe className="w-7 h-7" />,
       title: "Conformité RGPD",
-      description: "Stockage souverain sur Cloudflare R2, chiffrement en transit et au repos.",
+      description: "Stockage sécurisé sur Cloudflare R2, chiffrement en transit et au repos.",
     },
     {
       icon: <UserCheck className="w-7 h-7" />,

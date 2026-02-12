@@ -29,7 +29,7 @@ const breadcrumbData = breadcrumbSchema([
 const faqs = [
   {
     question: "Quelle est la différence avec Google Drive / Dropbox ?",
-    answer: "Airlock est pensé pour le partage sensible : liens expirables, lecture seule, mot de passe, quota de vues, révocation immédiate, et suivi des accès — sans complexité. Contrairement à Google Drive ou Dropbox, Airlock offre un contrôle total sur vos fichiers avec un chiffrement en transit et au repos, et un stockage souverain sur Cloudflare R2.",
+    answer: "Airlock est pensé pour le partage sensible : liens expirables, lecture seule, mot de passe, quota de vues, révocation immédiate, et suivi des accès — sans complexité. Contrairement à Google Drive ou Dropbox, Airlock offre un contrôle granulaire sur vos fichiers avec un chiffrement en transit (TLS 1.3) et au repos, et un stockage sur Cloudflare R2.",
     link: { href: "/alternative-google-drive-pro", label: "Découvrir l'alternative à Google Drive" },
   },
   {
@@ -50,11 +50,11 @@ const faqs = [
   },
   {
     question: "Est-ce que les fichiers passent par vos serveurs pendant l'upload ?",
-    answer: "Non : l'upload se fait directement depuis le navigateur vers le stockage via des URLs signées, pour la performance et la sécurité. Vos fichiers ne transitent jamais par nos serveurs, garantissant une sécurité maximale.",
+    answer: "L'upload se fait directement depuis le navigateur vers le stockage via des URLs signées. En revanche, la prévisualisation en ligne, le watermarking et la conversion de documents sont traités côté serveur pour appliquer les protections.",
   },
   {
     question: "Comment fonctionne le chiffrement des fichiers sur Airlock ?",
-    answer: "Airlock utilise un chiffrement de bout en bout avec des URLs présignées éphémères. Vos fichiers sont stockés de manière sécurisée dans Cloudflare R2 (via l'API compatible S3), avec un accès contrôlé via des tokens temporaires.",
+    answer: "Airlock chiffre vos fichiers en transit (TLS 1.3) et au repos sur Cloudflare R2. L'accès se fait via des URLs présignées éphémères et des tokens temporaires hashés SHA-256. Ce n'est pas du chiffrement de bout en bout au sens cryptographique : Airlock et Cloudflare peuvent techniquement accéder aux fichiers. Pour une confidentialité maximale, chiffrez vos fichiers avant upload (7-Zip, Veracrypt).",
   },
   {
     question: "Qu'est-ce qu'une data room et comment Airlock s'en rapproche ?",
@@ -63,7 +63,7 @@ const faqs = [
   },
   {
     question: "Airlock est-il conforme au RGPD ?",
-    answer: "Oui, Airlock est entièrement conforme au RGPD. Vos données restent dans vos propres buckets de stockage, vous gardez le contrôle total, et nous respectons tous les principes de protection des données personnelles européens.",
+    answer: "Airlock respecte les principes du RGPD : minimisation des données, droit à la suppression, contrôle d'accès granulaire et traçabilité. Vos fichiers sont stockés sur Cloudflare R2 et les métadonnées sur Firebase (Google). Ces prestataires sont des entreprises américaines avec des garanties contractuelles de protection des données (SCCs). Pour des exigences de conformité strictes, consultez notre page Sécurité.",
   },
   {
     question: "Combien de stockage est inclus dans le plan gratuit ?",
@@ -88,11 +88,11 @@ const faqs = [
   },
   {
     question: "Comment Airlock garantit-il la souveraineté des données ?",
-    answer: "Airlock garantit la souveraineté des données en stockant exclusivement vos fichiers dans Cloudflare R2 (via l'API compatible S3). Vous choisissez la localisation géographique et gardez le contrôle total sur vos données.",
+    answer: "Vos fichiers sont stockés sur Cloudflare R2 (API compatible S3) et les métadonnées sur Firebase (Google). Cloudflare et Google sont des entreprises américaines soumises au Cloud Act, bien que les données puissent être hébergées dans des régions européennes. Pour des exigences de souveraineté strictes (SecNumCloud, HDS), des solutions complémentaires peuvent être nécessaires.",
   },
   {
     question: "Comment fonctionne exactement la sécurité chez Airlock ?",
-    answer: "Airlock utilise une architecture de sécurité multicouche : (1) Chiffrement en transit via TLS 1.3, (2) Chiffrement au repos sur Cloudflare R2, (3) URLs présignées temporaires (expiration 5 min à 1h), (4) Tokens uniques hashés SHA-256, (5) Permissions granulaires et révocation instantanée. Vos fichiers ne passent jamais par nos serveurs lors de l'upload. Airlock n'analyse ni n'exploite le contenu de vos fichiers.",
+    answer: "Airlock utilise une architecture de sécurité multicouche : (1) Chiffrement en transit via TLS 1.3, (2) Chiffrement au repos sur Cloudflare R2, (3) URLs présignées temporaires (expiration 5 min à 1h), (4) Tokens uniques hashés SHA-256, (5) Permissions granulaires et révocation instantanée. L'upload se fait directement vers Cloudflare R2 sans passer par nos serveurs. La prévisualisation et le watermarking transitent par le serveur. Airlock n'analyse ni n'exploite le contenu de vos fichiers.",
   },
   {
     question: "Airlock est-il une solution 'zero-knowledge' ou 'end-to-end encrypted' ?",

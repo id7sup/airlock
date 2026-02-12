@@ -389,7 +389,7 @@ export default function Home() {
                 <span className="text-4xl md:text-[66px] leading-none opacity-90">Gardez le contrôle.</span>
               </h1>
               <p className="text-lg md:text-[22px] text-black/45 font-medium max-w-2xl mx-auto leading-relaxed px-4">
-                Liens expirables, lecture seule, mot de passe, quota de vues. <br className="hidden md:block" /> Une data room simple, sécurisée et souveraine.
+                Liens expirables, lecture seule, mot de passe, quota de vues. <br className="hidden md:block" /> Une data room simple et sécurisée.
               </p>
             </div>
 

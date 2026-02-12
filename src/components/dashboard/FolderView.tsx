@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   FileText,
   FolderOpen,
@@ -29,7 +29,6 @@ import {
 import { createFolderAction, deleteFolderAction } from "@/lib/actions/folders";
 import { ShareModal } from "@/components/dashboard/ShareModal";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
-import { ErrorModal } from "@/components/shared/ErrorModal";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
@@ -71,15 +70,18 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
     onConfirm: () => {},
     isDestructive: true
   });
-  const [errorModal, setErrorModal] = useState<{
+  const [toast, setToast] = useState<{
     isOpen: boolean;
     title: string;
     message: string;
-  }>({
-    isOpen: false,
-    title: "",
-    message: ""
-  });
+  }>({ isOpen: false, title: "", message: "" });
+
+  // Auto-dismiss toast after 5s
+  useEffect(() => {
+    if (!toast.isOpen) return;
+    const t = setTimeout(() => setToast(p => ({ ...p, isOpen: false })), 5000);
+    return () => clearTimeout(t);
+  }, [toast.isOpen]);
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
@@ -90,7 +92,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
       setShowCreateInput(false);
       router.refresh();
     } catch (error) {
-      setErrorModal({
+      setToast({
         isOpen: true,
         title: "Erreur",
         message: "Erreur lors de la création du sous-dossier"
@@ -126,7 +128,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
           router.refresh();
         } catch (err) {
-          setErrorModal({
+          setToast({
             isOpen: true,
             title: "Erreur",
             message: err instanceof Error ? err.message : "Impossible de supprimer les éléments"
@@ -162,7 +164,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (error: any) {
-      setErrorModal({
+      setToast({
         isOpen: true,
         title: "Erreur de téléchargement",
         message: error.message || "Erreur lors du téléchargement du ZIP"
@@ -199,7 +201,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
       await contextUploadFiles(files, targetFolderId);
       router.refresh();
     } catch (error) {
-      setErrorModal({
+      setToast({
         isOpen: true,
         title: "Erreur d'upload",
         message: "Erreur lors de l'upload des fichiers"
@@ -328,7 +330,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
     setIsDraggingOver(false);
 
     if (!canEdit) {
-      setErrorModal({
+      setToast({
         isOpen: true,
         title: "Permission refusée",
         message: "Vous n'avez pas les permissions pour ajouter des fichiers ou dossiers"
@@ -409,7 +411,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
         folderPromises.push(
           createFolderAndUploadContent(dirEntry.name, folder.id, dirEntry).catch((error) => {
             console.error(`Erreur lors de la création du dossier "${dirEntry.name}":`, error);
-            setErrorModal({
+            setToast({
               isOpen: true,
               title: "Erreur",
               message: error.message || `Erreur lors de la création du dossier "${dirEntry.name}"`
@@ -431,7 +433,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
       router.refresh();
     } catch (error: any) {
       console.error("Erreur globale dans handleDrop:", error);
-      setErrorModal({
+      setToast({
         isOpen: true,
         title: "Erreur",
         message: error.message || "Erreur lors du dépôt des fichiers"
@@ -444,7 +446,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
       const url = await getFileDownloadUrlAction(fileId);
       window.open(url, "_blank");
     } catch (error) {
-      setErrorModal({
+      setToast({
         isOpen: true,
         title: "Erreur",
         message: "Erreur lors du téléchargement"
@@ -467,7 +469,7 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
           router.refresh();
         } catch (err) {
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
-          setErrorModal({
+          setToast({
             isOpen: true,
             title: "Erreur",
             message: err instanceof Error ? err.message : "Impossible de supprimer le fichier"
@@ -951,12 +953,36 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
         isDestructive={confirmModal.isDestructive}
       />
 
-      <ErrorModal
-        isOpen={errorModal.isOpen}
-        onClose={() => setErrorModal({ isOpen: false, title: "", message: "" })}
-        title={errorModal.title}
-        message={errorModal.message}
-      />
+      {/* Toast bottom-right pour erreurs */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {toast.isOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              className="fixed bottom-5 right-5 z-[10000] w-[360px] bg-white rounded-2xl shadow-2xl border border-black/[0.06] overflow-hidden"
+            >
+              <div className="px-4 py-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-red-50 text-red-500">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium text-black">{toast.title}</p>
+                  <p className="text-[11px] text-black/40 mt-0.5">{toast.message}</p>
+                </div>
+                <button
+                  onClick={() => setToast(p => ({ ...p, isOpen: false }))}
+                  className="w-7 h-7 flex items-center justify-center hover:bg-black/5 rounded-lg transition-colors text-black/30 shrink-0"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* Modal pour la limite de fichiers */}
       {limitModal.isOpen && createPortal(

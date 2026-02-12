@@ -150,7 +150,7 @@ export default function DataRoomVirtuellePage() {
       icon: <Globe className="w-6 h-6" />,
       title: "Conforme RGPD",
       description:
-        "Stockage souverain sur Cloudflare R2, chiffrement en transit et au repos.",
+        "Stockage sécurisé sur Cloudflare R2, chiffrement en transit et au repos.",
     },
   ];
 
@@ -434,7 +434,7 @@ export default function DataRoomVirtuellePage() {
             >
               {[
                 "Chiffrement TLS 1.3",
-                "Stockage souverain",
+                "Stockage Cloudflare R2",
                 "Aucun compte requis",
               ].map((item, i) => (
                 <div

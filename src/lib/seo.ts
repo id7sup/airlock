@@ -11,7 +11,7 @@ function getSiteUrl(): string {
 
 const siteUrl = getSiteUrl();
 const siteName = "Airlock";
-const siteDescription = "Partagez vos fichiers en toute sécurité avec une expérience premium. Liens expirables, lecture seule, mot de passe, quota de vues. Une data room simple, sécurisée et souveraine.";
+const siteDescription = "Partagez vos fichiers en toute sécurité avec une expérience premium. Liens expirables, lecture seule, mot de passe, quota de vues. Une data room simple et sécurisée.";
 const defaultImage = `${siteUrl}/assets/logo.png`;
 
 export const defaultMetadata: Metadata = {
@@ -99,11 +99,11 @@ export const defaultMetadata: Metadata = {
 };
 
 export const homeMetadata: Metadata = {
-  title: `${siteName} | Partage de Fichiers Sécurisé - Data Room Souveraine`,
-  description: "Partagez des dossiers en toute sécurité. Gardez le contrôle. Liens expirables, lecture seule, mot de passe, quota de vues. Une data room simple, sécurisée et souveraine pour vos fichiers sensibles.",
+  title: `${siteName} | Partage de Fichiers Sécurisé - Data Room Professionnelle`,
+  description: "Partagez des dossiers en toute sécurité. Gardez le contrôle. Liens expirables, lecture seule, mot de passe, quota de vues. Une data room simple et sécurisée pour vos fichiers sensibles.",
   openGraph: {
-    title: `${siteName} | Partage de Fichiers Sécurisé - Data Room Souveraine`,
-    description: "Partagez des dossiers en toute sécurité. Gardez le contrôle. Liens expirables, lecture seule, mot de passe, quota de vues. Une data room simple, sécurisée et souveraine.",
+    title: `${siteName} | Partage de Fichiers Sécurisé - Data Room Professionnelle`,
+    description: "Partagez des dossiers en toute sécurité. Gardez le contrôle. Liens expirables, lecture seule, mot de passe, quota de vues. Une data room simple et sécurisée.",
     url: siteUrl,
     images: [
       {
@@ -142,15 +142,15 @@ export const pricingMetadata: Metadata = {
 
 export const securityMetadata: Metadata = {
   title: "Sécurité et Chiffrement | Protection en Couches",
-  description: "Découvrez notre architecture de sécurité. Chiffrement au repos et en transit, URLs présignées éphémères, tokens hashés, stockage souverain, conformité RGPD. Vos fichiers sont protégés à chaque niveau avec Airlock.",
+  description: "Découvrez notre architecture de sécurité. Chiffrement au repos et en transit, URLs présignées éphémères, tokens hashés, stockage Cloudflare R2, conformité RGPD. Vos fichiers sont protégés à chaque niveau avec Airlock.",
   openGraph: {
     title: "Sécurité et Chiffrement | Protection en Couches",
-    description: "Découvrez notre architecture de sécurité. Chiffrement, URLs présignées éphémères, stockage souverain, conformité RGPD.",
+    description: "Découvrez notre architecture de sécurité. Chiffrement, URLs présignées éphémères, stockage Cloudflare R2, conformité RGPD.",
     url: `${siteUrl}/security`,
   },
   twitter: {
     title: "Sécurité Airlock | Protection Multicouche",
-    description: "Chiffrement au repos et en transit, URLs présignées éphémères, stockage souverain, conformité RGPD.",
+    description: "Chiffrement au repos et en transit, URLs présignées éphémères, stockage Cloudflare R2, conformité RGPD.",
   },
   alternates: {
     canonical: `${siteUrl}/security`,
@@ -237,15 +237,15 @@ export const partageConfidentielsMetadata: Metadata = {
 
 export const alternativeGoogleDriveMetadata: Metadata = {
   title: "Alternative à Google Drive pour Professionnels",
-  description: "Découvrez Airlock, l'alternative à Google Drive pensée pour les professionnels. Contrôle d'accès granulaire, liens expirables, traçabilité et stockage souverain. Gratuit jusqu'à 5 Go.",
+  description: "Découvrez Airlock, l'alternative à Google Drive pensée pour les professionnels. Contrôle d'accès granulaire, liens expirables, traçabilité et stockage sécurisé sur Cloudflare R2. Gratuit jusqu'à 5 Go.",
   openGraph: {
     title: "Alternative à Google Drive Pro | Airlock",
-    description: "L'alternative à Google Drive pensée pour les professionnels. Contrôle d'accès et stockage souverain.",
+    description: "L'alternative à Google Drive pensée pour les professionnels. Contrôle d'accès et stockage sécurisé.",
     url: `${siteUrl}/alternative-google-drive-pro`,
   },
   twitter: {
     title: "Alternative à Google Drive Pro | Airlock",
-    description: "L'alternative pro à Google Drive avec contrôle d'accès et stockage souverain.",
+    description: "L'alternative pro à Google Drive avec contrôle d'accès et stockage sécurisé.",
   },
   alternates: {
     canonical: `${siteUrl}/alternative-google-drive-pro`,

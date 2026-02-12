@@ -43,10 +43,11 @@ Airlock est une plateforme de partage de fichiers sécurisée conçue pour les �
 - Analytics en temps réel
 - Localisation géographique des accès (via Mapbox)
 
-### 6. Pas de Transit par les Serveurs Airlock
+### 6. Upload Direct sans Transit Serveur
 - L'upload se fait **directement navigateur → Cloudflare R2**
-- Les fichiers ne passent jamais par nos serveurs
-- Airlock reçoit uniquement les métadonnées
+- Les fichiers ne passent pas par nos serveurs lors de l'upload
+- Airlock reçoit uniquement les métadonnées lors de l'upload
+- **Note :** La prévisualisation en ligne, le watermarking et la conversion de documents Office transitent par le serveur Airlock pour appliquer les protections
 
 ### 7. Pas d'Analyse de Contenu
 - **Airlock n'analyse, n'indexe, ni n'exploite le contenu de vos fichiers**
@@ -145,9 +146,11 @@ Airlock est une plateforme de partage de fichiers sécurisée conçue pour les �
 - ✅ Pas de sous-traitant non déclaré
 
 ### Localisation des Données
-- Stockage : **Cloudflare R2** (géographie configurable)
-- Base de données : **Firebase** (UE/US selon configuration)
-- Serveurs : **PM2 sur serveur privé** (localisation à spécifier)
+- Stockage fichiers : **Cloudflare R2** (entreprise américaine, données configurables en région EU)
+- Base de données / métadonnées : **Firebase Firestore** (Google, entreprise américaine)
+- Authentification : **Clerk** (entreprise américaine)
+- Serveurs applicatifs : **PM2 sur serveur privé** (localisation à spécifier)
+- **Note :** Tous les prestataires sont des entreprises américaines soumises au Cloud Act
 
 ---
 
@@ -173,7 +176,7 @@ Si vous avez des exigences de **zero-knowledge** ou de **confidentialité absolu
 
 | Scénario | Airlock Peut | Airlock Ne Peut Pas |
 |----------|-------------|-------------------|
-| Accès aux fichiers uploadés | Non (Cloudflare les chiffre) | Voir le contenu |
+| Accès aux fichiers uploadés | Oui (via les credentials R2 côté serveur, pour la prévisualisation et le watermarking) | Déchiffrer si chiffré côté client |
 | Révoquer un lien partagé | Oui (instantané) | Récupérer copies téléchargées |
 | Voir qui a consulté | Oui (logs détaillés) | - |
 | Supprimer un fichier | Oui (suppression logique & physique) | Récupérer depuis backups anciens |
@@ -198,7 +201,7 @@ Si vous découvrez une vulnérabilité de sécurité :
 ## Questions Fréquentes
 
 **Q: Airlock peut-il lire mes fichiers ?**
-R: Non. Les fichiers sont chez Cloudflare R2 chiffrés au repos. Airlock ne stocke que les métadonnées de contrôle d'accès.
+R: Airlock dispose des credentials d'accès au bucket Cloudflare R2 et peut techniquement accéder aux fichiers (nécessaire pour la prévisualisation, le watermarking et la conversion). Nous ne stockons que les métadonnées de contrôle d'accès et nous n'analysons ni n'exploitons le contenu de vos fichiers. Pour une confidentialité maximale, chiffrez vos fichiers avant upload.
 
 **Q: Cloudflare peut-il lire mes fichiers ?**
 R: Techniquement oui, c'est l'opérateur du stockage. Mais Cloudflare a des certifications de sécurité strictes (ISO 27001, SOC 2) et une politique d'accès limité.

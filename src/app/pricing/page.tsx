@@ -254,7 +254,7 @@ export default function PricingPage() {
               transition={{ duration: 0.7, delay: 0.2 }}
               className="text-xl md:text-[24px] text-black/45 font-medium max-w-2xl mx-auto leading-relaxed"
             >
-              Une solution souveraine pour tous vos besoins de partage sécurisé.
+              Une solution sécurisée pour tous vos besoins de partage professionnel.
             </motion.p>
           </div>
 

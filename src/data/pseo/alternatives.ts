@@ -11,7 +11,7 @@ export const alternatives: PSEOPageData[] = [
       "WeTransfer est pratique pour envoyer des fichiers rapidement, mais une fois le lien partage, vous perdez tout controle. De plus en plus de professionnels cherchent une alternative qui allie simplicite et securite.",
     problemTitle: "Les limites de WeTransfer",
     problemContent:
-      "WeTransfer propose des liens de telechargement valables 7 jours en version gratuite, sans possibilite de revoquer l'acces une fois le fichier envoye. Il n'existe aucun suivi des telechargements : vous ne savez pas qui a telecharge vos fichiers, ni combien de fois. La version gratuite est limitee a 2 Go par transfert et ne propose ni protection par mot de passe, ni chiffrement de bout en bout.",
+      "WeTransfer propose des liens de telechargement valables 7 jours en version gratuite, sans possibilite de revoquer l'acces une fois le fichier envoye. Il n'existe aucun suivi des telechargements : vous ne savez pas qui a telecharge vos fichiers, ni combien de fois. La version gratuite est limitee a 2 Go par transfert et ne propose ni protection par mot de passe, ni chiffrement en transit et au repos.",
     solutionTitle: "Airlock : la simplicite de WeTransfer, la securite en plus",
     solutionContent:
       "Airlock vous permet d'envoyer des fichiers volumineux avec la meme simplicite que WeTransfer, tout en gardant le controle total. Chaque lien peut etre protege par mot de passe, limite en nombre de vues et revoque a tout moment. Vous suivez chaque acces en temps reel avec la geolocalisation et l'horodatage.",
@@ -34,7 +34,7 @@ export const alternatives: PSEOPageData[] = [
       {
         title: "Stockage sur Cloudflare R2 en Europe",
         description:
-          "Vos fichiers sont heberges sur une infrastructure Cloudflare R2 conforme au RGPD, contrairement a WeTransfer dont les serveurs sont aux Etats-Unis.",
+          "Vos fichiers sont heberges sur Cloudflare R2 avec chiffrement au repos. Cloudflare propose des options de stockage en Europe, contrairement a WeTransfer dont les serveurs sont aux Etats-Unis sans option de localisation.",
       },
     ],
     useCases: [
@@ -86,7 +86,7 @@ export const alternatives: PSEOPageData[] = [
     slug: "dropbox",
     metaTitle: "Alternative a Dropbox | Airlock",
     metaDescription:
-      "Airlock, l'alternative a Dropbox pour le partage securise de fichiers : liens expirables, tracabilite des acces, conformite RGPD et stockage souverain.",
+      "Airlock, l'alternative a Dropbox pour le partage securise de fichiers : liens expirables, tracabilite des acces, conformite RGPD et stockage securise sur Cloudflare R2.",
     title: "Partagez vos fichiers sans les risques de Dropbox",
     subtitle:
       "Dropbox est un outil de stockage cloud populaire, mais son modele de synchronisation permanente et ses partages difficiles a controler poussent de nombreux professionnels a chercher une solution plus securisee pour le partage externe.",
@@ -110,7 +110,7 @@ export const alternatives: PSEOPageData[] = [
       {
         title: "Conformite RGPD native",
         description:
-          "Les fichiers sont stockes sur Cloudflare R2 en Europe. Dropbox heberge les donnees aux Etats-Unis, necessitant des clauses contractuelles supplementaires pour la conformite RGPD.",
+          "Les fichiers sont stockes sur Cloudflare R2 avec chiffrement au repos. Cloudflare permet un stockage en region europeenne. Dropbox heberge les donnees aux Etats-Unis, necessitant des clauses contractuelles supplementaires pour la conformite RGPD.",
       },
       {
         title: "Expiration et quotas de vues",
@@ -149,7 +149,7 @@ export const alternatives: PSEOPageData[] = [
       {
         question: "Dropbox Business offre-t-il les memes fonctionnalites ?",
         answer:
-          "Dropbox Business ajoute des controles d'administration et l'expiration de liens, mais ne propose toujours pas de quotas de vues, de geolocalisation des acces, ni de stockage souverain europeen. Airlock est concu des le depart pour le partage securise.",
+          "Dropbox Business ajoute des controles d'administration et l'expiration de liens, mais ne propose toujours pas de quotas de vues, de geolocalisation des acces, ni de stockage europeen sur Cloudflare R2. Airlock est concu des le depart pour le partage securise.",
       },
     ],
     relatedPages: [

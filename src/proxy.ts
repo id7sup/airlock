@@ -39,6 +39,8 @@ const isPublicRoute = createRouteMatcher([
   "/favicon-32x32.png",  // Favicon 32x32
   "/favicon-192x192.png", // Favicon 192x192
   "/apple-touch-icon.png", // Apple Touch Icon
+  "/admin(.*)",            // Admin dashboard (auth custom, pas Clerk)
+  "/api/admin(.*)",        // API admin (auth custom)
 ]);
 
 /**

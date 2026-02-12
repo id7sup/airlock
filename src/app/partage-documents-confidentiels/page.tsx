@@ -99,7 +99,7 @@ export default function PartageDocumentsConfidentielsPage() {
       icon: <Server className="w-8 h-8" />,
       title: "Conformité RGPD",
       description:
-        "Stockage souverain sur Cloudflare R2 et respect des réglementations européennes.",
+        "Stockage sécurisé sur Cloudflare R2 avec chiffrement au repos et respect des principes RGPD.",
       badge: "RGPD",
     },
   ];

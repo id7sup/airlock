@@ -217,8 +217,8 @@ export default function SettingsPage() {
                       </div>
                     </div>
                     <div className="space-y-2 sm:space-y-3 relative z-10">
-                      <p className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-medium tracking-tighter">5 Go <span className="text-sm sm:text-base md:text-lg font-medium opacity-40 uppercase tracking-[0.2em]">Souverains</span></p>
-                      <p className="text-sm sm:text-base font-medium opacity-60 leading-relaxed max-w-md">Profitez d'un stockage chiffré de bout en bout <br className="hidden sm:block" /> sur vos propres serveurs.</p>
+                      <p className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-medium tracking-tighter">5 Go <span className="text-sm sm:text-base md:text-lg font-medium opacity-40 uppercase tracking-[0.2em]">Sécurisés</span></p>
+                      <p className="text-sm sm:text-base font-medium opacity-60 leading-relaxed max-w-md">Stockage chiffré en transit et au repos <br className="hidden sm:block" /> sur Cloudflare R2.</p>
                     </div>
                     
                     <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-64 sm:w-80 md:w-96 h-64 sm:h-80 md:h-96 bg-black/5 rounded-full blur-[120px] -z-0" />

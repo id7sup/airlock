@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
-import { auth } from "@clerk/nextjs/server";
+import { getAdminSession } from "@/lib/admin-auth";
 
 export const dynamic = 'force-dynamic';
 
@@ -14,9 +14,9 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(req: NextRequest) {
   try {
-    // Vérifier l'authentification
-    const { userId } = await auth();
-    if (!userId) {
+    // Vérifier l'authentification admin
+    const { authenticated } = await getAdminSession();
+    if (!authenticated) {
       return NextResponse.json(
         { error: "Non autorisé" },
         { status: 401 }
@@ -79,8 +79,8 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const { authenticated } = await getAdminSession();
+    if (!authenticated) {
       return NextResponse.json(
         { error: "Non autorisé" },
         { status: 401 }

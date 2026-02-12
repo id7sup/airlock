@@ -8,7 +8,7 @@ export const secteurs: PSEOPageData[] = [
       "Transmettez actes notariaux, compromis de vente et documents successoraux en toute sécurité. Liens expirables, traçabilité et conformité RGPD.",
     title: "Le partage de documents sécurisé conçu pour les notaires",
     subtitle:
-      "Transmettez vos actes authentiques, compromis de vente et dossiers de succession à vos clients et confrères avec une traçabilité complète et un chiffrement de bout en bout.",
+      "Transmettez vos actes authentiques, compromis de vente et dossiers de succession à vos clients et confrères avec une traçabilité complète et un chiffrement en transit et au repos.",
     problemTitle: "Les enjeux du partage documentaire pour les études notariales",
     problemContent:
       "Les notaires manipulent quotidiennement des actes authentiques, des compromis de vente, des attestations immobilières et des dossiers de succession contenant des données personnelles sensibles. L'envoi par e-mail classique ne garantit ni la confidentialité ni la preuve de réception. Les plateformes grand public comme WeTransfer ne répondent pas aux exigences de traçabilité imposées par la profession réglementée.",
@@ -32,9 +32,9 @@ export const secteurs: PSEOPageData[] = [
           "Ajoutez un mot de passe à chaque lien de partage pour garantir que seuls les héritiers ou mandataires concernés accèdent aux pièces du dossier.",
       },
       {
-        title: "Stockage souverain sur Cloudflare R2",
+        title: "Stockage sécurisé sur Cloudflare R2",
         description:
-          "Vos documents sont hébergés sur une infrastructure européenne conforme au RGPD, sans transfert vers des serveurs américains soumis au Cloud Act.",
+          "Vos documents sont hébergés sur Cloudflare R2 avec chiffrement au repos. Cloudflare est une entreprise américaine soumise au Cloud Act, mais les données peuvent être configurées pour rester en Europe.",
       },
     ],
     useCases: [
@@ -63,7 +63,7 @@ export const secteurs: PSEOPageData[] = [
       {
         question: "Airlock est-il conforme aux exigences du Conseil supérieur du notariat en matière de confidentialité ?",
         answer:
-          "Oui. Airlock utilise un chiffrement de bout en bout, des liens expirables et une traçabilité complète qui répondent aux exigences de confidentialité de la profession notariale. Le stockage est européen et conforme au RGPD.",
+          "Oui. Airlock utilise un chiffrement en transit (TLS 1.3) et au repos (Cloudflare R2), des liens expirables et une traçabilité complète qui répondent aux exigences de confidentialité de la profession notariale. Le stockage est sur Cloudflare R2 avec des garanties de protection des données.",
       },
       {
         question: "Puis-je envoyer des actes authentiques volumineux via Airlock ?",
@@ -570,18 +570,18 @@ export const secteurs: PSEOPageData[] = [
       "Transmettez comptes rendus médicaux, imageries et dossiers patients en toute sécurité. Chiffrement, traçabilité et conformité RGPD santé.",
     title: "Le partage de documents médicaux sécurisé et conforme",
     subtitle:
-      "Transmettez comptes rendus opératoires, imageries médicales, ordonnances et dossiers patients à vos correspondants et patients avec un chiffrement de bout en bout et une traçabilité intégrale.",
+      "Transmettez comptes rendus opératoires, imageries médicales, ordonnances et dossiers patients à vos correspondants et patients avec un chiffrement en transit et au repos, et une traçabilité intégrale.",
     problemTitle: "Les contraintes réglementaires du partage de données de santé",
     problemContent:
       "Les médecins échangent quotidiennement des données de santé protégées par le secret médical : comptes rendus de consultation, résultats d'analyse, imageries IRM/scanner et courriers de correspondance entre confrères. Le RGPD classe ces données comme sensibles, imposant des mesures de protection renforcées. L'envoi par messagerie non sécurisée expose le praticien à des sanctions ordinales et à des poursuites pour violation du secret médical.",
     solutionTitle: "Airlock : la transmission de données de santé maîtrisée",
     solutionContent:
-      "Airlock offre un canal de transmission chiffré pour les documents médicaux. Chaque envoi est protégé par un lien unique, expirable et protégeable par mot de passe. La traçabilité des accès permet au médecin de documenter chaque échange dans le cadre de ses obligations déontologiques. Le stockage sur infrastructure européenne garantit la conformité au RGPD pour les données de santé.",
+      "Airlock offre un canal de transmission chiffré (TLS 1.3) pour les documents médicaux. Chaque envoi est protégé par un lien unique, expirable et protégeable par mot de passe. La traçabilité des accès permet au médecin de documenter chaque échange dans le cadre de ses obligations déontologiques. Note : Airlock n'est pas certifié HDS (Hébergeur de Données de Santé). Pour les établissements soumis à cette obligation, vérifiez la compatibilité avec vos exigences réglementaires.",
     features: [
       {
         title: "Chiffrement adapté aux données de santé",
         description:
-          "Chaque fichier médical transite et est stocké avec un chiffrement conforme aux exigences renforcées du RGPD pour les données sensibles de santé.",
+          "Chaque fichier médical transite via TLS 1.3 et est stocké avec un chiffrement au repos sur Cloudflare R2. Airlock n'est pas certifié HDS : pour les données de santé soumises à cette obligation, vérifiez vos exigences réglementaires.",
       },
       {
         title: "Liens éphémères pour les résultats d'analyse",

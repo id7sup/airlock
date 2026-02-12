@@ -68,7 +68,7 @@ export default function AlternativeGoogleDrivePage() {
     { feature: "Révocation instantanée", airlock: true, google: false },
     { feature: "Traçabilité des accès", airlock: true, google: false },
     { feature: "Consultation sans téléchargement", airlock: true, google: false },
-    { feature: "Stockage souverain (non-Google)", airlock: true, google: false },
+    { feature: "Stockage indépendant (non-Google)", airlock: true, google: false },
     { feature: "Accès sans compte", airlock: true, google: true },
   ];
 
@@ -87,9 +87,9 @@ export default function AlternativeGoogleDrivePage() {
     },
     {
       icon: <Cloud className="w-7 h-7" />,
-      title: "Stockage souverain",
+      title: "Stockage indépendant",
       description:
-        "Vos fichiers sont sur Cloudflare R2, pas sur les serveurs Google. Conforme RGPD.",
+        "Vos fichiers sont sur Cloudflare R2, pas sur les serveurs Google. Chiffrement au repos inclus.",
     },
     {
       icon: <UserX className="w-7 h-7" />,

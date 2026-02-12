@@ -20,7 +20,7 @@ export function Footer({ className = "bg-white" }: FooterProps) {
               </div>
               <div className="space-y-4 sm:space-y-6 max-w-md">
                 <p className="text-lg sm:text-xl md:text-2xl font-medium text-black/80 leading-tight">
-                  La nouvelle norme du partage de fichiers sécurisé et souverain.
+                  La nouvelle norme du partage de fichiers sécurisé et contrôlé.
                 </p>
                 <p className="text-base sm:text-lg text-black/40 font-medium">
                   Développé pour les équipes qui exigent un contrôle total sur leurs données.
