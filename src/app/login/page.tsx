@@ -31,7 +31,7 @@ const carouselTexts = [
 
 export default function LoginPage() {
   const { isLoaded, signIn, setActive } = useSignIn();
-  const { signOut } = useAuth();
+  const { isSignedIn } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = React.useState("");
@@ -50,6 +50,10 @@ export default function LoginPage() {
 
 
   React.useEffect(() => {
+    if (isSignedIn) {
+      router.push("/dashboard");
+      return;
+    }
     document.body.style.overflow = "hidden";
     document.documentElement.style.overflow = "hidden";
     document.body.style.height = "100vh";
@@ -60,21 +64,21 @@ export default function LoginPage() {
       document.body.style.height = "unset";
       document.documentElement.style.height = "unset";
     };
-  }, []);
+  }, [isSignedIn, router]);
 
   const handleGoogleSignIn = async () => {
     if (!isLoaded || !signIn) return;
     try {
-      // Clear any existing session to avoid "Session already exists" error
-      await signOut();
-
-      // Now authenticate with Google OAuth
       await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: "/login/sso-callback",
         redirectUrlComplete: "/dashboard",
       });
     } catch (err: any) {
+      if (err?.errors?.[0]?.code === "session_exists") {
+        router.push("/dashboard");
+        return;
+      }
       const errorMessage = err?.errors?.[0]?.message ?? "Erreur lors de la connexion Google";
       setError(errorMessage);
     }
@@ -354,6 +358,8 @@ export default function LoginPage() {
                     <p className="text-[13px] font-medium text-red-600 text-center">{error}</p>
                   </div>
                 )}
+
+                <div id="clerk-captcha"></div>
 
                 <button
                   type="submit"

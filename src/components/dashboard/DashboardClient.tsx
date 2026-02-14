@@ -114,6 +114,7 @@ function FolderItem({
   onRestore,
   onDeletePermanent,
   onToggleFavorite,
+  onRename,
   currentFilter,
   isDragging,
 }: any) {
@@ -141,6 +142,7 @@ function FolderItem({
 
     try {
       await renameFolderAction(folder.id, trimmed);
+      onRename?.(folder.id, trimmed);
       setIsRenaming(false);
     } catch (error) {
       console.error("Erreur lors du renommage:", error);
@@ -1268,6 +1270,7 @@ export default function DashboardClient({ initialFolders, currentFilter }: { ini
                   });
                 }}
                 onToggleFavorite={(id: string, curr: boolean, e: any) => toggleFavoriteAction(id, !curr).then(() => router.refresh())}
+                onRename={(id: string, newName: string) => setFolders(prev => prev.map(f => f.id === id ? { ...f, name: newName } : f))}
               />
             ))}
           </SortableContext>

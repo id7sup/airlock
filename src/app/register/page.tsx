@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useSignUp, useAuth } from "@clerk/nextjs";
+import { useSignUp, useSignIn, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { AuthCarousel } from "@/components/shared/AuthCarousel";
 import Link from "next/link";
@@ -31,7 +31,8 @@ const carouselTexts = [
 
 export default function RegisterPage() {
   const { isLoaded, signUp, setActive } = useSignUp();
-  const { signOut } = useAuth();
+  const { signIn } = useSignIn();
+  const { isSignedIn } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = React.useState("");
@@ -46,6 +47,10 @@ export default function RegisterPage() {
 
 
   React.useEffect(() => {
+    if (isSignedIn) {
+      router.push("/dashboard");
+      return;
+    }
     document.body.style.overflow = "hidden";
     document.documentElement.style.overflow = "hidden";
     document.body.style.height = "100vh";
@@ -56,21 +61,21 @@ export default function RegisterPage() {
       document.body.style.height = "unset";
       document.documentElement.style.height = "unset";
     };
-  }, []);
+  }, [isSignedIn, router]);
 
   const handleGoogleSignUp = async () => {
-    if (!isLoaded || !signUp) return;
+    if (!isLoaded || !signIn) return;
     try {
-      // Clear any existing session to avoid "Session already exists" error
-      await signOut();
-
-      // Now authenticate with Google OAuth
-      await signUp.authenticateWithRedirect({
+      await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: "/register/sso-callback",
         redirectUrlComplete: "/dashboard",
       });
     } catch (err: any) {
+      if (err?.errors?.[0]?.code === "session_exists") {
+        router.push("/dashboard");
+        return;
+      }
       const errorMessage = err?.errors?.[0]?.message ?? "Erreur lors de l'inscription Google";
       setError(errorMessage);
     }

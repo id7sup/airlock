@@ -7,8 +7,8 @@ export default function SsoCallbackPage() {
     <>
       <AuthenticateWithRedirectCallback
         redirectUrl="/dashboard"
-        signInFallbackRedirectUrl="/login"
-        signUpFallbackRedirectUrl="/register"
+        signInFallbackRedirectUrl="/dashboard"
+        signUpFallbackRedirectUrl="/dashboard"
       />
     </>
   );
