@@ -2,7 +2,6 @@
 
 import { X, MapPin, Clock, FileText, ChevronLeft, ChevronRight, Folder, Smartphone, Laptop, Tablet, Info } from "lucide-react";
 import Image from "next/image";
-import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -106,7 +105,6 @@ function getTimeAgo(date: Date): string {
   return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 }
 
-// Map browser name to logo path
 const BROWSER_LOGOS: Record<string, string> = {
   Chrome: "/livetracking/chromelogo.png",
   Safari: "/livetracking/safarilogo.png",
@@ -115,7 +113,7 @@ const BROWSER_LOGOS: Record<string, string> = {
   Opera: "/livetracking/operalogo.svg",
 };
 
-function BrowserLogo({ browser, size = 28 }: { browser: string; size?: number }) {
+function BrowserLogo({ browser, size = 24 }: { browser: string; size?: number }) {
   const logoPath = BROWSER_LOGOS[browser];
   if (logoPath) {
     return (
@@ -128,13 +126,12 @@ function BrowserLogo({ browser, size = 28 }: { browser: string; size?: number })
       />
     );
   }
-  // Fallback for unknown browsers
   return (
     <div
       className="rounded-full bg-black/5 flex items-center justify-center"
       style={{ width: size, height: size }}
     >
-      <span className="text-[9px] font-bold text-black/30">{browser.charAt(0)}</span>
+      <span className="text-[8px] font-bold text-black/30">{browser.charAt(0)}</span>
     </div>
   );
 }
@@ -172,16 +169,16 @@ function LocationTooltip({ event }: { event: AnalyticsDetail }) {
   return (
     <div className="relative inline-flex">
       <button
-        onClick={() => setOpen(!open)}
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
-        className={`w-4 h-4 rounded-full flex items-center justify-center transition-colors ${
+        className={`w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors ${
           biased
             ? "bg-amber-100 text-amber-600 hover:bg-amber-200"
-            : "bg-black/5 text-black/30 hover:bg-black/10"
+            : "bg-black/[0.06] text-black/25 hover:bg-black/10"
         }`}
       >
-        <Info className="w-2.5 h-2.5" />
+        <Info className="w-2 h-2" />
       </button>
       <AnimatePresence>
         {open && (
@@ -189,14 +186,14 @@ function LocationTooltip({ event }: { event: AnalyticsDetail }) {
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
-            transition={{ duration: 0.12 }}
-            className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-56 p-3 bg-white rounded-xl border border-black/[0.08] shadow-xl"
+            transition={{ duration: 0.1 }}
+            className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 w-52 p-2.5 bg-white rounded-xl border border-black/[0.08] shadow-xl"
           >
-            <p className={`text-[11px] leading-relaxed ${biased ? "text-amber-700" : "text-black/50"}`}>
+            <p className={`text-[10px] leading-relaxed ${biased ? "text-amber-700" : "text-black/50"}`}>
               {tooltipText}
             </p>
             {biased && event.isp && (
-              <p className="text-[10px] text-amber-500 mt-1.5 font-mono">{event.isp}</p>
+              <p className="text-[9px] text-amber-500 mt-1 font-mono">{event.isp}</p>
             )}
           </motion.div>
         )}
@@ -205,108 +202,9 @@ function LocationTooltip({ event }: { event: AnalyticsDetail }) {
   );
 }
 
-// Visitor card used in both single and cluster mode
-function VisitorCard({ event, navigateToLogs, compact }: {
-  event: AnalyticsDetail;
-  navigateToLogs: (e: AnalyticsDetail) => void;
-  compact?: boolean;
-}) {
-  const info = parseUserAgent(event.userAgent || "");
-  const ts = new Date(event.timestamp);
-
-  return (
-    <div className={`${compact ? "p-4" : "p-5"} bg-[#fafafa] rounded-2xl border border-black/[0.04]`}>
-      {/* Timestamp hero */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <Clock className="w-4 h-4 text-black/20" />
-          <span className="text-sm font-semibold text-black">{getTimeAgo(ts)}</span>
-        </div>
-        <span className="text-[10px] text-black/30 tabular-nums">
-          {ts.toLocaleString("fr-FR", {
-            day: "numeric",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </span>
-      </div>
-
-      {/* Folder */}
-      {event.folderName && (
-        <div className="flex items-center gap-2.5 mb-4 px-3 py-2.5 bg-white rounded-xl border border-black/[0.04]">
-          <Folder className="w-4 h-4 text-[#96A982] shrink-0" />
-          <span className="text-[13px] font-medium text-black truncate">{event.folderName}</span>
-        </div>
-      )}
-
-      {/* Location */}
-      <div className="flex items-center gap-2 mb-4">
-        <MapPin className="w-3.5 h-3.5 text-black/20 shrink-0" />
-        <span className="text-[13px] font-medium text-black">
-          {event.city || event.country || "Inconnue"}
-        </span>
-        {event.city && event.country && event.city !== event.country && (
-          <span className="text-[11px] text-black/30">
-            {event.country}
-          </span>
-        )}
-        <LocationTooltip event={event} />
-      </div>
-
-      {/* Device row with browser logo */}
-      <div className="flex items-center gap-3">
-        <BrowserLogo browser={info.browser} size={compact ? 24 : 28} />
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <DeviceIcon device={info.device} className="w-3.5 h-3.5 text-black/30" />
-          <span className="text-[11px] text-black/50">{info.device}</span>
-          <span className="text-black/10">·</span>
-          <span className="text-[11px] text-black/50">{info.os}</span>
-          <span className="text-black/10">·</span>
-          <span className="text-[11px] text-black/50">{info.browser}</span>
-        </div>
-      </div>
-
-      {/* Logs button */}
-      {(event.visitorId || event.visitorIdStable) && (
-        <button
-          onClick={() => navigateToLogs(event)}
-          className="mt-4 w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-medium text-black/35 hover:text-black/60 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-black/[0.04]"
-        >
-          <FileText className="w-3 h-3" />
-          Voir les logs
-        </button>
-      )}
-    </div>
-  );
-}
-
 export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetailCardProps) {
-  const [mounted, setMounted] = useState(false);
   const [currentVisitorIndex, setCurrentVisitorIndex] = useState(0);
   const router = useRouter();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isOpen) {
-      const scrollY = window.scrollY;
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
-      document.body.style.overflow = 'hidden';
-
-      return () => {
-        document.body.style.position = '';
-        document.body.style.top = '';
-        document.body.style.width = '';
-        document.body.style.overflow = '';
-        window.scrollTo(0, scrollY);
-      };
-    }
-  }, [isOpen]);
 
   const isCluster = detail ? "pointCount" in detail : false;
   const events = detail
@@ -346,76 +244,133 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
     onClose();
   };
 
-  if (!mounted) return null;
+  if (!currentEvent) return null;
 
-  const drawerContent = (
+  const info = parseUserAgent(currentEvent.userAgent || "");
+  const ts = new Date(currentEvent.timestamp);
+
+  return (
     <AnimatePresence>
       {isOpen && (
-        <>
-          <motion.div
-            key="overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-[100] bg-black/20 backdrop-blur-[2px]"
-            onClick={onClose}
-          />
-
-          <motion.div
-            key="drawer"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{
-              duration: 0.25,
-              ease: [0.32, 0.72, 0, 1]
-            }}
-            className="fixed top-0 bottom-0 right-0 z-[110] w-full md:w-[380px] lg:w-[400px] max-w-[440px] h-screen"
-          >
-            <div className="h-full bg-white flex flex-col shadow-2xl">
-              {/* Header minimal */}
-              <div className="flex items-center justify-between px-5 py-4">
-                <div className="flex items-center gap-2.5">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 w-[92%] max-w-[480px]"
+        >
+          <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-black/[0.06] shadow-2xl shadow-black/10 overflow-hidden">
+            {/* Top row: live badge + close */}
+            <div className="flex items-center justify-between px-4 pt-3.5 pb-0">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                </span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-black/30">
+                  {isExactLocationCluster ? `${events.length} visiteurs` : "En direct"}
+                </span>
+                {isExactLocationCluster && (
+                  <span className="text-[10px] text-black/20 tabular-nums">
+                    {currentVisitorIndex + 1}/{events.length}
                   </span>
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/40">
-                    {isExactLocationCluster ? `${events.length} visiteurs` : "En direct"}
-                  </span>
-                </div>
-                <button
-                  onClick={onClose}
-                  className="w-7 h-7 rounded-lg hover:bg-black/5 active:scale-95 flex items-center justify-center transition-all"
-                  aria-label="Fermer"
-                >
-                  <X className="w-3.5 h-3.5 text-black/30" />
-                </button>
+                )}
               </div>
+              <button
+                onClick={onClose}
+                className="w-6 h-6 rounded-md hover:bg-black/5 flex items-center justify-center transition-colors"
+              >
+                <X className="w-3 h-3 text-black/30" />
+              </button>
+            </div>
 
-              {/* Content */}
-              <div className="flex-1 overflow-y-auto px-5 pb-5">
-                {currentEvent ? (
-                  isExactLocationCluster ? (
-                    // Cluster mode - carousel of visitors
-                    <div className="space-y-3">
-                      {/* Navigation header */}
-                      <div className="flex items-center justify-between">
+            {/* Main content */}
+            <div className="px-4 pt-3 pb-4">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={isExactLocationCluster ? currentVisitorIndex : currentEvent.id}
+                  initial={isExactLocationCluster ? { opacity: 0, x: 10 } : false}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={isExactLocationCluster ? { opacity: 0, x: -10 } : undefined}
+                  transition={{ duration: 0.12 }}
+                >
+                  {/* Row 1: Timestamp + Folder */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-black/15" />
+                      <span className="text-[13px] font-semibold text-black">{getTimeAgo(ts)}</span>
+                      <span className="text-[10px] text-black/25 tabular-nums">
+                        {ts.toLocaleString("fr-FR", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    {currentEvent.folderName && (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[rgba(150,169,130,0.08)] rounded-lg max-w-[45%]">
+                        <Folder className="w-3 h-3 text-[#96A982] shrink-0" />
+                        <span className="text-[11px] font-medium text-[#96A982] truncate">{currentEvent.folderName}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Row 2: Location + Device */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-black/15 shrink-0" />
+                      <span className="text-[13px] font-medium text-black">
+                        {currentEvent.city || currentEvent.country || "Inconnue"}
+                      </span>
+                      {currentEvent.city && currentEvent.country && currentEvent.city !== currentEvent.country && (
+                        <span className="text-[11px] text-black/25">{currentEvent.country}</span>
+                      )}
+                      <LocationTooltip event={currentEvent} />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <BrowserLogo browser={info.browser} size={20} />
+                      <div className="flex items-center gap-1">
+                        <DeviceIcon device={info.device} className="w-3 h-3 text-black/25" />
+                        <span className="text-[10px] text-black/35">{info.device}</span>
+                        <span className="text-black/10">·</span>
+                        <span className="text-[10px] text-black/35">{info.os}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Row 3: Actions */}
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-black/[0.04]">
+                    {(currentEvent.visitorId || currentEvent.visitorIdStable) ? (
+                      <button
+                        onClick={() => navigateToLogs(currentEvent)}
+                        className="flex items-center gap-1.5 text-[10px] font-medium text-black/30 hover:text-black/60 transition-colors"
+                      >
+                        <FileText className="w-3 h-3" />
+                        Voir les logs
+                      </button>
+                    ) : (
+                      <div />
+                    )}
+
+                    {/* Cluster navigation */}
+                    {isExactLocationCluster && events.length > 1 && (
+                      <div className="flex items-center gap-1.5">
                         <button
                           onClick={goToPrevious}
-                          className="w-7 h-7 rounded-lg bg-black/[0.03] hover:bg-black/[0.06] flex items-center justify-center transition-colors"
+                          className="w-6 h-6 rounded-md bg-black/[0.03] hover:bg-black/[0.06] flex items-center justify-center transition-colors"
                         >
-                          <ChevronLeft className="w-3.5 h-3.5 text-black/40" />
+                          <ChevronLeft className="w-3 h-3 text-black/40" />
                         </button>
-                        <div className="flex gap-1">
+                        <div className="flex gap-0.5">
                           {events.map((_, idx) => (
                             <button
                               key={idx}
                               onClick={() => goToIndex(idx)}
                               className={`h-1 rounded-full transition-all duration-200 ${
                                 idx === currentVisitorIndex
-                                  ? "w-5 bg-[#96A982]"
+                                  ? "w-3 bg-[#96A982]"
                                   : "w-1 bg-black/10 hover:bg-black/20"
                               }`}
                             />
@@ -423,58 +378,19 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
                         </div>
                         <button
                           onClick={goToNext}
-                          className="w-7 h-7 rounded-lg bg-black/[0.03] hover:bg-black/[0.06] flex items-center justify-center transition-colors"
+                          className="w-6 h-6 rounded-md bg-black/[0.03] hover:bg-black/[0.06] flex items-center justify-center transition-colors"
                         >
-                          <ChevronRight className="w-3.5 h-3.5 text-black/40" />
+                          <ChevronRight className="w-3 h-3 text-black/40" />
                         </button>
                       </div>
-
-                      {/* Visitor card with animation */}
-                      <AnimatePresence mode="wait">
-                        <motion.div
-                          key={currentVisitorIndex}
-                          initial={{ opacity: 0, x: 12 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -12 }}
-                          transition={{ duration: 0.15 }}
-                        >
-                          <VisitorCard
-                            event={events[currentVisitorIndex]}
-                            navigateToLogs={navigateToLogs}
-                            compact
-                          />
-                        </motion.div>
-                      </AnimatePresence>
-                    </div>
-                  ) : (
-                    // Single visitor mode
-                    <VisitorCard
-                      event={currentEvent}
-                      navigateToLogs={navigateToLogs}
-                    />
-                  )
-                ) : (
-                  // Empty state
-                  <div className="h-full flex items-center justify-center">
-                    <div className="text-center space-y-3">
-                      <div className="relative flex items-center justify-center w-14 h-14 mx-auto">
-                        <span className="absolute inline-flex h-full w-full rounded-full bg-[#96A982]/10 animate-[ping_2s_ease-in-out_infinite]" />
-                        <MapPin className="w-6 h-6 text-[#96A982]/50 relative" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-black/40">Cliquez sur un point</p>
-                        <p className="text-[11px] text-black/20 mt-1">du globe pour voir les details</p>
-                      </div>
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </motion.div>
+              </AnimatePresence>
             </div>
-          </motion.div>
-        </>
+          </div>
+        </motion.div>
       )}
     </AnimatePresence>
   );
-
-  return createPortal(drawerContent, document.body);
 }
