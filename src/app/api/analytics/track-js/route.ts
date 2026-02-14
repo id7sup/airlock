@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { linkId, eventType, fileId, folderId, fileName } = body;
+    const { linkId, eventType, fileId, folderId, fileName, connectionType } = body;
 
     if (!linkId || !eventType) {
       return NextResponse.json(
@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
         fileName,
         visitor_confidence,
         js_seen: true,
+        connectionType,
       });
     } catch (error) {
       console.error("Error tracking event:", error);

@@ -61,12 +61,17 @@ export function TrackEvent({ linkId, eventType, fileId, folderId, fileName }: Tr
         
         try {
           // Utiliser sendBeacon pour un tracking fiable même si la page se ferme
+          // Détecter le type de connexion (WiFi vs cellular)
+          const conn = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+          const connectionType = conn?.type || conn?.effectiveType || "unknown";
+
           const data = JSON.stringify({
             linkId,
             eventType,
             fileId,
             folderId,
             fileName,
+            connectionType,
           });
 
           // Essayer sendBeacon d'abord (plus fiable pour les navigations)
@@ -101,12 +106,17 @@ export function TrackEvent({ linkId, eventType, fileId, folderId, fileName }: Tr
 
       const track = async () => {
         try {
+          // Détecter le type de connexion (WiFi vs cellular)
+          const conn = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+          const connectionType = conn?.type || conn?.effectiveType || "unknown";
+
           const data = JSON.stringify({
             linkId,
             eventType,
             fileId,
             folderId,
             fileName,
+            connectionType,
           });
 
           // Utiliser sendBeacon pour un tracking fiable

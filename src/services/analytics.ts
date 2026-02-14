@@ -70,6 +70,7 @@ interface TrackingData {
   previousDevice?: string; // Device précédent pour détecter les changements
   visitor_confidence?: number; // Score de confiance que c'est un humain (0-100)
   js_seen?: boolean; // JavaScript exécuté (beacon envoyé)
+  connectionType?: string; // Type de connexion réseau (wifi, cellular, ethernet, 4g, 3g, etc.)
 }
 
 /**
@@ -156,6 +157,7 @@ export async function trackEvent(data: TrackingData) {
   if (data.previousDevice !== undefined) analyticsData.previousDevice = data.previousDevice;
   if (data.visitor_confidence !== undefined) analyticsData.visitor_confidence = data.visitor_confidence;
   if (data.js_seen !== undefined) analyticsData.js_seen = data.js_seen;
+  if (data.connectionType !== undefined) analyticsData.connectionType = data.connectionType;
 
   // Enregistrer l'événement complet
   await db.collection("shareAnalytics").add(analyticsData);
@@ -528,6 +530,7 @@ export async function getLiveVisitors(userId: string, minutes: number = 5) {
       folderId: data.folderId || null,
       visitor_confidence: data.visitor_confidence || null,
       js_seen: data.js_seen || false,
+      connectionType: data.connectionType || "unknown",
     };
   };
 

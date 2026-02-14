@@ -60,6 +60,7 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
   });
   const [selectedLinkId, setSelectedLinkId] = useState<string | "all">("all");
   const [geolocationAnalytics, setGeolocationAnalytics] = useState<any[]>([]);
+  const [liveVisitorCount, setLiveVisitorCount] = useState(0);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -297,12 +298,22 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
           const response = await fetch(url);
           if (response.ok) {
             const data = await response.json();
-            // Enrichir avec le nom du dossier depuis les liens
-            const enriched = (data.analytics || []).map((a: any) => ({
+            const allEvents = (data.analytics || []).map((a: any) => ({
               ...a,
               folderName: links.find(l => l.id === a.linkId)?.folderName || "Dossier",
             }));
-            setGeolocationAnalytics(enriched);
+
+            // Compteur de visiteurs uniques (dédupliqué par visitorIdStable ou visitorId)
+            const uniqueVisitors = new Set(
+              allEvents.map((a: any) => a.visitorIdStable || a.visitorId).filter(Boolean)
+            );
+            setLiveVisitorCount(uniqueVisitors.size);
+
+            // Map : uniquement WiFi/Ethernet (exclure cellular/4G/5G)
+            // "cellular" = connexion mobile detectée par Network Information API
+            // "unknown" = Safari ou API non supportée → on affiche par défaut
+            const mapEvents = allEvents.filter((a: any) => a.connectionType !== "cellular");
+            setGeolocationAnalytics(mapEvents);
           }
         } catch (error) {
           console.error("Erreur lors du chargement des visiteurs en direct:", error);
@@ -374,9 +385,9 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
-            {geolocationAnalytics.length > 0 && (
+            {liveVisitorCount > 0 && (
               <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full tabular-nums">
-                {geolocationAnalytics.length}
+                {liveVisitorCount}
               </span>
             )}
           </div>
@@ -432,7 +443,7 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
               </span>
-              <span className="text-sm font-semibold text-black tabular-nums">{geolocationAnalytics.length}</span>
+              <span className="text-sm font-semibold text-black tabular-nums">{liveVisitorCount}</span>
               <span className="text-xs text-black/40 font-medium">en ligne</span>
             </div>
             {loadingAnalytics && (
