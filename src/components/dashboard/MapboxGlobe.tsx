@@ -53,6 +53,8 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const isAnimatingRef = useRef<boolean>(false);
   const spiderRef = useRef<any>(null); // Pour stocker les points superposés (mêmes coordonnées)
+  const isUserInteractingRef = useRef<boolean>(false);
+  const rotationAnimationRef = useRef<number | null>(null);
 
   // Synchroniser isDrawerOpen avec selectedDetail
   useEffect(() => {
@@ -470,14 +472,27 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         if (map.current) map.current.getCanvas().style.cursor = "";
       });
 
-      // Style minimaliste
+      // Style minimaliste - garder les labels de villes/pays
       const layers = map.current.getStyle().layers;
       if (layers) {
         layers.forEach((layer: any) => {
-          if (layer.type === "symbol" || layer.id?.includes("label") || layer.id?.includes("text")) {
-            try {
-              map.current!.setLayoutProperty(layer.id, "visibility", "none");
-            } catch (e) {}
+          // Garder les labels de villes et pays, cacher le reste
+          if (layer.type === "symbol") {
+            const isPlaceLabel = layer.id?.includes("place") ||
+                                 layer.id?.includes("country") ||
+                                 layer.id?.includes("settlement") ||
+                                 layer.id?.includes("city");
+            if (!isPlaceLabel) {
+              try {
+                map.current!.setLayoutProperty(layer.id, "visibility", "none");
+              } catch (e) {}
+            } else {
+              try {
+                map.current!.setPaintProperty(layer.id, "text-color", "#999999");
+                map.current!.setPaintProperty(layer.id, "text-halo-color", "#ffffff");
+                map.current!.setPaintProperty(layer.id, "text-halo-width", 1.5);
+              } catch (e) {}
+            }
           }
           if (layer.type === "fill") {
             try {
@@ -490,9 +505,29 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           }
         });
       }
+
+      // Auto-rotation douce
+      const spinGlobe = () => {
+        if (!map.current || isUserInteractingRef.current) return;
+        const center = map.current.getCenter();
+        center.lng += 0.015;
+        map.current.setCenter(center);
+        rotationAnimationRef.current = requestAnimationFrame(spinGlobe);
+      };
+
+      // Stopper la rotation quand l'utilisateur interagit
+      map.current.on("mousedown", () => { isUserInteractingRef.current = true; });
+      map.current.on("touchstart", () => { isUserInteractingRef.current = true; });
+      map.current.on("wheel", () => { isUserInteractingRef.current = true; });
+
+      // Démarrer la rotation
+      rotationAnimationRef.current = requestAnimationFrame(spinGlobe);
     });
 
     return () => {
+      if (rotationAnimationRef.current) {
+        cancelAnimationFrame(rotationAnimationRef.current);
+      }
       if (map.current) {
         if (map.current.getLayer("clusters")) map.current.removeLayer("clusters");
         if (map.current.getLayer("points")) map.current.removeLayer("points");

@@ -64,6 +64,18 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   
+  // Activer l'auto-hide de la TopBar uniquement sur l'onglet live
+  useEffect(() => {
+    const mainEl = document.querySelector("main");
+    if (!mainEl) return;
+    if (activeTab === "live") {
+      mainEl.setAttribute("data-autohide-topbar", "true");
+    } else {
+      mainEl.removeAttribute("data-autohide-topbar");
+    }
+    return () => mainEl.removeAttribute("data-autohide-topbar");
+  }, [activeTab]);
+
   // Restaurer le tiroir si nécessaire
   useEffect(() => {
     if (activeTab === 'live' && typeof window !== 'undefined') {
@@ -268,37 +280,42 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
     });
   };
 
-  // Charger les analytics de géolocalisation quand l'onglet "live" est actif
+  // Charger les visiteurs en direct quand l'onglet "live" est actif
   useEffect(() => {
     if (activeTab === "live") {
-      const fetchGeolocationAnalytics = async () => {
-        setLoadingAnalytics(true);
+      let isFirstFetch = true;
+
+      const fetchLiveVisitors = async () => {
+        if (isFirstFetch) {
+          setLoadingAnalytics(true);
+          isFirstFetch = false;
+        }
         try {
-          const url = selectedLinkId === "all" 
-            ? "/api/analytics/geolocation?days=30"
-            : `/api/analytics/geolocation?days=30&linkId=${selectedLinkId}`;
+          const url = selectedLinkId === "all"
+            ? "/api/analytics/live-visitors?minutes=5"
+            : `/api/analytics/live-visitors?minutes=5&linkId=${selectedLinkId}`;
           const response = await fetch(url);
           if (response.ok) {
             const data = await response.json();
             setGeolocationAnalytics(data.analytics || []);
           }
         } catch (error) {
-          console.error("Erreur lors du chargement des analytics:", error);
+          console.error("Erreur lors du chargement des visiteurs en direct:", error);
         } finally {
           setLoadingAnalytics(false);
         }
       };
 
-      fetchGeolocationAnalytics();
-      
-      // Rafraîchir toutes les 2 minutes (réduire les chargements)
-      const interval = setInterval(fetchGeolocationAnalytics, 120000);
+      fetchLiveVisitors();
+
+      // Rafraîchir toutes les 15 secondes pour un suivi en direct
+      const interval = setInterval(fetchLiveVisitors, 15000);
       return () => clearInterval(interval);
     }
   }, [activeTab, selectedLinkId]);
 
   return (
-    <div className="p-10 max-w-6xl mx-auto animate-in fade-in duration-1000 text-black">
+    <div className={`p-10 max-w-6xl mx-auto animate-in fade-in duration-1000 text-black ${activeTab === 'live' ? 'pb-0' : ''}`}>
       {/* Page Header Simplifié */}
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
         <div className="space-y-1">
@@ -376,135 +393,10 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
           )}
         </div>
       ) : (
-        /* Vue en direct - Uniquement le globe */
-        <div className="space-y-8 -mt-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
-            <div className="space-y-1">
-              <h2 className="text-2xl font-medium tracking-tight text-black">Statistiques en direct</h2>
-              <p className="text-sm text-black/40 font-medium">
-                Visualisation géographique en temps réel
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              {loadingAnalytics && (
-                <Loader2 className="w-5 h-5 text-black/40 animate-spin" />
-              )}
-              
-              {/* Dropdown personnalisé - Menu séparé en position absolue */}
-              <div className="relative" ref={dropdownRef}>
-                {/* Bouton principal */}
-                <button
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center gap-3 px-5 py-3 bg-white border border-black/[0.08] text-black rounded-2xl text-sm font-medium hover:bg-black/5 hover:border-black/15 transition-all duration-200 shadow-sm hover:shadow-md min-w-[220px] justify-between group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <FolderOpen className="w-4 h-4 text-brand-primary" />
-                    <span className="truncate font-medium">
-                      {selectedLinkId === "all" 
-                        ? "Tous les partages" 
-                        : links.find(l => l.id === selectedLinkId)?.folderName || "Sélectionner"}
-                    </span>
-                  </div>
-                  <ChevronDown 
-                    className={`w-4 h-4 text-black/40 transition-transform duration-200 ${
-                      isDropdownOpen ? 'rotate-180' : ''
-                    }`} 
-                  />
-                </button>
-
-                {/* Menu qui se déroule en position absolue */}
-                <AnimatePresence>
-                  {isDropdownOpen && (
-                    <>
-                      {/* Overlay pour fermer au clic extérieur */}
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={() => setIsDropdownOpen(false)}
-                        className="fixed inset-0 z-10"
-                      />
-                      
-                      {/* Menu dropdown séparé avec effet de déroulement */}
-                      <motion.div
-                        initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -8, scale: 0.98 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="absolute top-full left-0 mt-2 z-20 bg-white rounded-2xl border border-black/[0.08] shadow-2xl shadow-black/10 overflow-hidden w-full min-w-[220px]"
-                      >
-                        <div className="py-1.5">
-                          {/* Option "Tous les partages" */}
-                          <button
-                            onClick={() => {
-                              setSelectedLinkId("all");
-                              setIsDropdownOpen(false);
-                            }}
-                            className={`w-full px-5 py-3 text-left flex items-center gap-3 hover:bg-black/5 transition-colors group ${
-                              selectedLinkId === "all" ? "bg-black/5" : ""
-                            }`}
-                          >
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                              selectedLinkId === "all" 
-                                ? "border-black bg-black" 
-                                : "border-black/20 group-hover:border-black/40"
-                            }`}>
-                              {selectedLinkId === "all" && (
-                                <Check className="w-3 h-3 text-white" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-black">
-                                Tous les partages
-                              </div>
-                            </div>
-                          </button>
-
-                          {/* Séparateur */}
-                          {links.length > 0 && (
-                            <div className="h-px bg-black/[0.05] my-1 mx-5" />
-                          )}
-
-                          {/* Options pour chaque partage */}
-                          {links.map((link) => (
-                            <button
-                              key={link.id}
-                              onClick={() => {
-                                setSelectedLinkId(link.id);
-                                setIsDropdownOpen(false);
-                              }}
-                              className={`w-full px-5 py-3 text-left flex items-center gap-3 hover:bg-black/5 transition-colors group ${
-                                selectedLinkId === link.id ? "bg-black/5" : ""
-                              }`}
-                            >
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                                selectedLinkId === link.id 
-                                  ? "border-black bg-black" 
-                                  : "border-black/20 group-hover:border-black/40"
-                              }`}>
-                                {selectedLinkId === link.id && (
-                                  <Check className="w-3 h-3 text-white" />
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                                <FolderOpen className="w-4 h-4 text-brand-primary flex-shrink-0" />
-                                <span className="text-sm font-medium text-black truncate">
-                                  {link.folderName}
-                                </span>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-          </div>
-
-          {/* Globe terrestre uniquement */}
-          <div className="h-[600px] w-full -mx-10">
+        /* Vue en direct - Globe plein écran avec overlay */
+        <div className="relative -mt-4">
+          {/* Globe terrestre - plein écran sans bordures */}
+          <div className="h-[85vh] w-[100vw] ml-[calc(-50vw+50%)] overflow-hidden">
             {loadingAnalytics ? (
               <div className="h-full flex items-center justify-center bg-transparent">
                 <div className="text-center">
@@ -515,6 +407,117 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
             ) : (
               <MapboxGlobe analytics={geolocationAnalytics} />
             )}
+          </div>
+
+          {/* Overlay contrôles - positionné par-dessus le globe */}
+          <div className="absolute top-4 right-10 z-10 flex items-center gap-3">
+            {loadingAnalytics && (
+              <Loader2 className="w-5 h-5 text-black/40 animate-spin" />
+            )}
+
+            {/* Dropdown personnalisé */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="flex items-center gap-3 px-5 py-3 bg-white/90 backdrop-blur-xl border border-black/[0.08] text-black rounded-2xl text-sm font-medium hover:bg-white hover:border-black/15 transition-all duration-200 shadow-lg shadow-black/5 min-w-[220px] justify-between group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <FolderOpen className="w-4 h-4 text-brand-primary" />
+                  <span className="truncate font-medium">
+                    {selectedLinkId === "all"
+                      ? "Tous les partages"
+                      : links.find(l => l.id === selectedLinkId)?.folderName || "Sélectionner"}
+                  </span>
+                </div>
+                <ChevronDown
+                  className={`w-4 h-4 text-black/40 transition-transform duration-200 ${
+                    isDropdownOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              <AnimatePresence>
+                {isDropdownOpen && (
+                  <>
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setIsDropdownOpen(false)}
+                      className="fixed inset-0 z-10"
+                    />
+
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className="absolute top-full right-0 mt-2 z-20 bg-white rounded-2xl border border-black/[0.08] shadow-2xl shadow-black/10 overflow-hidden w-full min-w-[220px]"
+                    >
+                      <div className="py-1.5">
+                        <button
+                          onClick={() => {
+                            setSelectedLinkId("all");
+                            setIsDropdownOpen(false);
+                          }}
+                          className={`w-full px-5 py-3 text-left flex items-center gap-3 hover:bg-black/5 transition-colors group ${
+                            selectedLinkId === "all" ? "bg-black/5" : ""
+                          }`}
+                        >
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                            selectedLinkId === "all"
+                              ? "border-black bg-black"
+                              : "border-black/20 group-hover:border-black/40"
+                          }`}>
+                            {selectedLinkId === "all" && (
+                              <Check className="w-3 h-3 text-white" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-black">
+                              Tous les partages
+                            </div>
+                          </div>
+                        </button>
+
+                        {links.length > 0 && (
+                          <div className="h-px bg-black/[0.05] my-1 mx-5" />
+                        )}
+
+                        {links.map((link) => (
+                          <button
+                            key={link.id}
+                            onClick={() => {
+                              setSelectedLinkId(link.id);
+                              setIsDropdownOpen(false);
+                            }}
+                            className={`w-full px-5 py-3 text-left flex items-center gap-3 hover:bg-black/5 transition-colors group ${
+                              selectedLinkId === link.id ? "bg-black/5" : ""
+                            }`}
+                          >
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                              selectedLinkId === link.id
+                                ? "border-black bg-black"
+                                : "border-black/20 group-hover:border-black/40"
+                            }`}>
+                              {selectedLinkId === link.id && (
+                                <Check className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                              <FolderOpen className="w-4 h-4 text-brand-primary flex-shrink-0" />
+                              <span className="text-sm font-medium text-black truncate">
+                                {link.folderName}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       )}

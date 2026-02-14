@@ -470,11 +470,106 @@ export async function getAllLinksAnalyticsWithGeolocation(userId: string, days: 
     });
 
     // Trier par timestamp (décroissant) - nécessaire si orderBy n'a pas fonctionné
-    return allAnalytics.sort((a, b) => 
+    return allAnalytics.sort((a, b) =>
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
   } catch (error) {
     console.error("Firestore Analytics Geolocation query failed:", error);
+    return [];
+  }
+}
+
+/**
+ * Récupère les visiteurs en direct (dernières N minutes) pour tous les liens d'un utilisateur.
+ * Utilise une seule requête Firestore sur ownerId + eventType + timestamp.
+ *
+ * Index composite requis sur shareAnalytics :
+ *   ownerId ASC, eventType ASC, timestamp DESC
+ */
+export async function getLiveVisitors(userId: string, minutes: number = 5) {
+  const cutoff = new Date();
+  cutoff.setMinutes(cutoff.getMinutes() - minutes);
+
+  const mapDoc = (doc: admin.firestore.QueryDocumentSnapshot) => {
+    const data = doc.data();
+    const eventType = data.eventType || data.type;
+    const type = eventType === "OPEN_SHARE" ? "VIEW" :
+                 eventType === "DOWNLOAD_FILE" ? "DOWNLOAD" :
+                 eventType;
+    return {
+      id: doc.id,
+      linkId: data.linkId || null,
+      type,
+      eventType: eventType || "OPEN_SHARE",
+      timestamp: data.timestamp?.toDate?.()?.toISOString() || new Date().toISOString(),
+      country: data.country || null,
+      city: data.city || null,
+      region: data.region || null,
+      latitude: data.latitude || null,
+      longitude: data.longitude || null,
+      accuracy_radius_km: data.accuracy_radius_km || null,
+      ip: data.ip || null,
+      visitorId: data.visitorId || null,
+      visitorIdStable: data.visitorIdStable || null,
+      userAgent: data.userAgent || null,
+      isp: data.isp || null,
+      asn: data.asn || null,
+      isDatacenter: data.isDatacenter || false,
+      isVPN: data.isVPN || false,
+      location_quality: data.location_quality || null,
+      invalidAttempt: data.invalidAttempt || false,
+      denialReason: data.denialReason || null,
+      ipChanged: data.ipChanged || false,
+      deviceChanged: data.deviceChanged || false,
+      recipientCount: data.recipientCount || 0,
+      isReshare: data.isReshare || false,
+      fileId: data.fileId || null,
+      fileName: data.fileName || null,
+      folderId: data.folderId || null,
+      visitor_confidence: data.visitor_confidence || null,
+      js_seen: data.js_seen || false,
+    };
+  };
+
+  try {
+    const snapshot = await db.collection("shareAnalytics")
+      .where("ownerId", "==", userId)
+      .where("eventType", "==", "OPEN_SHARE")
+      .where("timestamp", ">=", cutoff)
+      .orderBy("timestamp", "desc")
+      .limit(200)
+      .get();
+
+    return snapshot.docs.map(mapDoc);
+  } catch (error: any) {
+    // Si l'index composite n'existe pas encore, fallback avec requête plus simple
+    // (ownerId + timestamp seulement, filtrage eventType en mémoire)
+    if (error?.code === 9 || error?.message?.includes("index")) {
+      console.error(
+        "[LIVE VISITORS] Index composite requis. Créez-le via la console Firebase.",
+        "Index: shareAnalytics -> ownerId ASC, eventType ASC, timestamp DESC",
+        error?.message
+      );
+      try {
+        const snapshot = await db.collection("shareAnalytics")
+          .where("ownerId", "==", userId)
+          .where("timestamp", ">=", cutoff)
+          .limit(500)
+          .get();
+
+        return snapshot.docs
+          .map(mapDoc)
+          .filter(d => d.eventType === "OPEN_SHARE")
+          .sort((a, b) =>
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          )
+          .slice(0, 200);
+      } catch (fallbackError) {
+        console.error("[LIVE VISITORS] Fallback query failed:", fallbackError);
+        return [];
+      }
+    }
+    console.error("[LIVE VISITORS] Query failed:", error);
     return [];
   }
 }

@@ -9,13 +9,44 @@ import { useState, useEffect } from "react";
 export function TopBar() {
   const { toggle, isOpen, open } = useSidebar();
   const [mounted, setMounted] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    const mainEl = document.querySelector("main");
+    if (!mainEl) return;
+
+    const checkAutoHide = () => {
+      const shouldAutoHide = mainEl.getAttribute("data-autohide-topbar") === "true";
+      setIsVisible(!shouldAutoHide);
+    };
+
+    // Vérifier immédiatement
+    checkAutoHide();
+
+    // Observer les changements d'attribut sur <main>
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === "attributes" && mutation.attributeName === "data-autohide-topbar") {
+          checkAutoHide();
+        }
+      }
+    });
+
+    observer.observe(mainEl, { attributes: true, attributeFilter: ["data-autohide-topbar"] });
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <header className="h-16 lg:h-20 border-b border-black/[0.05] bg-white/80 backdrop-blur-md flex items-center justify-between px-4 lg:px-8 sticky top-0 z-30">
+    <header
+      className={`border-b border-black/[0.05] bg-white/80 backdrop-blur-md flex items-center justify-between px-4 lg:px-8 z-30 transition-all duration-300 ${
+        isVisible ? "h-16 lg:h-20" : "h-0 overflow-hidden opacity-0 border-b-0 pointer-events-none"
+      }`}
+    >
       {!isOpen && (
         <button
           onClick={open}
@@ -33,7 +64,7 @@ export function TopBar() {
         <NotificationCenter />
         <div className="w-px h-6 bg-black/[0.05] mx-1 lg:mx-2" />
         {mounted && (
-          <UserButton 
+          <UserButton
             afterSignOutUrl="/"
             appearance={{
               elements: {
@@ -46,4 +77,3 @@ export function TopBar() {
     </header>
   );
 }
-
