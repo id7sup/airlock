@@ -537,7 +537,7 @@ export async function getLiveVisitors(userId: string, minutes: number = 5) {
   try {
     const snapshot = await db.collection("shareAnalytics")
       .where("ownerId", "==", userId)
-      .where("eventType", "==", "OPEN_SHARE")
+      .where("eventType", "in", ["OPEN_SHARE", "LINK_PREVIEW"])
       .where("timestamp", ">=", cutoff)
       .orderBy("timestamp", "desc")
       .limit(200)
@@ -550,7 +550,7 @@ export async function getLiveVisitors(userId: string, minutes: number = 5) {
     if (error?.code === 9 || error?.message?.includes("index")) {
       console.error(
         "[LIVE VISITORS] Index composite requis. Créez-le via la console Firebase.",
-        "Index: shareAnalytics -> ownerId ASC, eventType ASC, timestamp DESC (eventType == OPEN_SHARE only)",
+        "Index: shareAnalytics -> ownerId ASC, eventType ASC, timestamp DESC",
         error?.message
       );
       try {
@@ -562,7 +562,7 @@ export async function getLiveVisitors(userId: string, minutes: number = 5) {
 
         return snapshot.docs
           .map(mapDoc)
-          .filter(d => d.eventType === "OPEN_SHARE")
+          .filter(d => d.eventType === "OPEN_SHARE" || d.eventType === "LINK_PREVIEW")
           .sort((a, b) =>
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
           )

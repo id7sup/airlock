@@ -253,11 +253,11 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 20, x: "-50%" }}
+          animate={{ opacity: 1, y: 0, x: "-50%" }}
+          exit={{ opacity: 0, y: 20, x: "-50%" }}
           transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 w-[92%] max-w-[480px]"
+          className="fixed bottom-6 left-1/2 z-[60] w-[92vw] max-w-[480px]"
         >
           <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-black/[0.06] shadow-2xl shadow-black/10 overflow-hidden">
             {/* Top row: live badge + close */}

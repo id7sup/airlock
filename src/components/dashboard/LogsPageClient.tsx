@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, type ReactElement } from "react";
+import { useMemo, useState, type ReactElement } from "react";
 import {
   Eye,
   Download,
@@ -147,23 +147,8 @@ export function LogsPageClient({ initialLogs, linkContext, visitorId }: LogsPage
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   
-  // Utiliser le visitorId passé en prop ou depuis les query params
-  const [visitorIdFilter, setVisitorIdFilter] = useState<string | null>(visitorId || null);
-  
-  useEffect(() => {
-    if (visitorId) {
-      setVisitorIdFilter(visitorId);
-      // Pré-remplir la recherche avec le visitorId pour faciliter le filtrage
-      setSearch(visitorId);
-    } else if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const urlVisitorId = params.get('visitorId');
-      if (urlVisitorId) {
-        setVisitorIdFilter(urlVisitorId);
-        setSearch(urlVisitorId);
-      }
-    }
-  }, [visitorId]);
+  // Note: Quand visitorId est présent, les logs sont déjà filtrés côté serveur
+  // par getVisitorLogsAction(). Pas de re-filtrage client nécessaire.
 
   const filtered = useMemo(() => {
     const now = new Date();
@@ -178,23 +163,11 @@ export function LogsPageClient({ initialLogs, linkContext, visitorId }: LogsPage
       if (Number.isNaN(createdAt.getTime()) || createdAt < from) return false;
       if (typeFilter !== "ALL" && log.type !== typeFilter) return false;
 
-      // Filtrer par visitorId si spécifié (via metadata.visitorId)
-      if (visitorIdFilter) {
-        // Chercher dans les métadonnées
-        const logVisitorId = log.metadata?.visitorId || '';
-        // Si le log n'a pas de visitorId dans les métadonnées, l'exclure
-        if (!logVisitorId || logVisitorId !== visitorIdFilter) {
-          return false;
-        }
-      }
-
       if (!term) return true;
       const haystack = [
         formatMessage(log),
         log.metadata?.folderName,
         log.metadata?.fileName,
-        log.metadata?.visitorId, // Inclure visitorId dans la recherche
-        log.metadata?.ip, // Inclure IP dans la recherche
         log.type,
       ]
         .filter(Boolean)
@@ -223,7 +196,7 @@ export function LogsPageClient({ initialLogs, linkContext, visitorId }: LogsPage
     });
 
     return result;
-  }, [initialLogs, linkContext, period, search, typeFilter, sortField, sortDirection, visitorIdFilter]);
+  }, [initialLogs, linkContext, period, search, typeFilter, sortField, sortDirection]);
 
   // Pagination
   const totalPages = Math.ceil(filtered.length / rowsPerPage);
@@ -278,10 +251,6 @@ export function LogsPageClient({ initialLogs, linkContext, visitorId }: LogsPage
             </div>
             <div>
               <h1 className="text-2xl font-semibold text-black">Activité du visiteur</h1>
-              <p className="text-sm text-black/50 font-mono mt-1 break-all">{visitorId}</p>
-              <p className="text-xs text-black/40 mt-1">
-                Identifiant anonyme (hash SHA-256 de l'IP + User-Agent)
-              </p>
               <p className="text-sm text-black/40 mt-1">
                 {filtered.length} {filtered.length === 1 ? "événement" : "événements"} trouvé{filtered.length > 1 ? "s" : ""}
               </p>

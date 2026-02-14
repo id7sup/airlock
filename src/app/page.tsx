@@ -450,7 +450,8 @@ export default function Home() {
                   <div className="w-16 h-16 bg-[#B7C5A9]/15 rounded-[22px] flex items-center justify-center">{item.icon}</div>
                   <div className="space-y-3">
                     <h3 className="text-[22px] font-medium text-black tracking-tight">{item.title}</h3>
-                    <p className="text-[17px] text-black/40 leading-relaxed font-medium max-w-[280px]">{item.desc}</p>
+                    {/* Sur mobile : masquer les descriptions évidentes (titre suffit) ; sur md+ tout afficher */}
+                    <p className={`text-[17px] text-black/40 leading-relaxed font-medium max-w-[280px] ${[0, 2, 3, 4].includes(i) ? "hidden md:block" : ""}`}>{item.desc}</p>
                   </div>
                 </motion.div>
               ))}
@@ -507,7 +508,8 @@ export default function Home() {
                       <div className="w-16 h-16 shrink-0 bg-[#B7C5A9]/10 rounded-[24px] flex items-center justify-center text-[#96A982] transition-all duration-700 group-hover:bg-[#B7C5A9]/20 group-hover:scale-110">{item.icon}</div>
                       <div className="space-y-4 text-left">
                         <h3 className="text-2xl font-medium text-black tracking-tight">{item.title}</h3>
-                        <p className="text-[19px] text-black/40 leading-relaxed font-medium group-hover:text-black/60 transition-colors duration-700">{item.desc}</p>
+                        {/* Sur mobile : masquer les descriptions évidentes ; sur md+ tout afficher */}
+                        <p className={`text-[19px] text-black/40 leading-relaxed font-medium group-hover:text-black/60 transition-colors duration-700 ${[1, 2, 3, 4, 5].includes(i) ? "hidden md:block" : ""}`}>{item.desc}</p>
                         <div className="pt-0 opacity-0 max-h-0 overflow-hidden transition-all duration-700 group-hover:opacity-100 group-hover:max-h-24 group-hover:pt-6 border-t border-black/[0.03] mt-2">
                           <p className="text-[16px] text-black/35 font-medium leading-relaxed italic">{item.detail}</p>
                         </div>
@@ -596,7 +598,8 @@ export default function Home() {
                   <div className="w-12 h-12 shrink-0 flex items-center justify-center text-[#96A982] transition-transform duration-500 group-hover:scale-110">{item.icon}</div>
                   <div className="space-y-2">
                     <h3 className="text-[20px] font-medium text-black tracking-tight">{item.title}</h3>
-                    <p className="text-[16px] text-black/40 leading-relaxed font-medium group-hover:text-black/60 transition-colors">{item.desc}</p>
+                    {/* Sur mobile : masquer les descriptions évidentes ; sur md+ tout afficher */}
+                    <p className={`text-[16px] text-black/40 leading-relaxed font-medium group-hover:text-black/60 transition-colors ${[0, 1, 2, 5].includes(i) ? "hidden md:block" : ""}`}>{item.desc}</p>
                   </div>
                 </motion.div>
               ))}

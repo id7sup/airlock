@@ -303,16 +303,25 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
               folderName: links.find(l => l.id === a.linkId)?.folderName || "Dossier",
             }));
 
-            // Compteur de visiteurs uniques (dédupliqué par visitorIdStable ou visitorId)
-            const uniqueVisitors = new Set(
-              allEvents.map((a: any) => a.visitorIdStable || a.visitorId).filter(Boolean)
-            );
-            setLiveVisitorCount(uniqueVisitors.size);
+            // Dedup par visiteur : garder OPEN_SHARE si dispo, sinon LINK_PREVIEW
+            // Un meme visiteur peut generer les 2 events (server-side + client-side)
+            const visitorMap = new Map<string, any>();
+            for (const event of allEvents) {
+              const key = event.visitorIdStable || event.visitorId;
+              if (!key) continue;
+              const existing = visitorMap.get(key);
+              if (!existing || (event.eventType === "OPEN_SHARE" && existing.eventType !== "OPEN_SHARE")) {
+                visitorMap.set(key, event);
+              }
+            }
+            const dedupedEvents = Array.from(visitorMap.values());
 
-            // Map : uniquement WiFi/Ethernet (exclure cellular/4G/5G)
-            // "cellular" = connexion mobile detectée par Network Information API
-            // "unknown" = Safari ou API non supportée → on affiche par défaut
-            const mapEvents = allEvents.filter((a: any) => a.connectionType !== "cellular");
+            // Compteur de visiteurs uniques
+            setLiveVisitorCount(dedupedEvents.length);
+
+            // Map : exclure cellular (4G/5G detecee par Network Information API)
+            // "unknown" (Safari, pas d'API) et LINK_PREVIEW (pas de connectionType) → afficher
+            const mapEvents = dedupedEvents.filter((a: any) => a.connectionType !== "cellular");
             setGeolocationAnalytics(mapEvents);
           }
         } catch (error) {

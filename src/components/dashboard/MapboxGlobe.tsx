@@ -210,7 +210,7 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
       projection: "globe",
       center: [0, 20],
       zoom: 1.5,
-      minZoom: 0.5,
+      minZoom: 1.8,
       maxZoom: 18,
     });
 
