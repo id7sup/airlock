@@ -297,7 +297,12 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
           const response = await fetch(url);
           if (response.ok) {
             const data = await response.json();
-            setGeolocationAnalytics(data.analytics || []);
+            // Enrichir avec le nom du dossier depuis les liens
+            const enriched = (data.analytics || []).map((a: any) => ({
+              ...a,
+              folderName: links.find(l => l.id === a.linkId)?.folderName || "Dossier",
+            }));
+            setGeolocationAnalytics(enriched);
           }
         } catch (error) {
           console.error("Erreur lors du chargement des visiteurs en direct:", error);
@@ -364,6 +369,16 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
           <div className="flex items-center gap-2">
             <Globe className="w-4 h-4" />
             <span>Suivi en direct</span>
+            {/* Pulse live indicator */}
+            <span className="relative flex h-2 w-2 ml-1">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            {geolocationAnalytics.length > 0 && (
+              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full tabular-nums">
+                {geolocationAnalytics.length}
+              </span>
+            )}
           </div>
           {activeTab === "live" && (
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black" />
@@ -411,6 +426,15 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
 
           {/* Overlay contrôles - positionné par-dessus le globe */}
           <div className="absolute top-4 right-10 z-10 flex items-center gap-3">
+            {/* Badge live visitor count */}
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-white/90 backdrop-blur-xl border border-black/[0.08] rounded-2xl shadow-lg shadow-black/5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              <span className="text-sm font-semibold text-black tabular-nums">{geolocationAnalytics.length}</span>
+              <span className="text-xs text-black/40 font-medium">en ligne</span>
+            </div>
             {loadingAnalytics && (
               <Loader2 className="w-5 h-5 text-black/40 animate-spin" />
             )}

@@ -26,6 +26,8 @@ interface AnalyticsPoint {
   accuracy_radius_km?: number | null;
   isp?: string | null;
   asn?: string | null;
+  folderName?: string | null;
+  visitorIdStable?: string | null;
 }
 
 interface MapboxGlobeProps {
@@ -147,6 +149,8 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
         accuracy_radius_km: ev.accuracy_radius_km || null,
         isp: ev.isp || null,
         asn: ev.asn || null,
+        folderName: (ev as any).folderName || null,
+        visitorIdStable: (ev as any).visitorIdStable || null,
         pointColor: getColorFromId(ev.visitorId || ev.id),
       },
       geometry: {
@@ -311,6 +315,8 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
             isVPN: f.properties.isVPN || false,
             location_quality: f.properties.location_quality || "unknown",
             accuracy_radius_km: f.properties.accuracy_radius_km || null,
+            folderName: f.properties.folderName || null,
+            visitorIdStable: f.properties.visitorIdStable || null,
           }));
 
           setSelectedDetail({
@@ -403,6 +409,8 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
             isVPN: f.properties.isVPN || false,
             location_quality: f.properties.location_quality || "unknown",
             accuracy_radius_km: f.properties.accuracy_radius_km || null,
+            folderName: f.properties.folderName || null,
+            visitorIdStable: f.properties.visitorIdStable || null,
           }));
 
           setSelectedDetail({
@@ -432,6 +440,8 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           accuracy_radius_km: props.accuracy_radius_km || null,
           isp: props.isp || null,
           asn: props.asn || null,
+          folderName: props.folderName || null,
+          visitorIdStable: props.visitorIdStable || null,
         });
         setIsDrawerOpen(true);
       };

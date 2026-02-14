@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Eye, Download, Lock, MapPin, Clock, Monitor, FileText, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, Eye, Download, Lock, MapPin, Clock, Monitor, FileText, AlertCircle, ChevronLeft, ChevronRight, Folder, Globe, Smartphone, Laptop, Tablet } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,6 +23,8 @@ interface AnalyticsDetail {
   isVPN?: boolean;
   isp?: string;
   asn?: string;
+  folderName?: string | null;
+  visitorIdStable?: string | null;
 }
 
 interface ClusterDetail {
@@ -39,13 +41,12 @@ interface AnalyticsDetailCardProps {
 
 function parseUserAgent(userAgent: string): { browser: string; device: string; os: string } {
   if (!userAgent) return { browser: "Inconnu", device: "Inconnu", os: "Inconnu" };
-  
+
   const ua = userAgent.toLowerCase();
   let browser = "Inconnu";
   let device = "Inconnu";
   let os = "Inconnu";
-  
-  // Détection du navigateur (ordre important)
+
   if (ua.includes("edg/") || ua.includes("edgios")) {
     browser = "Edge";
   } else if (ua.includes("opr/") || ua.includes("opera")) {
@@ -57,8 +58,7 @@ function parseUserAgent(userAgent: string): { browser: string; device: string; o
   } else if (ua.includes("safari") && !ua.includes("chrome")) {
     browser = "Safari";
   }
-  
-  // Détection de l'appareil (mobile/tablette en premier)
+
   if (ua.includes("mobile") || ua.includes("android") || ua.includes("iphone") || ua.includes("ipod")) {
     device = "Mobile";
   } else if (ua.includes("ipad") || ua.includes("tablet")) {
@@ -66,8 +66,7 @@ function parseUserAgent(userAgent: string): { browser: string; device: string; o
   } else if (ua.includes("windows") || ua.includes("mac") || ua.includes("linux") || ua.includes("x11")) {
     device = "Desktop";
   }
-  
-  // Détection de l'OS (ordre important)
+
   if (ua.includes("windows phone")) {
     os = "Windows Phone";
   } else if (ua.includes("windows")) {
@@ -88,7 +87,7 @@ function parseUserAgent(userAgent: string): { browser: string; device: string; o
     os = "Linux";
     if (device === "Inconnu") device = "Desktop";
   }
-  
+
   return { browser, device, os };
 }
 
@@ -98,12 +97,30 @@ function getTimeAgo(date: Date): string {
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
-  
+
   if (diffMins < 1) return "À l'instant";
   if (diffMins < 60) return `Il y a ${diffMins} min`;
   if (diffHours < 24) return `Il y a ${diffHours}h`;
   if (diffDays < 7) return `Il y a ${diffDays}j`;
   return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
+
+function DeviceIcon({ device }: { device: string }) {
+  if (device === "Mobile") return <Smartphone className="w-4 h-4" />;
+  if (device === "Tablette") return <Tablet className="w-4 h-4" />;
+  return <Laptop className="w-4 h-4" />;
+}
+
+function isLocationBiased(event: AnalyticsDetail): boolean {
+  return !!(event.isDatacenter || event.isVPN ||
+    event.location_quality === "hosting_or_datacenter" ||
+    event.location_quality === "vpn_or_anonymous_proxy");
+}
+
+function getLocationWarningLabel(event: AnalyticsDetail): string {
+  if (event.isDatacenter || event.location_quality === "hosting_or_datacenter") return "Datacenter";
+  if (event.isVPN || event.location_quality === "vpn_or_anonymous_proxy") return "VPN/Proxy";
+  return "Position biaisée";
 }
 
 export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetailCardProps) {
@@ -115,19 +132,15 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
     setMounted(true);
   }, []);
 
-  // Bloquer le scroll de la page quand le tiroir est ouvert
   useEffect(() => {
     if (isOpen) {
-      // Sauvegarder la position actuelle du scroll
       const scrollY = window.scrollY;
-      // Bloquer le scroll
       document.body.style.position = 'fixed';
       document.body.style.top = `-${scrollY}px`;
       document.body.style.width = '100%';
       document.body.style.overflow = 'hidden';
-      
+
       return () => {
-        // Restaurer le scroll quand le tiroir se ferme
         document.body.style.position = '';
         document.body.style.top = '';
         document.body.style.width = '';
@@ -138,22 +151,18 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
   }, [isOpen]);
 
   const isCluster = detail ? "pointCount" in detail : false;
-  const events = detail 
-    ? (isCluster ? (detail as ClusterDetail).points : [detail as AnalyticsDetail]) 
+  const events = detail
+    ? (isCluster ? (detail as ClusterDetail).points : [detail as AnalyticsDetail])
     : [];
-  const currentEvent = events[0];
-  
-  // Vérifier si c'est un cluster de localisation exacte avec plusieurs visiteurs
+
   const isExactLocationCluster = isCluster && events.length > 1;
 
-  // Réinitialiser l'index du carrousel quand les événements changent
   useEffect(() => {
     if (isExactLocationCluster) {
       setCurrentVisitorIndex(0);
     }
   }, [isExactLocationCluster, events.length]);
 
-  // Navigation du carrousel
   const goToPrevious = () => {
     setCurrentVisitorIndex((prev) => (prev === 0 ? events.length - 1 : prev - 1));
   };
@@ -166,28 +175,20 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
     setCurrentVisitorIndex(index);
   };
 
-  const currentVisitorEvent = isExactLocationCluster ? events[currentVisitorIndex] : currentEvent;
+  const currentVisitorEvent = isExactLocationCluster ? events[currentVisitorIndex] : events[0];
   const userInfo = currentVisitorEvent ? parseUserAgent(currentVisitorEvent.userAgent || "") : null;
   const timestamp = currentVisitorEvent ? new Date(currentVisitorEvent.timestamp) : null;
-  const eventType = currentVisitorEvent?.eventType || "";
 
-  let eventLabel = "Vue";
-  let eventIcon = Eye;
-  let accent = "bg-black/5 text-black";
-
-  if (eventType === "DOWNLOAD_FILE" || eventType === "DOWNLOAD") {
-    eventLabel = "Téléchargement";
-    eventIcon = Download;
-    accent = "bg-blue-50 text-blue-700";
-  } else if (eventType === "ACCESS_DENIED" || eventType === "DENIED") {
-    eventLabel = "Accès refusé";
-    eventIcon = Lock;
-    accent = "bg-red-50 text-red-700";
-  } else if (eventType === "OPEN_FOLDER" || eventType === "FOLDER") {
-    eventLabel = "Dossier ouvert";
-    eventIcon = Monitor;
-    accent = "bg-amber-50 text-amber-700";
-  }
+  const navigateToLogs = (event: AnalyticsDetail) => {
+    const visitorIdToUse = event.visitorIdStable || event.visitorId;
+    sessionStorage.setItem('returnToGlobe', 'true');
+    sessionStorage.setItem('globeSelectedDetail', JSON.stringify({
+      visitorId: visitorIdToUse,
+      id: event.id,
+    }));
+    router.push(`/dashboard/sharing/logs?visitorId=${encodeURIComponent(visitorIdToUse)}`);
+    onClose();
+  };
 
   if (!mounted) return null;
 
@@ -195,410 +196,317 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Overlay qui couvre toute la page (sidebar + top bar + contenu) */}
           <motion.div
             key="overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-[100] bg-black/40"
+            className="fixed inset-0 z-[100] bg-black/30 backdrop-blur-[2px]"
             onClick={onClose}
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            }}
           />
 
-          {/* Tiroir avec animation d'ouverture/fermeture */}
           <motion.div
             key="drawer"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={{ 
-              duration: 0.15,
-              ease: [0.4, 0, 0.2, 1]
+            transition={{
+              duration: 0.2,
+              ease: [0.32, 0.72, 0, 1]
             }}
-            className="fixed top-0 bottom-0 right-0 z-[110] w-full md:w-[420px] lg:w-[35vw] max-w-[540px] h-screen"
+            className="fixed top-0 bottom-0 right-0 z-[110] w-full md:w-[400px] lg:w-[420px] max-w-[460px] h-screen"
           >
-        <div className="h-full bg-white flex flex-col">
-          {/* Header épuré et moderne */}
-          <div className="relative border-b border-black/[0.06]">
-            <div className="flex items-center justify-between px-8 py-6">
-              <div className="flex items-center gap-4">
-                {currentVisitorEvent && (
-                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center">
-                    {eventIcon === Eye && <Eye className="w-7 h-7 text-[#96A982]" />}
-                    {eventIcon === Download && <Download className="w-7 h-7 text-[#96A982]" />}
-                    {eventIcon === Lock && <Lock className="w-7 h-7 text-[#96A982]" />}
-                    {eventIcon === Monitor && <Monitor className="w-7 h-7 text-[#96A982]" />}
+            <div className="h-full bg-white flex flex-col shadow-2xl">
+              {/* Header compact avec indicateur live */}
+              <div className="px-6 pt-5 pb-4 border-b border-black/[0.05]">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    {/* Pulse live */}
+                    <div className="relative flex items-center justify-center w-8 h-8">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400/30 animate-ping" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-black tracking-tight">
+                        {isExactLocationCluster ? `${events.length} visiteurs` : "Visiteur en direct"}
+                      </p>
+                      {timestamp && (
+                        <p className="text-[11px] text-black/40 mt-0.5">{getTimeAgo(timestamp)}</p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={onClose}
+                    className="w-8 h-8 rounded-lg hover:bg-black/5 active:scale-95 flex items-center justify-center transition-all"
+                    aria-label="Fermer"
+                  >
+                    <X className="w-4 h-4 text-black/40" />
+                  </button>
+                </div>
+
+                {/* Dossier consulté */}
+                {currentVisitorEvent?.folderName && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ backgroundColor: "rgba(150, 169, 130, 0.08)" }}>
+                    <Folder className="w-3.5 h-3.5 text-[#96A982]" />
+                    <span className="text-xs font-medium text-[#96A982]">{currentVisitorEvent.folderName}</span>
                   </div>
                 )}
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-black/30 mb-1">
-                    Détail en direct
-                  </p>
-                  <p className="text-2xl font-semibold tracking-tight text-black">
-                    {currentVisitorEvent ? eventLabel : "Aucun point"}
-                  </p>
-                </div>
               </div>
-              <button
-                onClick={onClose}
-                className="w-10 h-10 rounded-xl bg-black/5 hover:bg-black/10 active:scale-95 flex items-center justify-center transition-all duration-150"
-                aria-label="Fermer le détail"
-              >
-                <X className="w-5 h-5 text-black/50" />
-              </button>
-            </div>
-            {timestamp && (
-              <div className="px-8 pb-6">
-                <div className="inline-flex items-center gap-2.5 px-4 py-2 bg-black/[0.02] rounded-xl border border-black/[0.06]">
-                  <Clock className="w-4 h-4 text-[#96A982]" />
-                  <span className="text-xs font-medium text-black/60">{getTimeAgo(timestamp)}</span>
-                </div>
-              </div>
-            )}
-          </div>
 
-          <div className="flex-1 overflow-hidden">
-            {currentVisitorEvent ? (
-              <div className="h-full flex flex-col p-8">
-                {/* Section 1: Contexte - Quand et Où */}
-                <div className="grid grid-cols-2 gap-6 mb-8">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2.5 mb-2">
-                      <Clock className="w-5 h-5 text-[#96A982]" />
-                      <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">Quand</h3>
-                    </div>
-                    <p className="text-sm font-medium text-black leading-snug pl-7">
-                      {timestamp
-                        ? timestamp.toLocaleString("fr-FR", {
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "—"}
-                    </p>
-                    <p className="text-xs text-black/40 pl-7">
-                      {timestamp ? timestamp.toLocaleDateString("fr-FR", { year: "numeric" }) : ""}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2.5 mb-2">
-                      <MapPin className="w-5 h-5 text-[#96A982]" />
-                      <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">Où</h3>
-                    </div>
-                    <div className="pl-7 space-y-0.5">
-                      {currentVisitorEvent.city ? (
-                        <>
-                          <p className="text-sm font-semibold text-black leading-tight">
-                            {currentVisitorEvent.city || currentVisitorEvent.country || "Localisation inconnue"}
+              {/* Contenu scrollable */}
+              <div className="flex-1 overflow-y-auto">
+                {currentVisitorEvent ? (
+                  <div className="p-6 space-y-5">
+                    {/* Localisation */}
+                    <section>
+                      <div className="flex items-center gap-2 mb-3">
+                        <MapPin className="w-3.5 h-3.5 text-black/30" />
+                        <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/30">Localisation</h3>
+                      </div>
+                      <div className="ml-[22px]">
+                        <p className="text-[15px] font-semibold text-black leading-tight">
+                          {currentVisitorEvent.city || currentVisitorEvent.country || "Inconnue"}
+                        </p>
+                        {currentVisitorEvent.city && (
+                          <p className="text-xs text-black/40 mt-0.5">
+                            {[currentVisitorEvent.region, currentVisitorEvent.country].filter(Boolean).join(", ")}
                           </p>
-                          <p className="text-xs text-black/50">
-                            {[currentVisitorEvent.region, currentVisitorEvent.country].filter(Boolean).join(", ") || "Localisation inconnue"}
-                            {(currentVisitorEvent.isDatacenter || currentVisitorEvent.isVPN || currentVisitorEvent.location_quality) && (
-                              <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-medium uppercase tracking-wider">
-                                <AlertCircle className="w-3 h-3" />
-                                {currentVisitorEvent.isDatacenter ? "Datacenter" :
-                                 currentVisitorEvent.isVPN ? "VPN/Proxy" :
-                                 currentVisitorEvent.location_quality === "hosting_or_datacenter" ? "Datacenter" :
-                                 currentVisitorEvent.location_quality === "vpn_or_anonymous_proxy" ? "VPN/Proxy" :
-                                 "Position biaisée"}
-                              </span>
-                            )}
-                          </p>
-                          {/* Explication de la précision */}
-                          {(currentVisitorEvent.isDatacenter || currentVisitorEvent.isVPN || currentVisitorEvent.location_quality === "hosting_or_datacenter" || currentVisitorEvent.location_quality === "vpn_or_anonymous_proxy") && (
-                            <div className="mt-2 pl-7 space-y-1">
-                              <p className="text-[10px] text-amber-700/80 leading-relaxed">
-                                {currentVisitorEvent.isDatacenter || currentVisitorEvent.location_quality === "hosting_or_datacenter" 
-                                  ? "⚠️ La position indiquée correspond au datacenter du serveur, pas à la position réelle de l'utilisateur. La localisation peut être très éloignée (plusieurs centaines de kilomètres)."
-                                  : currentVisitorEvent.isVPN || currentVisitorEvent.location_quality === "vpn_or_anonymous_proxy"
-                                  ? "⚠️ La position indiquée correspond au serveur VPN/Proxy utilisé, pas à la position réelle de l'utilisateur. La localisation peut être très éloignée (plusieurs centaines de kilomètres)."
-                                  : "⚠️ La position peut être biaisée et ne pas correspondre à la localisation réelle de l'utilisateur."}
+                        )}
+                        {isLocationBiased(currentVisitorEvent) && (
+                          <div className="mt-2 flex items-start gap-2 p-2.5 bg-amber-50/80 rounded-lg">
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-[11px] font-medium text-amber-700">
+                                {getLocationWarningLabel(currentVisitorEvent)}
+                              </p>
+                              <p className="text-[10px] text-amber-600/70 mt-0.5 leading-relaxed">
+                                Position approximative du serveur, pas de l'utilisateur.
                               </p>
                               {currentVisitorEvent.isp && (
-                                <p className="text-[10px] text-amber-700/60 mt-1">
-                                  ISP: {currentVisitorEvent.isp}
+                                <p className="text-[10px] text-amber-600/50 mt-1 font-mono">
+                                  {currentVisitorEvent.isp}
                                 </p>
                               )}
                             </div>
-                          )}
-                          {currentVisitorEvent.accuracy_radius_km && !currentVisitorEvent.isDatacenter && !currentVisitorEvent.isVPN && currentVisitorEvent.location_quality === "residential_or_mobile" && (
-                            <p className="text-[10px] text-black/40 mt-1 pl-7">
-                              Précision estimée : ± {currentVisitorEvent.accuracy_radius_km} km (localisation résidentielle/mobile)
-                            </p>
-                          )}
-                          {!currentVisitorEvent.accuracy_radius_km && !currentVisitorEvent.isDatacenter && !currentVisitorEvent.isVPN && currentVisitorEvent.location_quality !== "residential_or_mobile" && (
-                            <p className="text-[10px] text-black/40 mt-1 pl-7">
-                              Précision non disponible pour cette localisation
-                            </p>
-                          )}
-                        </>
-                      ) : (
-                        <p className="text-sm font-semibold text-black leading-tight">
-                          {currentVisitorEvent.country || "Localisation inconnue"}
-                          {(currentVisitorEvent.isDatacenter || currentVisitorEvent.isVPN || currentVisitorEvent.location_quality) && (
-                            <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-medium uppercase tracking-wider">
-                              <AlertCircle className="w-3 h-3" />
-                              {currentVisitorEvent.isDatacenter ? "Datacenter" :
-                               currentVisitorEvent.isVPN ? "VPN/Proxy" :
-                               currentVisitorEvent.location_quality === "hosting_or_datacenter" ? "Datacenter" :
-                               currentVisitorEvent.location_quality === "vpn_or_anonymous_proxy" ? "VPN/Proxy" :
-                               "Position biaisée"}
-                            </span>
-                          )}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 2: Appareil - Comment */}
-                <div className="mb-8">
-                  <div className="flex items-center gap-2.5 mb-3">
-                    <Monitor className="w-5 h-5 text-[#96A982]" />
-                    <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">Comment</h3>
-                  </div>
-                  <div className="pl-7">
-                    {userInfo ? (
-                      <div className="flex flex-wrap gap-2">
-                        <div className="px-3 py-1.5 bg-black/5 rounded-lg">
-                          <p className="text-xs font-semibold text-black">{userInfo.device}</p>
-                        </div>
-                        <div className="px-3 py-1.5 bg-black/5 rounded-lg">
-                          <p className="text-xs font-semibold text-black">{userInfo.browser}</p>
-                        </div>
-                        <div className="px-3 py-1.5 bg-black/5 rounded-lg">
-                          <p className="text-xs font-semibold text-black">{userInfo.os}</p>
-                        </div>
+                          </div>
+                        )}
+                        {currentVisitorEvent.accuracy_radius_km && !isLocationBiased(currentVisitorEvent) && (
+                          <p className="text-[10px] text-black/30 mt-1.5">
+                            Precis. ± {currentVisitorEvent.accuracy_radius_km} km
+                          </p>
+                        )}
                       </div>
+                    </section>
+
+                    {/* Appareil */}
+                    <section>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Monitor className="w-3.5 h-3.5 text-black/30" />
+                        <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/30">Appareil</h3>
+                      </div>
+                      {userInfo && (
+                        <div className="flex flex-wrap gap-1.5 ml-[22px]">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-black/[0.03] rounded-lg text-[11px] font-medium text-black/70">
+                            <DeviceIcon device={userInfo.device} />
+                            {userInfo.device}
+                          </span>
+                          <span className="px-2.5 py-1 bg-black/[0.03] rounded-lg text-[11px] font-medium text-black/70">
+                            {userInfo.browser}
+                          </span>
+                          <span className="px-2.5 py-1 bg-black/[0.03] rounded-lg text-[11px] font-medium text-black/70">
+                            {userInfo.os}
+                          </span>
+                        </div>
+                      )}
+                    </section>
+
+                    {/* Identité - mode cluster avec carrousel */}
+                    {isExactLocationCluster ? (
+                      <section>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Globe className="w-3.5 h-3.5 text-black/30" />
+                            <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/30">Visiteurs</h3>
+                          </div>
+                          <span className="text-[10px] font-medium text-black/30 tabular-nums">
+                            {currentVisitorIndex + 1}/{events.length}
+                          </span>
+                        </div>
+
+                        <div className="relative ml-[22px]">
+                          <AnimatePresence mode="wait">
+                            <motion.div
+                              key={currentVisitorIndex}
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -8 }}
+                              transition={{ duration: 0.15 }}
+                              className="p-4 bg-black/[0.02] rounded-xl border border-black/[0.05]"
+                            >
+                              {(() => {
+                                const event = events[currentVisitorIndex];
+                                const eventUserInfo = parseUserAgent(event.userAgent || "");
+                                const eventTimestamp = new Date(event.timestamp);
+                                return (
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-full bg-black/5 flex items-center justify-center">
+                                          <span className="text-[10px] font-bold text-black/50">{currentVisitorIndex + 1}</span>
+                                        </div>
+                                        <span className="text-xs font-medium text-black">{getTimeAgo(eventTimestamp)}</span>
+                                      </div>
+                                      <div className="flex gap-1">
+                                        <span className="text-[10px] px-1.5 py-0.5 bg-black/5 rounded text-black/60">{eventUserInfo.device}</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 bg-black/5 rounded text-black/60">{eventUserInfo.browser}</span>
+                                      </div>
+                                    </div>
+
+                                    {event.folderName && (
+                                      <div className="flex items-center gap-1.5">
+                                        <Folder className="w-3 h-3 text-[#96A982]" />
+                                        <span className="text-[11px] text-black/50">{event.folderName}</span>
+                                      </div>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                      {event.ip && (
+                                        <div>
+                                          <p className="text-black/30 mb-0.5">IP</p>
+                                          <p className="font-mono text-black/60 break-all">{event.ip}</p>
+                                        </div>
+                                      )}
+                                      <div>
+                                        <p className="text-black/30 mb-0.5">ID</p>
+                                        <p className="font-mono text-black/60 break-all">{event.visitorId?.slice(0, 12) || "—"}...</p>
+                                      </div>
+                                    </div>
+
+                                    {(event.visitorId || event.visitorIdStable) && (
+                                      <button
+                                        onClick={() => navigateToLogs(event)}
+                                        className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-medium text-black/40 hover:text-black/70 hover:bg-black/[0.03] rounded-lg transition-colors"
+                                      >
+                                        <FileText className="w-3 h-3" />
+                                        Voir les logs
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </motion.div>
+                          </AnimatePresence>
+
+                          {/* Navigation */}
+                          {events.length > 1 && (
+                            <div className="flex items-center justify-between mt-3">
+                              <button
+                                onClick={goToPrevious}
+                                className="w-7 h-7 rounded-lg bg-black/[0.03] hover:bg-black/[0.06] flex items-center justify-center transition-colors"
+                                aria-label="Précédent"
+                              >
+                                <ChevronLeft className="w-3.5 h-3.5 text-black/40" />
+                              </button>
+                              <div className="flex gap-1">
+                                {events.map((_, idx) => (
+                                  <button
+                                    key={idx}
+                                    onClick={() => goToIndex(idx)}
+                                    className={`h-1 rounded-full transition-all duration-200 ${
+                                      idx === currentVisitorIndex
+                                        ? "w-4 bg-[#96A982]"
+                                        : "w-1 bg-black/10 hover:bg-black/20"
+                                    }`}
+                                    aria-label={`Visiteur ${idx + 1}`}
+                                  />
+                                ))}
+                              </div>
+                              <button
+                                onClick={goToNext}
+                                className="w-7 h-7 rounded-lg bg-black/[0.03] hover:bg-black/[0.06] flex items-center justify-center transition-colors"
+                                aria-label="Suivant"
+                              >
+                                <ChevronRight className="w-3.5 h-3.5 text-black/40" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </section>
                     ) : (
-                      <p className="text-xs text-black/60">Appareil inconnu</p>
+                      /* Identité - mode single */
+                      <section>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Globe className="w-3.5 h-3.5 text-black/30" />
+                          <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/30">Identite</h3>
+                        </div>
+                        <div className="ml-[22px] grid grid-cols-2 gap-3">
+                          <div className="p-3 bg-black/[0.02] rounded-xl border border-black/[0.04]">
+                            <p className="text-[10px] text-black/30 mb-1">IP</p>
+                            <p className="text-xs font-mono text-black/70 break-all">
+                              {currentVisitorEvent.ip || "—"}
+                            </p>
+                          </div>
+                          <div className="p-3 bg-black/[0.02] rounded-xl border border-black/[0.04]">
+                            <p className="text-[10px] text-black/30 mb-1">Visiteur</p>
+                            <p className="text-xs font-mono text-black/70 break-all">
+                              {currentVisitorEvent.visitorId?.slice(0, 12) || "—"}...
+                            </p>
+                          </div>
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Heure exacte */}
+                    {timestamp && (
+                      <section className="pt-4 border-t border-black/[0.04]">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Clock className="w-3.5 h-3.5 text-black/30" />
+                          <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/30">Horodatage</h3>
+                        </div>
+                        <p className="text-xs text-black/50 ml-[22px] font-mono">
+                          {timestamp.toLocaleString("fr-FR", {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                          })}
+                        </p>
+                      </section>
                     )}
                   </div>
-                </div>
-
-                {/* Section 3: Identité - Qui */}
-                {isExactLocationCluster ? (
-                  <div className="mb-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">
-                        {events.length} visiteurs uniques à cette localisation exacte
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-black/50">
-                          {currentVisitorIndex + 1} / {events.length}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {/* Carrousel des visiteurs */}
-                    <div className="relative">
-                      {/* Conteneur du carrousel */}
-                      <div className="relative overflow-hidden rounded-xl">
-                        <AnimatePresence mode="wait">
-                          <motion.div
-                            key={currentVisitorIndex}
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            transition={{ duration: 0.2 }}
-                            className="p-4 bg-black/[0.02] rounded-xl border border-black/[0.06]"
-                          >
-                            {(() => {
-                              const event = events[currentVisitorIndex];
-                              const eventUserInfo = parseUserAgent(event.userAgent || "");
-                              return (
-                                <>
-                                  <div className="flex items-center justify-between mb-3">
-                                    <p className="text-xs font-semibold text-black">Visiteur #{currentVisitorIndex + 1}</p>
-                                    <p className="text-[10px] text-black/40">
-                                      {new Date(event.timestamp).toLocaleString("fr-FR", {
-                                        day: "numeric",
-                                        month: "short",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })}
-                                    </p>
-                                  </div>
-                                  <div className="space-y-1.5">
-                                    <div>
-                                      <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-0.5">ID Visiteur</p>
-                                      <p className="text-xs font-mono text-black break-all">{event.visitorId || "—"}</p>
-                                    </div>
-                                    {event.ip && (
-                                      <div>
-                                        <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-0.5">IP</p>
-                                        <p className="text-xs font-mono text-black break-all">{event.ip}</p>
-                                      </div>
-                                    )}
-                                    {eventUserInfo && (
-                                      <div>
-                                        <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-0.5">Appareil</p>
-                                        <div className="flex flex-wrap gap-1.5">
-                                          <span className="text-[10px] px-2 py-0.5 bg-black/5 rounded text-black">{eventUserInfo.device}</span>
-                                          <span className="text-[10px] px-2 py-0.5 bg-black/5 rounded text-black">{eventUserInfo.browser}</span>
-                                          <span className="text-[10px] px-2 py-0.5 bg-black/5 rounded text-black">{eventUserInfo.os}</span>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                  {/* Bouton pour voir les logs de ce visiteur spécifique */}
-                                  {(event.visitorId || (event as any).visitorIdStable) && (
-                                    <div className="mt-3 pt-3 border-t border-black/[0.06]">
-                                      <button
-                                        onClick={() => {
-                                          // Utiliser visitorIdStable si disponible (pour regrouper tous les logs), sinon visitorId
-                                          const visitorIdToUse = (event as any).visitorIdStable || event.visitorId;
-                                          sessionStorage.setItem('returnToGlobe', 'true');
-                                          sessionStorage.setItem('globeSelectedDetail', JSON.stringify({
-                                            visitorId: visitorIdToUse,
-                                            id: event.id,
-                                          }));
-                                          router.push(`/dashboard/sharing/logs?visitorId=${encodeURIComponent(visitorIdToUse)}`);
-                                          onClose();
-                                        }}
-                                        className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-black/60 hover:text-black bg-black/[0.02] hover:bg-black/[0.05] rounded-lg transition-colors"
-                                      >
-                                        <FileText className="w-3.5 h-3.5" />
-                                        Voir tous les logs de ce visiteur
-                                      </button>
-                                    </div>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </motion.div>
-                        </AnimatePresence>
-                      </div>
-
-                      {/* Boutons de navigation */}
-                      {events.length > 1 && (
-                        <>
-                          <button
-                            onClick={goToPrevious}
-                            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 w-10 h-10 rounded-full bg-white border border-black/[0.1] shadow-lg flex items-center justify-center hover:bg-black/5 transition-colors z-10"
-                            aria-label="Visiteur précédent"
-                          >
-                            <ChevronLeft className="w-5 h-5 text-black/60" />
-                          </button>
-                          <button
-                            onClick={goToNext}
-                            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 w-10 h-10 rounded-full bg-white border border-black/[0.1] shadow-lg flex items-center justify-center hover:bg-black/5 transition-colors z-10"
-                            aria-label="Visiteur suivant"
-                          >
-                            <ChevronRight className="w-5 h-5 text-black/60" />
-                          </button>
-                        </>
-                      )}
-
-                      {/* Indicateurs de position (dots) */}
-                      {events.length > 1 && (
-                        <div className="flex items-center justify-center gap-2 mt-4">
-                          {events.map((_, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => goToIndex(idx)}
-                              className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                                idx === currentVisitorIndex
-                                  ? "bg-[#96A982] w-6"
-                                  : "bg-black/20 hover:bg-black/30"
-                              }`}
-                              aria-label={`Aller au visiteur ${idx + 1}`}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="space-y-2">
-                      <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">Adresse IP</h3>
-                      <div className="p-3.5 bg-black/[0.02] rounded-xl border border-black/[0.06]">
-                        <p className="text-sm font-semibold text-black font-mono break-all">
-                          {currentVisitorEvent.ip || "—"}
-                        </p>
+                  <div className="h-full flex items-center justify-center text-sm text-black/40 text-center px-6">
+                    <div className="space-y-3">
+                      <div className="relative flex items-center justify-center w-16 h-16 mx-auto">
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-[#96A982]/10 animate-ping" />
+                        <Eye className="w-8 h-8 text-[#96A982]/60 relative" />
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">Visiteur</h3>
-                      <div className="p-3.5 bg-black/[0.02] rounded-xl border border-black/[0.06]">
-                        <p className="text-sm font-semibold text-black font-mono break-all">
-                          {currentVisitorEvent.visitorId || "—"}
-                        </p>
+                      <div className="space-y-1">
+                        <p className="font-medium text-sm text-black/50">Selectionnez un point</p>
+                        <p className="text-xs text-black/25">sur le globe pour voir les details</p>
                       </div>
                     </div>
                   </div>
                 )}
+              </div>
 
-                {/* Section 4: Référence */}
-                <div className="pt-4 border-t border-black/[0.06]">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40 mb-1">Événement</p>
-                      <p className="text-xs font-mono text-black/60">#{currentVisitorEvent.id}</p>
-                    </div>
-                    {currentVisitorEvent.userAgent && (
-                      <div className="flex-1 ml-6">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40 mb-1">User Agent</p>
-                        <p className="text-[10px] text-black/40 font-mono leading-relaxed break-all">
-                          {currentVisitorEvent.userAgent}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Bouton pour voir les logs de ce visiteur */}
-                  {(currentVisitorEvent.visitorId || (currentVisitorEvent as any).visitorIdStable) && (
-                    <div className="mt-4 pt-4 border-t border-black/[0.06]">
-                      <button
-                        onClick={() => {
-                          // Utiliser visitorIdStable si disponible (pour regrouper tous les logs), sinon visitorId
-                          const visitorIdToUse = (currentVisitorEvent as any).visitorIdStable || currentVisitorEvent.visitorId;
-                          // Sauvegarder l'état du tiroir dans sessionStorage pour pouvoir y revenir
-                          sessionStorage.setItem('returnToGlobe', 'true');
-                          sessionStorage.setItem('globeSelectedDetail', JSON.stringify({
-                            visitorId: visitorIdToUse,
-                            id: currentVisitorEvent.id,
-                          }));
-                          // Rediriger vers les logs avec le visitorIdStable en paramètre (pour regrouper tous les logs)
-                          router.push(`/dashboard/sharing/logs?visitorId=${encodeURIComponent(visitorIdToUse)}`);
-                          onClose();
-                        }}
-                        className="w-full flex items-center justify-center gap-2.5 px-4 py-3 bg-black/5 hover:bg-black/10 rounded-xl transition-all duration-200 group"
-                      >
-                        <FileText className="w-4 h-4 text-black/60 group-hover:text-black" />
-                        <span className="text-sm font-medium text-black/70 group-hover:text-black">
-                          Voir tous les logs de ce visiteur
-                        </span>
-                      </button>
-                    </div>
-                  )}
+              {/* Footer - Bouton voir les logs (mode single) */}
+              {currentVisitorEvent && !isExactLocationCluster && (currentVisitorEvent.visitorId || currentVisitorEvent.visitorIdStable) && (
+                <div className="p-4 border-t border-black/[0.05]">
+                  <button
+                    onClick={() => navigateToLogs(currentVisitorEvent)}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-medium text-black/50 hover:text-black bg-black/[0.02] hover:bg-black/[0.05] rounded-xl transition-all duration-200"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Voir tous les logs de ce visiteur
+                  </button>
                 </div>
-              </div>
-            ) : (
-              <div className="h-full flex items-center justify-center text-sm text-black/40 text-center px-6">
-                <div className="space-y-3">
-                  <Eye className="w-12 h-12 text-[#96A982] mx-auto" />
-                  <div className="space-y-1">
-                    <p className="font-semibold text-base text-black/60">Sélectionnez un point</p>
-                    <p className="text-xs text-black/30">sur le globe pour voir les détails</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+              )}
+            </div>
           </motion.div>
         </>
       )}
