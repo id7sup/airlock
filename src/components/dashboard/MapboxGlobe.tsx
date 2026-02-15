@@ -192,7 +192,17 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
     return result;
   }, [geojsonData]);
 
-  // 3. Initialisation de la carte
+  // 3. Resize le map quand le conteneur change de taille (ex: sidebar toggle)
+  useEffect(() => {
+    if (!mapContainer.current) return;
+    const observer = new ResizeObserver(() => {
+      map.current?.resize();
+    });
+    observer.observe(mapContainer.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // 4. Initialisation de la carte
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
@@ -328,14 +338,49 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           return;
         }
 
-        // Cluster normal : zoom modéré avec getClusterExpansionZoom (asynchrone)
+        // Cluster normal : zoom avec getClusterExpansionZoom (asynchrone)
         const source = map.current.getSource("analytics-points") as mapboxgl.GeoJSONSource;
-        
-        // getClusterExpansionZoom est asynchrone et retourne une Promise
+
         source.getClusterExpansionZoom(clusterId, (error, expansionZoom) => {
           if (error || !map.current || typeof expansionZoom !== 'number') return;
-          
+
           const currentZoom = map.current.getZoom();
+
+          // Si le cluster ne peut plus s'expanser (même position ou zoom max atteint),
+          // ouvrir la card avec tous les visiteurs du cluster
+          if (expansionZoom >= 14 || currentZoom >= 12) {
+            source.getClusterLeaves(clusterId, pointCount, 0, (err, leaves) => {
+              if (err || !leaves || leaves.length === 0) return;
+
+              const visitors = leaves.map((f: any) => ({
+                id: f.properties.eventId,
+                type: f.properties.type || "VIEW",
+                eventType: f.properties.type || "OPEN_SHARE",
+                country: f.properties.country || "Inconnu",
+                city: f.properties.city || "Inconnu",
+                region: f.properties.region || "",
+                timestamp: f.properties.timestamp || new Date().toISOString(),
+                visitorId: f.properties.visitorId || "",
+                userAgent: f.properties.userAgent || "",
+                ip: f.properties.ip || null,
+                isDatacenter: f.properties.isDatacenter || false,
+                isVPN: f.properties.isVPN || false,
+                location_quality: f.properties.location_quality || "unknown",
+                accuracy_radius_km: f.properties.accuracy_radius_km || null,
+                folderName: f.properties.folderName || null,
+                visitorIdStable: f.properties.visitorIdStable || null,
+              }));
+
+              setSelectedDetail({
+                pointCount: visitors.length,
+                center: [lng, lat],
+                points: visitors,
+              });
+              setIsDrawerOpen(true);
+            });
+            return;
+          }
+
           // Zoom vers le niveau d'expansion du cluster, avec un minimum de +3 niveaux
           let targetZoom = Math.max(currentZoom + 3, expansionZoom);
 
@@ -351,14 +396,14 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           setTimeout(() => {
             setSelectedDetail(null);
           }, 150);
-          
+
           isAnimatingRef.current = true;
 
           map.current.flyTo({
             center: [lng, lat],
             zoom: targetZoom,
             duration: 600,
-            easing: (t: number) => t * (2 - t), // Easing doux
+            easing: (t: number) => t * (2 - t),
           });
 
           setTimeout(() => {
