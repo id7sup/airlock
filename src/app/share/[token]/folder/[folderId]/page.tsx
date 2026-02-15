@@ -58,19 +58,32 @@ export default async function PublicShareFolderPage({
       );
     }
 
-    // Gérer les erreurs de validation
+    // Gérer les erreurs de validation avec des messages explicites
     if (!result || (result as any).error) {
       const errorResult = result as any;
+      const errorType = errorResult?.error;
+      let title = "Accès indisponible";
+      let message = "Ce lien n'est plus actif. Vérifiez avec la personne qui vous l'a envoyé.";
+      if (errorType === "EXPIRED") {
+        title = "Lien expiré";
+        message = "La date d'expiration de ce lien est dépassée. Demandez un nouveau lien si nécessaire.";
+      } else if (errorType === "QUOTA_EXCEEDED") {
+        title = "Quota atteint";
+        message = "Le nombre maximum de consultations pour ce lien a été atteint.";
+      } else if (errorType === "REVOKED") {
+        title = "Lien révoqué";
+        message = "Ce lien a été désactivé par la personne qui l'a partagé.";
+      } else if (errorType === "NOT_FOUND") {
+        title = "Lien ou dossier introuvable";
+        message = "Ce lien n'existe pas ou le dossier partagé a été supprimé.";
+      } else if (errorType === "ACCESS_DISABLED") {
+        title = "Accès aux dossiers désactivé";
+        message = "La navigation dans les sous-dossiers n'est pas autorisée pour ce lien.";
+      }
       return (
         <SharePageError
-          title="Accès indisponible"
-          message={
-            errorResult?.error === "EXPIRED"
-              ? "Ce lien a expiré."
-              : errorResult?.error === "QUOTA_EXCEEDED"
-              ? "Le quota de vues a été atteint."
-              : "Ce lien n'est plus actif ou a été révoqué."
-          }
+          title={title}
+          message={message}
           icon={Info}
         />
       );
@@ -331,11 +344,11 @@ export default async function PublicShareFolderPage({
       </>
     );
   } catch (error: any) {
-    console.error("[SHARE_FOLDER] Critical error:", error?.message);
+    console.error("[SHARE_FOLDER] Critical error:", error?.message, error?.digest);
     return (
       <SharePageError
-        title="Erreur"
-        message="Une erreur inattendue est survenue. Veuillez réessayer plus tard."
+        title="Ce partage n'a pas pu être chargé"
+        message="Une erreur est survenue (lien expiré, révoqué, quota atteint, dossier supprimé ou problème technique). Vérifiez le lien avec la personne qui vous l'a envoyé ou réessayez plus tard."
         icon={AlertTriangle}
       />
     );

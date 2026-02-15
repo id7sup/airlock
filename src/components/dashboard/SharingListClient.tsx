@@ -340,7 +340,7 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
   }, [activeTab, selectedLinkId]);
 
   return (
-    <div className={`p-10 max-w-6xl mx-auto animate-in fade-in duration-1000 text-black ${activeTab === 'live' ? 'pb-0' : ''}`}>
+    <div className={`p-10 animate-in fade-in duration-1000 text-black ${activeTab === 'live' ? 'pb-0' : 'max-w-6xl mx-auto'}`}>
       {/* Page Header Simplifié */}
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
         <div className="space-y-1">
@@ -431,7 +431,7 @@ export default function SharingListClient({ initialLinks }: { initialLinks: Shar
         /* Vue en direct - Globe plein écran avec overlay */
         <div className="relative -mt-4">
           {/* Globe terrestre - plein écran sans bordures */}
-          <div className="h-[85vh] w-[100vw] ml-[calc(-50vw+50%)] overflow-hidden">
+          <div className="h-[85vh] -mx-10 overflow-hidden">
             {loadingAnalytics ? (
               <div className="h-full flex items-center justify-center bg-transparent">
                 <div className="text-center">

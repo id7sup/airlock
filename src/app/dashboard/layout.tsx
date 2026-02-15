@@ -40,7 +40,7 @@ export default async function DashboardLayout({
             <Sidebar storageUsed={storageUsed} />
             <MainContent>
               <TopBar />
-              <main className="flex-1 overflow-y-auto bg-white/50 backdrop-blur-3xl">
+              <main className="flex-1 overflow-y-auto overflow-x-hidden bg-white/50 backdrop-blur-3xl">
                 {children}
               </main>
             </MainContent>

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { useSidebar } from "./SidebarProvider";
 
 interface AnalyticsDetail {
   id: string;
@@ -205,6 +206,15 @@ function LocationTooltip({ event }: { event: AnalyticsDetail }) {
 export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetailCardProps) {
   const [currentVisitorIndex, setCurrentVisitorIndex] = useState(0);
   const router = useRouter();
+  const { isOpen: sidebarOpen } = useSidebar();
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const isCluster = detail ? "pointCount" in detail : false;
   const events = detail
@@ -249,6 +259,9 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
   const info = parseUserAgent(currentEvent.userAgent || "");
   const ts = new Date(currentEvent.timestamp);
 
+  // Sidebar is 16rem wide; shift card right by half (8rem) when sidebar pushes content
+  const sidebarOffset = sidebarOpen && isDesktop ? "8rem" : "0px";
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -257,7 +270,8 @@ export function AnalyticsDetailCard({ detail, onClose, isOpen }: AnalyticsDetail
           animate={{ opacity: 1, y: 0, x: "-50%" }}
           exit={{ opacity: 0, y: 20, x: "-50%" }}
           transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
-          className="fixed bottom-6 left-1/2 z-[60] w-[92vw] max-w-[480px]"
+          className="fixed bottom-4 z-[60] w-[92vw] max-w-[480px]"
+          style={{ left: `calc(50% + ${sidebarOffset})` }}
         >
           <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-black/[0.06] shadow-2xl shadow-black/10 overflow-hidden">
             {/* Top row: live badge + close */}

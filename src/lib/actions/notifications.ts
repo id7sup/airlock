@@ -34,10 +34,12 @@ export async function getLinkLogsAction(linkId: string, folderName: string, limi
       switch (event.eventType) {
         case "OPEN_SHARE":
         case "VIEW_FILE":
+        case "VIEW_FILE_WATERMARKED":
         case "OPEN_FOLDER":
           type = "VIEW";
           break;
         case "DOWNLOAD_FILE":
+        case "DOWNLOAD_FOLDER":
           type = "DOWNLOAD";
           break;
         case "ACCESS_DENIED":
@@ -208,10 +210,12 @@ export async function getVisitorLogsAction(visitorId: string, userId: string, li
       switch (event.eventType) {
         case "OPEN_SHARE":
         case "VIEW_FILE":
+        case "VIEW_FILE_WATERMARKED":
         case "OPEN_FOLDER":
           type = "VIEW";
           break;
         case "DOWNLOAD_FILE":
+        case "DOWNLOAD_FOLDER":
           type = "DOWNLOAD";
           break;
         case "ACCESS_DENIED":
@@ -220,7 +224,7 @@ export async function getVisitorLogsAction(visitorId: string, userId: string, li
         default:
           return null;
       }
-      
+
       return {
         id: event.id,
         type,
