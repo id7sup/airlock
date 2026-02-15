@@ -336,21 +336,16 @@ export function MapboxGlobe({ analytics }: MapboxGlobeProps) {
           if (error || !map.current || typeof expansionZoom !== 'number') return;
           
           const currentZoom = map.current.getZoom();
-          // Zoom modéré : +1 à +1.5 niveaux max (Snap Map-like)
-          let targetZoom = Math.min(currentZoom + 1.5, expansionZoom);
-          
-          // Pour les très gros clusters, zoomer encore moins
+          // Zoom vers le niveau d'expansion du cluster, avec un minimum de +3 niveaux
+          let targetZoom = Math.max(currentZoom + 3, expansionZoom);
+
+          // Pour les très gros clusters, zoomer un peu moins
           if (pointCount > 20) {
-            targetZoom = Math.min(currentZoom + 1, expansionZoom);
+            targetZoom = Math.max(currentZoom + 2.5, expansionZoom);
           }
-          
-          // Ne jamais zoomer en arrière
-          if (targetZoom < currentZoom) {
-            targetZoom = currentZoom + 0.5;
-          }
-          
+
           // Limiter le zoom maximum
-          targetZoom = Math.min(targetZoom, 12);
+          targetZoom = Math.min(targetZoom, 14);
 
           setIsDrawerOpen(false);
           setTimeout(() => {
