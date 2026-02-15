@@ -58,7 +58,9 @@ function detectLocationQuality(isp?: string, asn?: string): {
     'vpn', 'proxy', 'tor', 'anonymizer', 'nordvpn', 'expressvpn',
     'surfshark', 'cyberghost', 'private internet access', 'mullvad',
     'windscribe', 'protonvpn', 'hide.me', 'tunnelbear', 'vyprvpn',
-    'ipvanish', 'hotspot shield', 'purevpn'
+    'ipvanish', 'hotspot shield', 'purevpn', 'cloudflare warp',
+    'warp', 'mozilla vpn', 'adguard', 'kaspersky', 'bitdefender',
+    'f-secure', 'avast secureline', 'avg secure', 'zenmate'
   ];
 
   const isDatacenter = datacenterPatterns.some(pattern => 
@@ -305,6 +307,107 @@ export async function getGeolocationFromIP(
   const fallbackResult: GeolocationResult = {};
   geoCache.set(ip, { result: fallbackResult, timestamp: Date.now() });
   return fallbackResult;
+}
+
+// Cache dédié pour les vérifications VPN (TTL court de 5 min)
+const vpnCheckCache = new Map<string, { result: boolean; geolocation: GeolocationResult; timestamp: number }>();
+const VPN_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Vérifie si une IP provient d'un VPN ou datacenter
+ *
+ * Utilise ip-api.com avec les champs `proxy` et `hosting` qui fournissent
+ * une détection fiable des VPN/proxy/Tor et des datacenters/hébergeurs.
+ * Ne se base PAS sur les headers Cloudflare (qui ne fournissent pas cette info).
+ *
+ * @param ip - Adresse IP à vérifier
+ * @returns { isBlocked, geolocation } - true si VPN/datacenter détecté
+ */
+export async function isVPNOrDatacenter(ip: string): Promise<{ isBlocked: boolean; geolocation: GeolocationResult }> {
+  // Vérifier le cache VPN
+  const cached = vpnCheckCache.get(ip);
+  if (cached && Date.now() - cached.timestamp < VPN_CACHE_TTL) {
+    return { isBlocked: cached.result, geolocation: cached.geolocation };
+  }
+
+  try {
+    // Utiliser ip-api.com avec les champs proxy et hosting pour une détection fiable
+    const response = await fetch(
+      `http://ip-api.com/json/${ip}?fields=status,country,city,regionName,lat,lon,isp,as,asname,proxy,hosting`,
+      { headers: { 'User-Agent': 'Airlock/1.0' } }
+    );
+    const data = await response.json();
+
+    if (data.status === 'success') {
+      const isp = data.isp || undefined;
+      const asn = data.as ? `${data.as} - ${data.asname || ''}`.trim() : undefined;
+      const { isDatacenter: isDatacenterPattern, isVPN: isVPNPattern, location_quality } = detectLocationQuality(isp, asn);
+
+      // Combiner la détection ip-api.com (proxy/hosting) avec le pattern matching
+      const isProxy = data.proxy === true;
+      const isHosting = data.hosting === true;
+      const isBlocked = isProxy || isHosting || isDatacenterPattern || isVPNPattern;
+
+      const geolocation: GeolocationResult = {
+        country: data.country || undefined,
+        city: data.city || undefined,
+        region: data.regionName || undefined,
+        isp,
+        asn,
+        isDatacenter: isHosting || isDatacenterPattern,
+        isVPN: isProxy || isVPNPattern,
+        location_quality: (isProxy || isVPNPattern) ? "vpn_or_anonymous_proxy"
+          : (isHosting || isDatacenterPattern) ? "hosting_or_datacenter"
+          : location_quality,
+      };
+
+      vpnCheckCache.set(ip, { result: isBlocked, geolocation, timestamp: Date.now() });
+      return { isBlocked, geolocation };
+    }
+  } catch (error) {
+    console.error("[VPN_CHECK] Erreur lors de la vérification VPN:", error);
+  }
+
+  // Fallback : essayer ipapi.co
+  try {
+    const response = await fetch(`https://ipapi.co/${ip}/json/`, {
+      headers: { 'User-Agent': 'Airlock/1.0' }
+    });
+    const data = await response.json();
+
+    if (!data.error) {
+      const isp = data.org || undefined;
+      const asn = data.asn ? `AS${data.asn} - ${data.org || ''}`.trim() : undefined;
+      const { isDatacenter, isVPN, location_quality } = detectLocationQuality(isp, asn);
+
+      const orgType = data.org_type?.toLowerCase() || '';
+      const isHostingOrg = orgType === 'hosting' || orgType === 'datacenter';
+      const isBlocked = isDatacenter || isVPN || isHostingOrg;
+
+      const geolocation: GeolocationResult = {
+        country: data.country_name || data.country || undefined,
+        city: data.city || undefined,
+        region: data.region || undefined,
+        isp,
+        asn,
+        isDatacenter: isDatacenter || isHostingOrg,
+        isVPN,
+        location_quality: isVPN ? "vpn_or_anonymous_proxy"
+          : (isDatacenter || isHostingOrg) ? "hosting_or_datacenter"
+          : location_quality,
+      };
+
+      vpnCheckCache.set(ip, { result: isBlocked, geolocation, timestamp: Date.now() });
+      return { isBlocked, geolocation };
+    }
+  } catch (error) {
+    console.error("[VPN_CHECK] Fallback ipapi.co error:", error);
+  }
+
+  // En cas d'erreur totale, ne pas bloquer
+  const emptyGeo: GeolocationResult = {};
+  vpnCheckCache.set(ip, { result: false, geolocation: emptyGeo, timestamp: Date.now() });
+  return { isBlocked: false, geolocation: emptyGeo };
 }
 
 /**

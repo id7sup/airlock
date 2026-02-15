@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { validateShareLink } from "@/services/sharing";
 import { db } from "@/lib/firebase";
 import { checkIfFolderIsChild } from "@/services/folders";
-import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
+import { getClientIP, getGeolocationFromIP, isVPNOrDatacenter } from "@/lib/geolocation";
 import { trackEvent } from "@/services/analytics";
 
 export async function GET(req: NextRequest) {
@@ -25,15 +25,14 @@ export async function GET(req: NextRequest) {
     try {
       const clientIP = getClientIP(req);
       if (clientIP !== 'unknown') {
-        const geolocation = await getGeolocationFromIP(clientIP);
-        if (geolocation && (geolocation.isVPN === true || geolocation.isDatacenter === true)) {
-          // Tracker l'accès refusé
+        const { isBlocked, geolocation } = await isVPNOrDatacenter(clientIP);
+        if (isBlocked) {
           try {
             const userAgent = req.headers.get("user-agent") || undefined;
             const referer = req.headers.get("referer") || undefined;
             const { generateVisitorId } = await import("@/lib/visitor");
             const visitorId = generateVisitorId(clientIP, userAgent);
-            
+
             await trackEvent({
               linkId: link.id || link.linkId,
               eventType: "ACCESS_DENIED",
@@ -47,13 +46,12 @@ export async function GET(req: NextRequest) {
           } catch (e) {
             console.error("Error tracking ACCESS_DENIED:", e);
           }
-          
+
           return NextResponse.json({ error: "L'accès via VPN ou datacenter est bloqué" }, { status: 403 });
         }
       }
     } catch (error) {
       console.error("Error checking VPN/Datacenter:", error);
-      // En cas d'erreur, on autorise l'accès pour ne pas bloquer les utilisateurs légitimes
     }
   }
 

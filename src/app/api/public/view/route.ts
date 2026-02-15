@@ -4,7 +4,7 @@ import { db } from "@/lib/firebase";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { checkIfFolderIsChild } from "@/services/folders";
 import { trackEvent } from "@/services/analytics";
-import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
+import { getClientIP, getGeolocationFromIP, isVPNOrDatacenter } from "@/lib/geolocation";
 import { generateVisitorId, generateStableVisitorId } from "@/lib/visitor";
 
 const s3Client = new S3Client({
@@ -79,15 +79,14 @@ export async function GET(req: NextRequest) {
     try {
       const clientIP = getClientIP(req);
       if (clientIP !== 'unknown') {
-        const geolocation = await getGeolocationFromIP(clientIP);
-        if (geolocation && (geolocation.isVPN === true || geolocation.isDatacenter === true)) {
-          // Tracker l'accès refusé
+        const { isBlocked, geolocation } = await isVPNOrDatacenter(clientIP);
+        if (isBlocked) {
           try {
             const userAgent = req.headers.get("user-agent") || undefined;
             const referer = req.headers.get("referer") || undefined;
             const visitorId = generateVisitorId(clientIP, userAgent);
             const visitorIdStable = generateStableVisitorId(clientIP, userAgent);
-            
+
               await trackEvent({
                 linkId: link.id || link.linkId,
                 eventType: "ACCESS_DENIED",
@@ -103,13 +102,12 @@ export async function GET(req: NextRequest) {
           } catch (e) {
             console.error("Error tracking ACCESS_DENIED:", e);
           }
-          
+
           return NextResponse.json({ error: "L'accès via VPN ou datacenter est bloqué" }, { status: 403 });
         }
       }
     } catch (error) {
       console.error("Error checking VPN/Datacenter:", error);
-      // En cas d'erreur, on autorise l'accès pour ne pas bloquer les utilisateurs légitimes
     }
   }
 

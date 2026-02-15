@@ -3,7 +3,7 @@ import { validateShareLink } from "@/services/sharing";
 import { db } from "@/lib/firebase";
 import { getAllFoldersAndFiles } from "@/services/folderTree";
 import { createFolderZip } from "@/services/zip";
-import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
+import { getClientIP, getGeolocationFromIP, isVPNOrDatacenter } from "@/lib/geolocation";
 import { checkIfFolderIsChild } from "@/services/folders";
 import { trackEvent } from "@/services/analytics";
 import { generateVisitorId, generateStableVisitorId } from "@/lib/visitor";
@@ -112,8 +112,8 @@ export async function GET(req: NextRequest) {
     try {
       const clientIP = getClientIP(req);
       if (clientIP !== "unknown") {
-        const geolocation = await getGeolocationFromIP(clientIP);
-        if (geolocation && (geolocation.isVPN === true || geolocation.isDatacenter === true)) {
+        const { isBlocked, geolocation } = await isVPNOrDatacenter(clientIP);
+        if (isBlocked) {
           try {
             const userAgent = req.headers.get("user-agent") || undefined;
             const referer = req.headers.get("referer") || undefined;
@@ -144,7 +144,6 @@ export async function GET(req: NextRequest) {
       }
     } catch (error) {
       console.error("Error checking VPN/Datacenter:", error);
-      // En cas d'erreur, on autorise l'accès
     }
   }
 

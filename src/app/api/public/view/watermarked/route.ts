@@ -5,7 +5,7 @@ import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { checkIfFolderIsChild } from "@/services/folders";
 import { trackEvent } from "@/services/analytics";
-import { getClientIP, getGeolocationFromIP } from "@/lib/geolocation";
+import { getClientIP, getGeolocationFromIP, isVPNOrDatacenter } from "@/lib/geolocation";
 import { generateVisitorId, generateStableVisitorId } from "@/lib/visitor";
 import { generateWatermarkedFile } from "@/services/watermarking";
 
@@ -67,11 +67,8 @@ export async function GET(req: NextRequest) {
     try {
       const clientIP = getClientIP(req);
       if (clientIP !== "unknown") {
-        const geolocation = await getGeolocationFromIP(clientIP);
-        if (
-          geolocation &&
-          (geolocation.isVPN === true || geolocation.isDatacenter === true)
-        ) {
+        const { isBlocked, geolocation } = await isVPNOrDatacenter(clientIP);
+        if (isBlocked) {
           try {
             const userAgent = req.headers.get("user-agent") || undefined;
             const referer = req.headers.get("referer") || undefined;

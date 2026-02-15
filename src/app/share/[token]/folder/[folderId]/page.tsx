@@ -6,7 +6,7 @@ import { FileList } from "@/components/shared/FileList";
 import { TrackEvent } from "@/components/shared/TrackEvent";
 import { DownloadFolderButton } from "@/components/shared/DownloadFolderButton";
 import Link from "next/link";
-import { getClientIP, getGeolocationFromIP, getCloudflareLocationHeaders } from "@/lib/geolocation";
+import { getClientIP, getGeolocationFromIP, getCloudflareLocationHeaders, isVPNOrDatacenter } from "@/lib/geolocation";
 import { headers } from "next/headers";
 import { trackEvent } from "@/services/analytics";
 import { isPreviewBot } from "@/lib/visitor";
@@ -198,9 +198,8 @@ export default async function PublicShareFolderPage({
         const clientIP = getClientIP(headersList);
 
         if (clientIP !== 'unknown') {
-          const cloudflareHeaders = getCloudflareLocationHeaders(headersList);
-          const geolocation = await getGeolocationFromIP(clientIP, cloudflareHeaders);
-          if (geolocation && (geolocation.isVPN === true || geolocation.isDatacenter === true)) {
+          const { isBlocked, geolocation } = await isVPNOrDatacenter(clientIP);
+          if (isBlocked) {
             try {
               const userAgent = headersList.get("user-agent") || undefined;
               const referer = headersList.get("referer") || undefined;

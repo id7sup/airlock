@@ -1,7 +1,7 @@
 import { db } from "@/lib/firebase";
 import { validateShareLink } from "@/services/sharing";
 import { createNotification } from "@/services/notifications";
-import { getClientIP, getGeolocationFromIP, getCloudflareLocationHeaders } from "@/lib/geolocation";
+import { getClientIP, getGeolocationFromIP, getCloudflareLocationHeaders, isVPNOrDatacenter } from "@/lib/geolocation";
 import { headers } from "next/headers";
 import { trackEvent } from "@/services/analytics";
 import { isPreviewBot, generateVisitorId, generateStableVisitorId } from "@/lib/visitor";
@@ -171,9 +171,10 @@ export default async function PublicSharePage({
         const clientIP = getClientIP(headersList);
 
         if (clientIP !== 'unknown') {
-          const cloudflareHeaders = getCloudflareLocationHeaders(headersList);
-          const geolocation = await getGeolocationFromIP(clientIP, cloudflareHeaders);
-          if (geolocation && (geolocation.isVPN === true || geolocation.isDatacenter === true)) {
+          // Utiliser isVPNOrDatacenter() qui fait une détection fiable via ip-api.com
+          // (champs proxy/hosting) sans passer par les headers Cloudflare
+          const { isBlocked, geolocation } = await isVPNOrDatacenter(clientIP);
+          if (isBlocked) {
             try {
               const userAgent = headersList.get("user-agent") || undefined;
               const referer = headersList.get("referer") || undefined;
