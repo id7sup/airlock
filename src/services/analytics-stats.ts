@@ -1,6 +1,13 @@
 import { db } from "@/lib/firebase";
 import * as admin from "firebase-admin";
 
+/** Retourne l'heure (0-23) dans le fuseau Europe/Paris */
+function getParisHour(date: Date): number {
+  return parseInt(
+    date.toLocaleString('en-US', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false })
+  ) % 24;
+}
+
 interface AnalyticsStats {
   // 1. Compteurs totaux
   totals: {
@@ -470,7 +477,7 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
     }
     
     // Pour activityByHour (toujours 24 heures pour compatibilité)
-    const hour = date.getHours();
+    const hour = getParisHour(date);
     hourCounts[hour] = (hourCounts[hour] || 0) + 1;
     
     // Pour activityByPeriod (selon la période sélectionnée)
@@ -481,7 +488,7 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
       case '1J':
         // Utiliser l'heure complète de l'événement (sans les minutes)
         // Cela regroupe tous les événements qui se sont produits dans la même heure
-        const eventHour = date.getHours();
+        const eventHour = getParisHour(date);
         periodKey = `${eventHour.toString().padStart(2, '0')}h`;
         // Calculer l'index de la tranche (0 = il y a 23h, 23 = maintenant)
         const hoursSinceEvent = Math.floor((now.getTime() - date.getTime()) / (60 * 60 * 1000));
@@ -559,7 +566,7 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
     // Pour 1J, on utilise les heures des 24 dernières heures
     if (period === '1J') {
       const hoursAgo = (24 - i) % 24;
-      const targetHour = (now.getHours() - hoursAgo + 24) % 24;
+      const targetHour = (getParisHour(now) - hoursAgo + 24) % 24;
       return {
         hour: targetHour,
         count: hourCounts[targetHour] || 0,
@@ -583,7 +590,7 @@ function calculateStats(events: any[], userId: string, days: number, period: '1J
         // i=0 = il y a 23h, i=23 = maintenant (heure actuelle)
         const hoursAgo = 23 - i;
         const targetDate = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000);
-        const hour = targetDate.getHours();
+        const hour = getParisHour(targetDate);
         const label = `${hour.toString().padStart(2, '0')}h`;
         return {
           label,

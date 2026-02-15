@@ -168,14 +168,11 @@ export default async function PublicSharePage({
     if (link.blockVpn === true) {
       try {
         const headersList = await headers();
-        const clientIP =
-          headersList.get("x-forwarded-for")?.split(",")[0].trim() ||
-          headersList.get("x-real-ip") ||
-          headersList.get("cf-connecting-ip") ||
-          "unknown";
+        const clientIP = getClientIP(headersList);
 
         if (clientIP !== 'unknown') {
-          const geolocation = await getGeolocationFromIP(clientIP);
+          const cloudflareHeaders = getCloudflareLocationHeaders(headersList);
+          const geolocation = await getGeolocationFromIP(clientIP, cloudflareHeaders);
           if (geolocation && (geolocation.isVPN === true || geolocation.isDatacenter === true)) {
             try {
               const userAgent = headersList.get("user-agent") || undefined;

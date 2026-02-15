@@ -85,7 +85,7 @@ function PresentationContent() {
             ["Fondateur & Éditeur", "Joseph Michaut"],
             ["Siège social", "1 rue Saint-Laud, 49100 Angers, France"],
             ["Contact", "contact@airlck.com"],
-            ["Fondation", "2024"],
+            ["Fondation", "2025"],
           ]} />
         </InfoCard>
       </div>
@@ -1216,17 +1216,19 @@ export default function DocumentationClient() {
     <div className="min-h-screen bg-white">
       {/* ─── Header fixe ─── */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-black/[0.04]">
-        <div className="flex items-center h-14 px-4 lg:px-6 gap-4">
-          <Link href="/" className="flex items-center gap-2.5 hover:opacity-70 transition-opacity shrink-0">
-            <Logo className="w-7 h-7" />
-            <span className="text-[17px] font-semibold tracking-tighter hidden sm:block">Airlock</span>
-          </Link>
+        <div className="grid grid-cols-[1fr_minmax(0,480px)_1fr] items-center h-14 px-4 lg:px-6 gap-4">
+          {/* Left: Logo + label */}
+          <div className="flex items-center gap-2.5">
+            <Link href="/" className="flex items-center gap-2.5 hover:opacity-70 transition-opacity shrink-0">
+              <Logo className="w-7 h-7" />
+              <span className="text-[17px] font-semibold tracking-tighter hidden sm:block">Airlock</span>
+            </Link>
+            <div className="hidden sm:block w-px h-5 bg-black/[0.08] ml-0.5" />
+            <span className="hidden sm:block text-[13px] font-medium text-black/30">Documentation</span>
+          </div>
 
-          <div className="hidden sm:block w-px h-5 bg-black/[0.08]" />
-          <span className="hidden sm:block text-[13px] font-medium text-black/30">Documentation</span>
-
-          {/* Search bar */}
-          <div ref={searchRef} className="flex-1 max-w-lg mx-auto relative">
+          {/* Center: Search bar */}
+          <div ref={searchRef} className="relative w-full">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/25" />
               <input
@@ -1291,13 +1293,15 @@ export default function DocumentationClient() {
             )}
           </div>
 
-          {/* Mobile menu toggle */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl hover:bg-black/[0.04] transition-colors shrink-0"
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5 text-black/50" /> : <Menu className="w-5 h-5 text-black/50" />}
-          </button>
+          {/* Right: Mobile menu toggle */}
+          <div className="flex justify-end">
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl hover:bg-black/[0.04] transition-colors shrink-0"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5 text-black/50" /> : <Menu className="w-5 h-5 text-black/50" />}
+            </button>
+          </div>
         </div>
       </header>
 
