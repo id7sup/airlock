@@ -52,6 +52,7 @@ export function Footer({ className = "bg-white" }: FooterProps) {
                 <ul className="space-y-3 sm:space-y-5 text-[15px] sm:text-[17px] text-black/40 font-medium">
                   <li><Link href="/confidentialite" className="hover:text-black transition-colors">Confidentialité</Link></li>
                   <li><Link href="/mentions" className="hover:text-black transition-colors">Mentions</Link></li>
+                  <li><Link href="/documentation" className="hover:text-black transition-colors">Documentation</Link></li>
                   <li><Link href="/pricing" className="hover:text-black transition-colors">Facturation</Link></li>
                 </ul>
               </div>

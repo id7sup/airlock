@@ -26,6 +26,7 @@ const isPublicRoute = createRouteMatcher([
   "/glossaire/(.*)",               // Pages pSEO glossaire
   "/mentions",           // Page mentions légales
   "/confidentialite",    // Page confidentialité
+  "/documentation",      // Page documentation technique
   "/login",              // Page de connexion personnalisée
   "/login/sso-callback", // Callback SSO Google pour login
   "/register",           // Page d'inscription personnalisée

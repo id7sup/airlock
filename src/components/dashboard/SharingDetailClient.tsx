@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, useRef, Fragment } from "react";
 import { createPortal } from "react-dom";
 import {
   FolderOpen,
@@ -584,6 +584,8 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
     return new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   });
   const calendarRef = useRef<HTMLDivElement>(null);
+  const calendarPopupRef = useRef<HTMLDivElement>(null);
+  const [calendarPosition, setCalendarPosition] = useState<{ top: number; left: number; width: number } | null>(null);
   const [copied, setCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [showActionsMenu, setShowActionsMenu] = useState(false);
@@ -694,10 +696,46 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
     }
   }, [linkData.maxViews, linkData.expiresAt]);
 
-  // Fermer le calendrier au clic extérieur
+  // Position du calendrier (pour le portail) et mise à jour au scroll/resize
+  useLayoutEffect(() => {
+    if (!isCalendarOpen || !calendarRef.current) {
+      if (!isCalendarOpen) setCalendarPosition(null);
+      return;
+    }
+    const rect = calendarRef.current.getBoundingClientRect();
+    setCalendarPosition({
+      top: rect.bottom + 8,
+      left: rect.left,
+      width: Math.max(rect.width, 320),
+    });
+  }, [isCalendarOpen]);
+
+  useEffect(() => {
+    if (!isCalendarOpen) return;
+    const updatePos = () => {
+      if (!calendarRef.current) return;
+      const rect = calendarRef.current.getBoundingClientRect();
+      setCalendarPosition({
+        top: rect.bottom + 8,
+        left: rect.left,
+        width: Math.max(rect.width, 320),
+      });
+    };
+    window.addEventListener("resize", updatePos);
+    window.addEventListener("scroll", updatePos, true);
+    return () => {
+      window.removeEventListener("resize", updatePos);
+      window.removeEventListener("scroll", updatePos, true);
+    };
+  }, [isCalendarOpen]);
+
+  // Fermer le calendrier au clic extérieur (hors bouton et hors popup calendrier en portail)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const inTrigger = calendarRef.current?.contains(target);
+      const inPopup = calendarPopupRef.current?.contains(target);
+      if (!inTrigger && !inPopup) {
         setIsCalendarOpen(false);
       }
     };
@@ -1884,108 +1922,110 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
                         <Calendar className="w-4 h-4 text-black/40 group-hover:text-black/60 transition-colors shrink-0" />
                       </button>
 
-                      {/* Calendrier personnalisé */}
-                      <AnimatePresence>
-                        {isCalendarOpen && (
-                          <>
+                      {/* Calendrier rendu en portail pour ne pas être coupé par overflow (z-index + au-dessus du contenu) */}
+                      {typeof document !== "undefined" &&
+                        calendarPosition &&
+                        createPortal(
+                          <AnimatePresence onExitComplete={() => setCalendarPosition(null)}>
+                            {isCalendarOpen && (
+                            <Fragment key="calendar-portal">
                             <motion.div
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
                               exit={{ opacity: 0 }}
                               onClick={() => setIsCalendarOpen(false)}
-                              className="fixed inset-0 z-10"
+                              className="fixed inset-0 z-[9998] pointer-events-none"
                             />
                             <motion.div
+                              ref={calendarPopupRef}
                               initial={{ opacity: 0, y: -8, scale: 0.98 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: -8, scale: 0.98 }}
                               transition={{ duration: 0.2, ease: "easeOut" }}
-                              className="absolute top-full left-0 mt-2 z-20 bg-white rounded-2xl border border-black/[0.08] shadow-2xl shadow-black/10 p-4 w-full min-w-[320px]"
+                              className="fixed z-[9999] bg-white rounded-2xl border border-black/[0.08] shadow-2xl shadow-black/10 p-4 min-w-[320px]"
+                              style={{
+                                top: calendarPosition.top,
+                                left: calendarPosition.left,
+                                width: calendarPosition.width,
+                              }}
                             >
-                            {/* En-tête du calendrier */}
-                            <div className="flex items-center justify-between mb-4">
-                              <button
-                                onClick={() => navigateMonth('prev')}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/5 transition-colors"
-                              >
-                                <ChevronLeft className="w-4 h-4 text-black/60" />
-                              </button>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-semibold text-black capitalize">
-                                  {calendarMonth.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
-                                </span>
-                              </div>
-                              <button
-                                onClick={() => navigateMonth('next')}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/5 transition-colors"
-                              >
-                                <ChevronRight className="w-4 h-4 text-black/60" />
-                              </button>
-                            </div>
-
-                            {/* Jours de la semaine */}
-                            <div className="grid grid-cols-7 gap-1 mb-2">
-                              {["L", "M", "M", "J", "V", "S", "D"].map((day, idx) => (
-                                <div key={idx} className="text-center text-xs font-medium text-black/40 py-1">
-                                  {day}
+                              <div className="flex items-center justify-between mb-4">
+                                <button
+                                  onClick={() => navigateMonth("prev")}
+                                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/5 transition-colors"
+                                >
+                                  <ChevronLeft className="w-4 h-4 text-black/60" />
+                                </button>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold text-black capitalize">
+                                    {calendarMonth.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
+                                  </span>
                                 </div>
-                              ))}
-                            </div>
-
-                            {/* Grille du calendrier */}
-                            <div className="grid grid-cols-7 gap-1">
-                              {getCalendarDays().map((day, idx) => {
-                                if (day === null) {
-                                  return <div key={idx} className="h-9" />;
-                                }
-
-                                const date = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
-                                const today = new Date();
-                                today.setHours(0, 0, 0, 0);
-                                const isToday = date.getTime() === today.getTime();
-                                const isPast = date < today;
-                                const isSelected = localExpiry && formatDateLocal(date) === localExpiry;
-
-                                return (
-                                  <button
-                                    key={idx}
-                                    onClick={() => !isPast && handleDateSelect(day)}
-                                    disabled={isPast || updating}
-                                    className={`h-9 rounded-lg text-sm font-medium transition-all ${
-                                      isSelected
-                                        ? "bg-brand-primary text-white"
-                                        : isPast
-                                        ? "text-black/20 cursor-not-allowed"
-                                        : isToday
-                                        ? "bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20"
-                                        : "text-black/60 hover:bg-black/5 hover:text-black"
-                                    } disabled:cursor-not-allowed`}
-                                  >
+                                <button
+                                  onClick={() => navigateMonth("next")}
+                                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/5 transition-colors"
+                                >
+                                  <ChevronRight className="w-4 h-4 text-black/60" />
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-7 gap-1 mb-2">
+                                {["L", "M", "M", "J", "V", "S", "D"].map((day, idx) => (
+                                  <div key={idx} className="text-center text-xs font-medium text-black/40 py-1">
                                     {day}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex items-center justify-between gap-2 mt-4 pt-4 border-t border-black/[0.05]">
-                              <button
-                                onClick={clearDate}
-                                className="flex-1 px-3 py-2 text-xs font-medium text-black/60 hover:text-black hover:bg-black/5 rounded-xl transition-colors"
-                              >
-                                Effacer
-                              </button>
-                              <button
-                                onClick={goToToday}
-                                className="flex-1 px-3 py-2 text-xs font-medium text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-colors"
-                              >
-                                Aujourd'hui
-                              </button>
-                            </div>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="grid grid-cols-7 gap-1">
+                                {getCalendarDays().map((day, idx) => {
+                                  if (day === null) {
+                                    return <div key={idx} className="h-9" />;
+                                  }
+                                  const date = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
+                                  const today = new Date();
+                                  today.setHours(0, 0, 0, 0);
+                                  const isToday = date.getTime() === today.getTime();
+                                  const isPast = date < today;
+                                  const isSelected = localExpiry && formatDateLocal(date) === localExpiry;
+                                  return (
+                                    <button
+                                      key={idx}
+                                      onClick={() => !isPast && handleDateSelect(day)}
+                                      disabled={isPast || updating}
+                                      className={`h-9 rounded-lg text-sm font-medium transition-all ${
+                                        isSelected
+                                          ? "bg-brand-primary text-white"
+                                          : isPast
+                                            ? "text-black/20 cursor-not-allowed"
+                                            : isToday
+                                              ? "bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20"
+                                              : "text-black/60 hover:bg-black/5 hover:text-black"
+                                      } disabled:cursor-not-allowed`}
+                                    >
+                                      {day}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <div className="flex items-center justify-between gap-2 mt-4 pt-4 border-t border-black/[0.05]">
+                                <button
+                                  onClick={clearDate}
+                                  className="flex-1 px-3 py-2 text-xs font-medium text-black/60 hover:text-black hover:bg-black/5 rounded-xl transition-colors"
+                                >
+                                  Effacer
+                                </button>
+                                <button
+                                  onClick={goToToday}
+                                  className="flex-1 px-3 py-2 text-xs font-medium text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-colors"
+                                >
+                                  Aujourd&apos;hui
+                                </button>
+                              </div>
                             </motion.div>
-                          </>
+                            </Fragment>
+                            )}
+                          </AnimatePresence>,
+                          document.body
                         )}
-                      </AnimatePresence>
                     </div>
                     {linkData.expiresAt && (
                       <button

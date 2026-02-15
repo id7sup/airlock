@@ -269,6 +269,23 @@ export const pourAvocatsMetadata: Metadata = {
   },
 };
 
+export const documentationMetadata: Metadata = {
+  title: "Documentation Technique | Infrastructure, Sécurité & Pratiques",
+  description: "Documentation technique complète d'Airlock. Infrastructure, hébergement, stockage des fichiers, authentification, suivi des partages, identification des visiteurs, conformité RGPD, sécurité et continuité de service.",
+  openGraph: {
+    title: "Documentation Technique | Airlock",
+    description: "Documentation technique complète. Infrastructure, sécurité, stockage, tracking et conformité RGPD.",
+    url: `${siteUrl}/documentation`,
+  },
+  twitter: {
+    title: "Documentation Technique | Airlock",
+    description: "Transparence totale sur nos pratiques : infrastructure, sécurité, stockage et conformité RGPD.",
+  },
+  alternates: {
+    canonical: `${siteUrl}/documentation`,
+  },
+};
+
 // Données structurées JSON-LD
 export const organizationSchema = {
   "@context": "https://schema.org",
