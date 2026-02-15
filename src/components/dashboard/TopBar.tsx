@@ -1,19 +1,14 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
+import { UserProfileMenu } from "./UserProfileMenu";
 import { NotificationCenter } from "./NotificationCenter";
 import { Menu } from "lucide-react";
 import { useSidebar } from "./SidebarProvider";
 import { useState, useEffect } from "react";
 
-export function TopBar() {
-  const { toggle, isOpen, open } = useSidebar();
-  const [mounted, setMounted] = useState(false);
+export function TopBar({ storageUsed = 0 }: { storageUsed?: number }) {
+  const { isOpen, open } = useSidebar();
   const [isVisible, setIsVisible] = useState(true);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     const mainEl = document.querySelector("main");
@@ -24,10 +19,8 @@ export function TopBar() {
       setIsVisible(!shouldAutoHide);
     };
 
-    // Vérifier immédiatement
     checkAutoHide();
 
-    // Observer les changements d'attribut sur <main>
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (mutation.type === "attributes" && mutation.attributeName === "data-autohide-topbar") {
@@ -63,16 +56,7 @@ export function TopBar() {
       <div className="flex items-center gap-2 lg:gap-4">
         <NotificationCenter />
         <div className="w-px h-6 bg-black/[0.05] mx-1 lg:mx-2" />
-        {mounted && (
-          <UserButton
-            afterSignOutUrl="/"
-            appearance={{
-              elements: {
-                avatarBox: "w-9 h-9 lg:w-10 lg:h-10 rounded-2xl shadow-sm border border-black/5"
-              }
-            }}
-          />
-        )}
+        <UserProfileMenu storageUsed={storageUsed} />
       </div>
     </header>
   );

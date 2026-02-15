@@ -16,15 +16,23 @@ import {
   ArrowUpRight
 } from "lucide-react";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { deleteAccountAction } from "@/lib/actions/account";
 import { useRouter } from "next/navigation";
+
+const validTabs = ['profile', 'account', 'billing'] as const;
+type Tab = typeof validTabs[number];
 
 export default function SettingsPage() {
   const { user } = useUser();
   const { openUserProfile } = useClerk();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'profile' | 'account' | 'billing'>('profile');
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<Tab>(
+    validTabs.includes(tabParam as Tab) ? (tabParam as Tab) : 'profile'
+  );
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 

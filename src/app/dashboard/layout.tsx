@@ -39,7 +39,7 @@ export default async function DashboardLayout({
           <div className="flex h-screen bg-[#fbfbfd]">
             <Sidebar storageUsed={storageUsed} />
             <MainContent>
-              <TopBar />
+              <TopBar storageUsed={storageUsed} />
               <main className="flex-1 overflow-y-auto overflow-x-hidden bg-white/50 backdrop-blur-3xl">
                 {children}
               </main>
