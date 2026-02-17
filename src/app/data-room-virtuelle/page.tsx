@@ -1,6 +1,7 @@
 "use client";
 
-import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut } from "@clerk/nextjs";
+import { NavbarProfileMenu } from "@/components/shared/NavbarProfileMenu";
 import {
   ChevronDown,
   Compass,
@@ -20,6 +21,7 @@ import {
   Check,
   Plus,
   Minus,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/shared/Logo";
@@ -29,6 +31,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export default function DataRoomVirtuellePage() {
   const [isFeaturesHovered, setIsFeaturesHovered] = useState(false);
+  const [isSecurityHovered, setIsSecurityHovered] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [activeStep, setActiveStep] = useState<number>(-1);
@@ -159,7 +162,7 @@ export default function DataRoomVirtuellePage() {
       {/* Dynamic Island Navbar */}
       <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-full px-4 flex justify-center">
         <nav
-          onMouseLeave={() => setIsFeaturesHovered(false)}
+          onMouseLeave={() => { setIsFeaturesHovered(false); setIsSecurityHovered(false); }}
           className="bg-black text-white px-6 py-3 shadow-2xl border border-white/10 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] rounded-[32px] scale-90 md:scale-100 overflow-hidden w-full max-w-[750px]"
         >
           <div className="flex items-center justify-between h-10 w-full">
@@ -168,7 +171,7 @@ export default function DataRoomVirtuellePage() {
             </Link>
             <div className="hidden md:flex items-center gap-6 text-[13px] font-medium tracking-tight">
               <button
-                onMouseEnter={() => setIsFeaturesHovered(true)}
+                onMouseEnter={() => { setIsFeaturesHovered(true); setIsSecurityHovered(false); }}
                 className={`transition-colors flex items-center gap-1.5 py-2 ${isFeaturesHovered ? "text-white" : "text-white/70 hover:text-white"}`}
               >
                 Fonctionnalites{" "}
@@ -178,22 +181,27 @@ export default function DataRoomVirtuellePage() {
               </button>
               <Link
                 href="/cas-usage"
+                onMouseEnter={() => { setIsFeaturesHovered(false); setIsSecurityHovered(false); }}
                 className="text-white/70 hover:text-white transition-colors"
               >
                 Cas d&apos;usage
               </Link>
               <Link
                 href="/pricing"
+                onMouseEnter={() => { setIsFeaturesHovered(false); setIsSecurityHovered(false); }}
                 className="text-white/70 hover:text-white transition-colors"
               >
                 Facturation
               </Link>
-              <Link
-                href="/security"
-                className="text-white/70 hover:text-white transition-colors"
+              <button
+                onMouseEnter={() => { setIsSecurityHovered(true); setIsFeaturesHovered(false); }}
+                className={`transition-colors flex items-center gap-1.5 py-2 ${isSecurityHovered ? "text-white" : "text-white/70 hover:text-white"}`}
               >
-                Securite
-              </Link>
+                Securite{" "}
+                <ChevronDown
+                  className={`w-3 h-3 opacity-50 transition-transform duration-500 ${isSecurityHovered ? "rotate-180" : ""}`}
+                />
+              </button>
             </div>
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -221,13 +229,7 @@ export default function DataRoomVirtuellePage() {
                 </Link>
               </SignedOut>
               <SignedIn>
-                <Link
-                  href="/dashboard"
-                  className="text-white/70 hover:text-white text-[13px] font-medium px-3 py-1.5 transition-colors"
-                >
-                  Dashboard
-                </Link>
-                <UserButton afterSignOutUrl="/" />
+                <NavbarProfileMenu />
               </SignedIn>
             </div>
           </div>
@@ -302,13 +304,7 @@ export default function DataRoomVirtuellePage() {
                       </Link>
                     </SignedOut>
                     <SignedIn>
-                      <Link
-                        href="/dashboard"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="text-white/70 hover:text-white text-[13px] font-medium py-2 px-2 transition-colors"
-                      >
-                        Dashboard
-                      </Link>
+                      <NavbarProfileMenu />
                     </SignedIn>
                   </div>
                 </div>
@@ -361,6 +357,45 @@ export default function DataRoomVirtuellePage() {
                         </h4>
                         <p className="text-[11px] text-white/30 font-medium whitespace-nowrap">
                           {feature.desc}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Desktop Security Dropdown */}
+          <AnimatePresence>
+            {isSecurityHovered && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
+                className="overflow-hidden hidden md:block"
+              >
+                <div className="flex flex-row gap-2 py-4 mt-2 border-t border-white/5 w-full">
+                  {[
+                    { href: "/security", title: "Securite", desc: "Infrastructure.", icon: <Lock className="w-5 h-5" /> },
+                    { href: "/documentation", title: "Documentation", desc: "Ressources.", icon: <FileText className="w-5 h-5" /> },
+                  ].map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setIsSecurityHovered(false)}
+                      className="group flex-1 flex flex-row items-center gap-3 p-3 rounded-2xl hover:bg-white/5 transition-all duration-300 overflow-hidden"
+                    >
+                      <div className="w-9 h-9 shrink-0 bg-[#B7C5A9]/15 text-[#96A982] rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                        {item.icon}
+                      </div>
+                      <div className="flex flex-col text-left overflow-hidden">
+                        <h4 className="text-[13px] font-medium text-white whitespace-nowrap">
+                          {item.title}
+                        </h4>
+                        <p className="text-[11px] text-white/30 font-medium whitespace-nowrap">
+                          {item.desc}
                         </p>
                       </div>
                     </Link>

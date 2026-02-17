@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { ClerkProvider } from "@clerk/nextjs";
 import { frFR } from "@clerk/localizations";
+import Script from "next/script";
 import "./globals.css";
 import { defaultMetadata } from "@/lib/seo";
 
@@ -58,6 +59,20 @@ export default function RootLayout({
     return (
       <ClerkProvider localization={frFR}>
         <html lang="fr" className={openRunde.variable} data-scroll-behavior="smooth">
+          <head>
+            <Script
+              src="https://www.googletagmanager.com/gtag/js?id=G-PSVD18V822"
+              strategy="afterInteractive"
+            />
+            <Script id="google-analytics" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', 'G-PSVD18V822');
+              `}
+            </Script>
+          </head>
           <body>
             {children}
           </body>
