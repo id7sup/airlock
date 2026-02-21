@@ -57,7 +57,7 @@ export function SeoPage({
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
                 href="/register"
-                className="inline-flex items-center gap-2 bg-[#B7C5A9] text-white px-7 py-3.5 rounded-full font-medium text-[15px] hover:bg-[#96A982] transition-all"
+                className="inline-flex items-center gap-2 bg-[#96A982] text-white px-7 py-3.5 rounded-full font-medium text-[15px] hover:bg-[#B7C5A9] transition-all"
               >
                 Commencer gratuitement <ArrowRight className="w-4 h-4" />
               </Link>

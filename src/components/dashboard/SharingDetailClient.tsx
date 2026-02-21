@@ -1541,25 +1541,27 @@ export default function SharingDetailClient({ link }: { link: SharedLink }) {
             {/* Version desktop : en ligne */}
             <div className="hidden md:relative md:flex md:items-center md:gap-4">
               {/* Identité */}
-              <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="flex items-center gap-3 min-w-0 max-w-[40%]">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-primary/20 to-brand-primary/5 text-brand-primary flex items-center justify-center shadow-md shadow-brand-primary/10 shrink-0">
                   <FolderOpen className="w-6 h-6 fill-current" />
                 </div>
-                <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="flex flex-col min-w-0">
                   <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-black truncate">{linkData.folderName}</h1>
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${statusBadge.tone}`}>
-                    {statusBadge.label}
-                  </span>
-                  <p className="text-xs text-black/40 font-medium shrink-0 hidden lg:block">
-                    Créé le{" "}
-                    <span className="text-black/60">
-                      {new Date(linkData.createdAt).toLocaleDateString("fr-FR", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${statusBadge.tone}`}>
+                      {statusBadge.label}
                     </span>
-                  </p>
+                    <p className="text-xs text-black/40 font-medium shrink-0 hidden lg:block">
+                      Créé le{" "}
+                      <span className="text-black/60">
+                        {new Date(linkData.createdAt).toLocaleDateString("fr-FR", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </p>
+                  </div>
                 </div>
               </div>
 

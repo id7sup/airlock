@@ -652,12 +652,134 @@ function LinkItem({
     <div
       className="bg-white rounded-2xl border border-black/[0.05] p-6 hover:shadow-lg hover:shadow-black/5 transition-all duration-300 group"
     >
-      <div className="flex items-center justify-between">
+      {/* Version mobile */}
+      <div className="flex flex-col gap-4 sm:hidden">
+        <Link
+          href={`/dashboard/sharing/${link.id}`}
+          className="flex items-center gap-3"
+        >
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform bg-brand-primary/10 text-brand-primary group-hover:bg-brand-primary/20 shrink-0">
+            <FolderOpen className="w-5 h-5 fill-current" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-medium tracking-tight truncate text-black group-hover:text-brand-primary transition-colors">
+                {link.folderName}
+              </h3>
+              {isRevoked && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50 border border-red-100 shrink-0">
+                  Révoqué
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-black/40 mt-0.5" suppressHydrationWarning>
+              Créé le {new Date(link.createdAt).toLocaleDateString('fr-FR', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+              })}
+            </p>
+          </div>
+        </Link>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div>
+              <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest mb-0.5">Vues</p>
+              <p className="text-xl font-medium tabular-nums text-black">{link.viewCount || 0}</p>
+            </div>
+            <div className="border-l border-black/[0.05] pl-4">
+              <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest mb-0.5">Downloads</p>
+              <p className="text-xl font-medium tabular-nums text-brand-primary">{link.downloadCount || 0}</p>
+            </div>
+          </div>
+          <div className="relative" ref={actionsRef}>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowActions(!showActions);
+              }}
+              className="p-2 rounded-xl hover:bg-black/5 transition-colors"
+            >
+              <MoreVertical className="w-5 h-5 text-black/40" />
+            </button>
+            <AnimatePresence>
+              {showActions && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                  className="absolute right-0 top-full mt-2 bg-white rounded-2xl border border-black/[0.08] shadow-xl z-50 min-w-[200px]"
+                >
+                  <Link
+                    href={`/dashboard/sharing/${link.id}`}
+                    className="block px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black"
+                    onClick={() => setShowActions(false)}
+                  >
+                    Voir les détails
+                  </Link>
+                  <div className="h-px bg-black/[0.05] my-1" />
+                  <button
+                    onClick={handleShare}
+                    className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    Partager
+                  </button>
+                  {isRevoked ? (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowActions(false);
+                        onReactivate(link.id);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Réactiver
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowActions(false);
+                        onRevoke(link.id);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-black/5 transition-colors text-sm font-medium text-black flex items-center gap-2"
+                    >
+                      <Lock className="w-4 h-4" />
+                      Révoquer
+                    </button>
+                  )}
+                  <div className="h-px bg-black/[0.05] my-1" />
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowActions(false);
+                      onDelete(link.id);
+                    }}
+                    className="w-full text-left px-4 py-3 hover:bg-red-50 transition-colors text-sm font-medium text-red-600 flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Supprimer
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+
+      {/* Version desktop */}
+      <div className="hidden sm:flex items-center justify-between">
         <Link
           href={`/dashboard/sharing/${link.id}`}
           className="flex items-center gap-4 flex-1 min-w-0"
         >
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform bg-brand-primary/10 text-brand-primary group-hover:bg-brand-primary/20">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform bg-brand-primary/10 text-brand-primary group-hover:bg-brand-primary/20">
             <FolderOpen className="w-6 h-6 fill-current" />
           </div>
           <div className="min-w-0 flex-1">
@@ -672,10 +794,10 @@ function LinkItem({
               )}
             </div>
             <p className="text-xs text-black/40 mt-1" suppressHydrationWarning>
-              Créé le {new Date(link.createdAt).toLocaleDateString('fr-FR', { 
-                day: 'numeric', 
-                month: 'long', 
-                year: 'numeric' 
+              Créé le {new Date(link.createdAt).toLocaleDateString('fr-FR', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
               })}
             </p>
           </div>

@@ -19,12 +19,14 @@ import {
   Square,
   X,
   ArrowRight,
-  AlertTriangle
+  AlertTriangle,
+  Pencil
 } from "lucide-react";
 import Link from "next/link";
 import {
   getFileDownloadUrlAction,
-  deleteFileAction
+  deleteFileAction,
+  renameFileAction
 } from "@/lib/actions/files";
 import { createFolderAction, deleteFolderAction } from "@/lib/actions/folders";
 import { ShareModal } from "@/components/dashboard/ShareModal";
@@ -70,6 +72,9 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
     onConfirm: () => {},
     isDestructive: true
   });
+  const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
+  const [renameFileValue, setRenameFileValue] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<{
     isOpen: boolean;
     title: string;
@@ -82,6 +87,62 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
     const t = setTimeout(() => setToast(p => ({ ...p, isOpen: false })), 5000);
     return () => clearTimeout(t);
   }, [toast.isOpen]);
+
+  useEffect(() => {
+    if (renamingFileId && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [renamingFileId]);
+
+  const startRenameFile = (fileId: string, currentName: string) => {
+    setRenamingFileId(fileId);
+    setRenameFileValue(currentName);
+  };
+
+  const handleRenameSave = async () => {
+    if (!renamingFileId) return;
+    const trimmed = renameFileValue.trim();
+    const currentFile = folder.files.find((f: any) => f.id === renamingFileId);
+    if (!trimmed || trimmed === currentFile?.name) {
+      setRenamingFileId(null);
+      return;
+    }
+    // Vérifier que l'extension n'a pas changé
+    const oldExt = currentFile?.name?.split(".").pop()?.toLowerCase() || "";
+    const newExt = trimmed.split(".").pop()?.toLowerCase() || "";
+    if (oldExt !== newExt) {
+      setToast({
+        isOpen: true,
+        title: "Extension non modifiable",
+        message: `Impossible de changer l'extension du fichier (.${oldExt} → .${newExt})`
+      });
+      setRenamingFileId(null);
+      return;
+    }
+    try {
+      await renameFileAction(renamingFileId, trimmed);
+      setRenamingFileId(null);
+      router.refresh();
+    } catch (error) {
+      setToast({
+        isOpen: true,
+        title: "Erreur",
+        message: error instanceof Error ? error.message : "Impossible de renommer le fichier"
+      });
+      setRenamingFileId(null);
+    }
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.stopPropagation();
+      handleRenameSave();
+    } else if (e.key === "Escape") {
+      e.stopPropagation();
+      setRenamingFileId(null);
+    }
+  };
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
@@ -742,7 +803,25 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
                       <div className="w-10 h-10 bg-black/5 rounded-xl flex items-center justify-center text-black/40 group-hover:bg-black/10 transition-all">
                         <FileText className="w-5 h-5" />
                       </div>
-                      <span className="text-base font-medium text-black">{file.name}</span>
+                      {renamingFileId === file.id ? (
+                        <input
+                          ref={renameInputRef}
+                          type="text"
+                          value={renameFileValue}
+                          onChange={(e) => setRenameFileValue(e.target.value)}
+                          onKeyDown={handleRenameKeyDown}
+                          onBlur={handleRenameSave}
+                          className="flex-1 text-base font-medium bg-transparent outline-none border-b-2 border-brand-primary focus:border-brand-primary transition-colors pb-1 text-black"
+                          maxLength={255}
+                        />
+                      ) : (
+                        <span
+                          className="text-base font-medium text-black"
+                          onDoubleClick={() => canEdit && startRenameFile(file.id, file.name)}
+                        >
+                          {file.name}
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-black/40 tabular-nums">
@@ -753,14 +832,23 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                      <button 
+                      {canEdit && (
+                      <button
+                        onClick={() => startRenameFile(file.id, file.name)}
+                        className="p-2 text-black/30 hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-all"
+                        title="Renommer"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      )}
+                      <button
                         onClick={() => handleDownload(file.id)}
                         className="p-2 text-black/30 hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-all"
                       >
                         <Download className="w-4 h-4" />
                       </button>
                       {canEdit && (
-                      <button 
+                      <button
                         onClick={(e) => handleDeleteFile(file.id, e)}
                         className="p-2 text-black/30 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                       >
@@ -904,7 +992,25 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
                   <FileText className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-base font-medium text-black truncate">{file.name}</div>
+                  {renamingFileId === file.id ? (
+                    <input
+                      ref={renameInputRef}
+                      type="text"
+                      value={renameFileValue}
+                      onChange={(e) => setRenameFileValue(e.target.value)}
+                      onKeyDown={handleRenameKeyDown}
+                      onBlur={handleRenameSave}
+                      className="w-full text-base font-medium bg-transparent outline-none border-b-2 border-brand-primary focus:border-brand-primary transition-colors pb-1 text-black"
+                      maxLength={255}
+                    />
+                  ) : (
+                    <div
+                      className="text-base font-medium text-black truncate"
+                      onDoubleClick={() => canEdit && startRenameFile(file.id, file.name)}
+                    >
+                      {file.name}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-xs text-black/40 tabular-nums">
                       {(file.size / 1024 / 1024).toFixed(2)} Mo
@@ -917,14 +1023,23 @@ export default function FolderView({ folder, fromFilter, parentId, userRole = "O
                 </div>
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
-                <button 
+                {canEdit && (
+                <button
+                  onClick={() => startRenameFile(file.id, file.name)}
+                  className="p-2 text-black/30 hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-all"
+                  title="Renommer"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                )}
+                <button
                   onClick={() => handleDownload(file.id)}
                   className="p-2 text-black/30 hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-all"
                 >
                   <Download className="w-4 h-4" />
                 </button>
                 {canEdit && (
-                <button 
+                <button
                   onClick={(e) => handleDeleteFile(file.id, e)}
                   className="p-2 text-black/30 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                 >

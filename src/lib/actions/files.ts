@@ -188,6 +188,56 @@ export async function getFileDownloadUrlAction(fileId: string) {
   return await getDownloadUrl(file.s3Key, file.name);
 }
 
+export async function renameFileAction(fileId: string, newName: string) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Non autorisé");
+
+  const trimmedName = newName.trim();
+  if (!trimmedName) throw new Error("Le nom du fichier ne peut pas être vide");
+  if (trimmedName.length > 255) throw new Error("Le nom du fichier doit faire moins de 255 caractères");
+
+  const fileDoc = await db.collection("files").doc(fileId).get();
+  if (!fileDoc.exists) throw new Error("Fichier non trouvé");
+  const fileData = fileDoc.data()!;
+
+  // Vérifier les permissions par userId ET par email
+  const { currentUser } = await import("@clerk/nextjs/server");
+  const user = await currentUser();
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress?.toLowerCase();
+
+  const [permsByUserId, permsByEmail] = await Promise.all([
+    db.collection("permissions")
+      .where("folderId", "==", fileData.folderId)
+      .where("userId", "==", userId)
+      .get(),
+    userEmail ? db.collection("permissions")
+      .where("folderId", "==", fileData.folderId)
+      .where("userEmail", "==", userEmail)
+      .get() : Promise.resolve({ docs: [] } as any)
+  ]);
+
+  const allPerms = [...permsByUserId.docs, ...permsByEmail.docs];
+  const activePerm = allPerms.find(doc => {
+    const perm = doc.data();
+    return (perm.userId === userId || (userEmail && perm.userEmail === userEmail))
+      && perm.isHidden !== true
+      && (perm.role === "EDITOR" || perm.role === "OWNER");
+  });
+
+  if (!activePerm) {
+    throw new Error("Vous n'avez pas la permission de renommer des fichiers");
+  }
+
+  await db.collection("files").doc(fileId).update({
+    name: trimmedName,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  revalidatePath(`/dashboard/folder/${fileData.folderId}`);
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
 export async function deleteFileAction(fileId: string) {
   const { userId } = await auth();
   if (!userId) throw new Error("Non autorisé");
